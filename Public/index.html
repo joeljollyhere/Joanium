@@ -14,7 +14,7 @@
 
   <div id="app">
 
-    <!-- ── Custom Titlebar ── -->
+    <!-- Custom Titlebar -->
     <div id="titlebar">
       <div id="titlebar-drag">
         <svg class="titlebar-logo" viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -41,10 +41,10 @@
       </div>
     </div>
 
-    <!-- ── Body wrap (sidebar + library + main) ── -->
+    <!-- Body wrap (sidebar + library + main) -->
     <div id="body-wrap">
 
-      <!-- ── Sidebar ── -->
+      <!-- Sidebar -->
       <aside id="sidebar">
 
         <div class="sidebar-logo" title="openworld">
@@ -84,12 +84,12 @@
           </svg>
         </button>
 
-        <!-- Dynamic avatar — initials set by JS from User.json -->
+        <!-- Dynamic avatar - initials set by JS from User.json -->
         <button class="sidebar-avatar" id="sidebar-avatar-btn" data-tip="Account" title="Account">OW</button>
 
       </aside>
 
-      <!-- ── Library Panel ── -->
+      <!-- Library Panel -->
       <div id="library-panel">
         <div class="lp-header">
           <span class="lp-title">Library</span>
@@ -104,12 +104,12 @@
             <circle cx="11" cy="11" r="7" />
             <path d="M16.5 16.5L21 21" stroke-linecap="round" />
           </svg>
-          <input type="text" id="library-search" placeholder="Search chats…" autocomplete="off" spellcheck="false" />
+          <input type="text" id="library-search" placeholder="Search chats..." autocomplete="off" spellcheck="false" />
         </div>
         <div id="chat-list" class="lp-list"></div>
       </div>
 
-      <!-- ── Theme Panel ── -->
+      <!-- Theme Panel -->
       <div id="theme-panel">
         <button class="theme-option active" data-theme="dark">
           <span class="theme-swatch swatch-dark"></span>Dark
@@ -128,7 +128,7 @@
         </button>
       </div>
 
-      <!-- ── Avatar / Settings Panel ── -->
+      <!-- Avatar / Settings Panel -->
       <div id="avatar-panel">
         <div class="ap-header">
           <div class="ap-badge" id="avatar-panel-badge">OW</div>
@@ -140,41 +140,82 @@
 
         <div class="ap-divider"></div>
 
-        <div class="ap-section-title">Theme</div>
-        <div class="ap-themes">
-          <button class="ap-theme-option active" data-theme="dark">
-            <span class="theme-swatch swatch-dark"></span>Dark
-          </button>
-          <button class="ap-theme-option" data-theme="light">
-            <span class="theme-swatch swatch-light"></span>Light
-          </button>
-          <button class="ap-theme-option" data-theme="midnight">
-            <span class="theme-swatch swatch-midnight"></span>Midnight
-          </button>
-          <button class="ap-theme-option" data-theme="forest">
-            <span class="theme-swatch swatch-forest"></span>Forest
-          </button>
-          <button class="ap-theme-option" data-theme="pinky">
-            <span class="theme-swatch swatch-pinky"></span>Pinky
-          </button>
-        </div>
+        <button id="avatar-settings-btn" class="ap-settings-btn" type="button">
+          <span class="ap-settings-copy">
+            <span class="ap-settings-title">Settings</span>
+            <span class="ap-settings-subtitle">Manage theme, providers, and connectors</span>
+          </span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+            <path d="M9 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" />
+          </svg>
+        </button>
+      </div>
 
-        <div class="ap-divider"></div>
+      <div id="settings-modal-backdrop">
+        <div id="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settings-modal-title">
+          <div class="settings-modal-header">
+            <div class="settings-modal-copy">
+              <span class="settings-modal-kicker">Account Settings</span>
+              <h2 id="settings-modal-title">Customize your workspace</h2>
+            </div>
+            <button id="settings-modal-close" class="settings-modal-close" type="button" aria-label="Close settings">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+                <path d="M18 6L6 18M6 6l12 12" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" />
+              </svg>
+            </button>
+          </div>
 
-        <div class="ap-section-title">Connected Providers</div>
-        <div id="ap-providers-list" class="ap-section-body">
-          <div class="ap-empty-hint">Loading…</div>
-        </div>
+          <div class="settings-modal-body">
+            <section class="settings-row">
+              <div class="settings-row-label">
+                <span class="settings-row-kicker">Appearance</span>
+                <h3>Theme</h3>
+              </div>
+              <div class="settings-row-content">
+                <div class="ap-themes settings-theme-grid">
+                  <button class="ap-theme-option active" data-theme="dark">
+                    <span class="theme-swatch swatch-dark"></span>Dark
+                  </button>
+                  <button class="ap-theme-option" data-theme="light">
+                    <span class="theme-swatch swatch-light"></span>Light
+                  </button>
+                  <button class="ap-theme-option" data-theme="midnight">
+                    <span class="theme-swatch swatch-midnight"></span>Midnight
+                  </button>
+                  <button class="ap-theme-option" data-theme="forest">
+                    <span class="theme-swatch swatch-forest"></span>Forest
+                  </button>
+                  <button class="ap-theme-option" data-theme="pinky">
+                    <span class="theme-swatch swatch-pinky"></span>Pinky
+                  </button>
+                </div>
+              </div>
+            </section>
 
-        <div class="ap-divider"></div>
+            <section class="settings-row">
+              <div class="settings-row-label">
+                <span class="settings-row-kicker">Models</span>
+                <h3>Connected Providers</h3>
+              </div>
+              <div id="settings-providers-list" class="settings-row-content">
+                <div class="ap-empty-hint">Loading...</div>
+              </div>
+            </section>
 
-        <div class="ap-section-title">Connectors</div>
-        <div class="ap-section-body">
-          <div class="ap-empty-hint">No connectors added yet</div>
+            <section class="settings-row">
+              <div class="settings-row-label">
+                <span class="settings-row-kicker">Extensions</span>
+                <h3>Connectors</h3>
+              </div>
+              <div class="settings-row-content">
+                <div class="settings-empty-card">No connectors added yet</div>
+              </div>
+            </section>
+          </div>
         </div>
       </div>
 
-      <!-- ── Main ── -->
+      <!-- Main -->
       <main id="main">
 
         <section id="welcome">
@@ -200,7 +241,7 @@
               <!-- Dynamic model selector -->
               <div class="model-selector-wrap">
                 <button class="model-selector" id="model-selector-btn">
-                  <span id="model-label">Loading…</span>
+                  <span id="model-label">Loading...</span>
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" xmlns="http://www.w3.org/2000/svg">
                     <path d="M6 9l6 6 6-6" stroke-linecap="round" stroke-linejoin="round" />
                   </svg>
@@ -232,7 +273,7 @@
           </div>
 
           <p class="footer-credit">
-            made with <span class="credit-heart">❤️</span> by <a href="https://joeljolly.vercel.app" target="_blank" rel="noopener noreferrer" class="credit-name">Joel Jolly</a>
+            made with <span class="credit-heart">&hearts;</span> by <a href="https://joeljolly.vercel.app" target="_blank" rel="noopener noreferrer" class="credit-name">Joel Jolly</a>
           </p>
 
         </div>

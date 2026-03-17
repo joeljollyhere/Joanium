@@ -7,11 +7,10 @@ import { APP_NAME } from './Config.js';
 import { 
   state, textarea, sendBtn, welcome, chatView, chatMessages, chips, 
   sidebarBtns, themeBtn, themePanel, modelSelectorBtn, modelDropdown, 
-  libraryPanel, libraryClose, librarySearch, chatList, avatarBtn, 
-  avatarPanel
+  libraryPanel, libraryClose, librarySearch, chatList
 } from './Root.js';
 import { loadProviders, updateModelLabel, buildModelDropdown } from './ModelSelector.js';
-import { loadUser, closeAvatarPanel } from './User.js';
+import { loadUser, closeAvatarPanel, closeSettingsModal } from './User.js';
 
 
 /* ══════════════════════════════════════════
@@ -251,6 +250,7 @@ function startNewChat() {
   autoResize();
   closeLibrary();
   closeAvatarPanel();
+  closeSettingsModal();
   textarea.focus();
 }
 
@@ -260,6 +260,7 @@ function startNewChat() {
 async function openLibrary() {
   libraryPanel?.classList.add('open');
   document.querySelector('[data-view="library"]')?.classList.add('active');
+  closeSettingsModal();
   await refreshChatList();
 }
 
@@ -359,8 +360,6 @@ document.addEventListener('click', e => {
     themePanel?.classList.remove('open');
   if (modelDropdown && !modelDropdown.contains(e.target) && e.target !== modelSelectorBtn)
     modelDropdown.classList.remove('open');
-  if (avatarPanel && !avatarPanel.contains(e.target) && e.target !== avatarBtn)
-    avatarPanel.classList.remove('open');
 });
 
 /* ══════════════════════════════════════════

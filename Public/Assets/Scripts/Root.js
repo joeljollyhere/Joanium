@@ -41,6 +41,12 @@ export const avatarBtn = document.getElementById('sidebar-avatar-btn');
 export const avatarPanel = document.getElementById('avatar-panel');
 export const avatarPanelName = document.getElementById('avatar-panel-name');
 export const avatarPanelBadge = document.getElementById('avatar-panel-badge');
+export const avatarSettingsBtn = document.getElementById('avatar-settings-btn');
+
+// Settings modal
+export const settingsModalBackdrop = document.getElementById('settings-modal-backdrop');
+export const settingsModal = document.getElementById('settings-modal');
+export const settingsModalClose = document.getElementById('settings-modal-close');
 
 /* ── Window controls ── */
 document.getElementById('btn-minimize')?.addEventListener('click', () => window.electronAPI?.minimize());
