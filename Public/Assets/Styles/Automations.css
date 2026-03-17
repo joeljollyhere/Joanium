@@ -918,3 +918,8 @@
 /* ── Shared keyframes (also in Main.css, safe to repeat) ── */
 @keyframes fadeIn    { from { opacity: 0; } to { opacity: 1; } }
 @keyframes messageIn { from { opacity: 0; transform: translateY(12px) scale(0.98); } to { opacity: 1; transform: none; } }
+
+#auto-empty[hidden],
+#auto-grid[hidden] {
+  display: none !important;
+}
