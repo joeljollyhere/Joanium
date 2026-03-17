@@ -38,30 +38,49 @@ export function notifyModelSelectionChanged() {
 export async function loadProviders() {
     try {
         const all = await window.electronAPI?.getModels() ?? [];
-        state.providers = all.filter(p => p.api && p.api.trim() !== '');
+        const previousProviderId = state.selectedProvider?.provider ?? null;
+        const previousModelId = state.selectedModel ?? null;
+
+        state.allProviders = all;
+        state.providers = all.filter((provider) => provider.api && provider.api.trim() !== '');
 
         if (state.providers.length === 0) {
+            state.selectedProvider = null;
+            state.selectedModel = null;
             if (modelLabel) modelLabel.textContent = 'No API keys set';
+            if (modelDropdown) modelDropdown.innerHTML = '';
             notifyModelSelectionChanged();
             return;
         }
 
-        const first = state.providers[0];
-        const firstModelId = Object.keys(first.models)[0];
-        state.selectedProvider = first;
-        state.selectedModel = firstModelId;
+        const nextProvider =
+            state.providers.find((provider) => provider.provider === previousProviderId) ?? state.providers[0];
+        const nextModelId =
+            (previousModelId && nextProvider.models?.[previousModelId] && previousModelId) ||
+            Object.keys(nextProvider.models)[0];
+
+        state.selectedProvider = nextProvider;
+        state.selectedModel = nextModelId;
         updateModelLabel();
         buildModelDropdown();
         notifyModelSelectionChanged();
     } catch (err) {
         console.warn('[openworld] Could not load models:', err);
+        state.allProviders = [];
+        state.providers = [];
+        state.selectedProvider = null;
+        state.selectedModel = null;
         if (modelLabel) modelLabel.textContent = 'openworld 1.0';
+        if (modelDropdown) modelDropdown.innerHTML = '';
         notifyModelSelectionChanged();
     }
 }
 
 export function updateModelLabel() {
-    if (!state.selectedProvider || !state.selectedModel) return;
+    if (!state.selectedProvider || !state.selectedModel) {
+        if (modelLabel) modelLabel.textContent = 'No API keys set';
+        return;
+    }
     const name = state.selectedProvider.models[state.selectedModel]?.name ?? state.selectedModel;
     if (modelLabel) modelLabel.textContent = name;
 }

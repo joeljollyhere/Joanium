@@ -6,6 +6,7 @@ export const state = {
     composerAttachments: [],
     isTyping: false,
     theme: localStorage.getItem('ow-theme') || 'dark',
+    allProviders: [],
     providers: [],
     selectedProvider: null,
     selectedModel: null,

@@ -1,4 +1,5 @@
 import { APP_NAME } from './Config.js';
+import './Themes.js';
 import {
   state,
   textarea,

@@ -155,7 +155,7 @@
         <button id="avatar-settings-btn" class="ap-settings-btn" type="button">
           <span class="ap-settings-copy">
             <span class="ap-settings-title">Settings</span>
-            <span class="ap-settings-subtitle">Manage theme, providers, and connectors</span>
+            <span class="ap-settings-subtitle">Manage your profile, providers, and connectors</span>
           </span>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
             <path d="M9 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" />
@@ -168,7 +168,7 @@
           <div class="settings-modal-header">
             <div class="settings-modal-copy">
               <span class="settings-modal-kicker">Account Settings</span>
-              <h2 id="settings-modal-title">Customize your workspace</h2>
+              <h2 id="settings-modal-title">Workspace settings</h2>
             </div>
             <button id="settings-modal-close" class="settings-modal-close" type="button" aria-label="Close settings">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
@@ -178,51 +178,62 @@
           </div>
 
           <div class="settings-modal-body">
-            <section class="settings-row">
-              <div class="settings-row-label">
-                <span class="settings-row-kicker">Appearance</span>
-                <h3>Theme</h3>
-              </div>
-              <div class="settings-row-content">
-                <div class="ap-themes settings-theme-grid">
-                  <button class="ap-theme-option active" data-theme="dark">
-                    <span class="theme-swatch swatch-dark"></span>Dark
-                  </button>
-                  <button class="ap-theme-option" data-theme="light">
-                    <span class="theme-swatch swatch-light"></span>Light
-                  </button>
-                  <button class="ap-theme-option" data-theme="midnight">
-                    <span class="theme-swatch swatch-midnight"></span>Midnight
-                  </button>
-                  <button class="ap-theme-option" data-theme="forest">
-                    <span class="theme-swatch swatch-forest"></span>Forest
-                  </button>
-                  <button class="ap-theme-option" data-theme="pinky">
-                    <span class="theme-swatch swatch-pinky"></span>Pinky
-                  </button>
-                </div>
-              </div>
-            </section>
+            <div class="settings-shell">
+              <nav class="settings-tabs" aria-label="Settings sections">
+                <button class="settings-tab active" type="button" data-settings-tab="user">User</button>
+                <button class="settings-tab" type="button" data-settings-tab="providers">Connected Providers</button>
+                <button class="settings-tab" type="button" data-settings-tab="connectors">Connectors</button>
+              </nav>
 
-            <section class="settings-row">
-              <div class="settings-row-label">
-                <span class="settings-row-kicker">Models</span>
-                <h3>Connected Providers</h3>
-              </div>
-              <div id="settings-providers-list" class="settings-row-content">
-                <div class="ap-empty-hint">Loading...</div>
-              </div>
-            </section>
+              <div class="settings-content">
+                <section class="settings-panel active" data-settings-panel="user">
+                  <div class="settings-panel-header">
+                    <span class="settings-panel-kicker">Profile</span>
+                    <h3>User</h3>
+                    <p>Update your display name and the custom instructions saved to your instructions file.</p>
+                  </div>
 
-            <section class="settings-row">
-              <div class="settings-row-label">
-                <span class="settings-row-kicker">Extensions</span>
-                <h3>Connectors</h3>
+                  <div class="settings-form">
+                    <label class="settings-field">
+                      <span class="settings-field-label">Name</span>
+                      <input id="settings-user-name" type="text" maxlength="80" placeholder="Your name" autocomplete="name" />
+                    </label>
+
+                    <label class="settings-field">
+                      <span class="settings-field-label">Custom instructions</span>
+                      <textarea id="settings-custom-instructions" rows="12" placeholder="Write the instructions you want saved in Data/CustomInstructions.md"></textarea>
+                    </label>
+                  </div>
+                </section>
+
+                <section class="settings-panel" data-settings-panel="providers" hidden>
+                  <div class="settings-panel-header">
+                    <span class="settings-panel-kicker">Models</span>
+                    <h3>Connected Providers</h3>
+                    <p>Update provider API keys here and save the changes when you're done.</p>
+                  </div>
+
+                  <div id="settings-providers-list" class="providers-stack">
+                    <div class="ap-empty-hint">Loading...</div>
+                  </div>
+                </section>
+
+                <section class="settings-panel" data-settings-panel="connectors" hidden>
+                  <div class="settings-panel-header">
+                    <span class="settings-panel-kicker">Extensions</span>
+                    <h3>Connectors</h3>
+                    <p>Connector management is ready for future storage, but there are no connectors configured yet.</p>
+                  </div>
+
+                  <div class="settings-empty-card">No connectors added yet</div>
+                </section>
               </div>
-              <div class="settings-row-content">
-                <div class="settings-empty-card">No connectors added yet</div>
-              </div>
-            </section>
+            </div>
+          </div>
+
+          <div class="settings-modal-footer">
+            <div id="settings-save-feedback" class="settings-feedback" aria-live="polite"></div>
+            <button id="settings-save" class="settings-save-btn" type="button">Save name and instructions</button>
           </div>
         </div>
       </div>

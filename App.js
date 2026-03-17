@@ -15,6 +15,7 @@ const __dirname = path.dirname(__filename);
 const DATA_DIR = path.join(__dirname, 'Data');
 const USER_FILE = path.join(DATA_DIR, 'User.json');
 const MODELS_FILE = path.join(DATA_DIR, 'Models.json');
+const CUSTOM_INSTRUCTIONS_FILE = path.join(DATA_DIR, 'CustomInstructions.md');
 const CHATS_DIR = path.join(DATA_DIR, 'Chats');
 const PRELOAD = path.join(__dirname, 'Packages', 'Electron', 'Preload.js');
 const SETUP_PAGE = path.join(__dirname, 'Public', 'Setup.html');
@@ -23,8 +24,72 @@ const MAIN_PAGE = path.join(__dirname, 'Public', 'index.html');
 /* ══════════════════════════════════════════
    HELPERS
 ══════════════════════════════════════════ */
+const DEFAULT_USER = {
+  name: '',
+  setup_complete: false,
+  created_at: null,
+  api_keys: {},
+  preferences: {
+    theme: 'dark',
+    default_provider: null,
+    default_model: null,
+  },
+};
+
+const ensureDataDir = () => {
+  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+};
+
 const readJSON = (f) => JSON.parse(fs.readFileSync(f, 'utf-8'));
-const writeJSON = (f, d) => fs.writeFileSync(f, JSON.stringify(d, null, 2), 'utf-8');
+const writeJSON = (f, d) => {
+  ensureDataDir();
+  fs.writeFileSync(f, JSON.stringify(d, null, 2), 'utf-8');
+};
+const readText = (f) => fs.readFileSync(f, 'utf-8');
+const writeText = (f, text) => {
+  ensureDataDir();
+  fs.writeFileSync(f, text, 'utf-8');
+};
+
+function mergeUserData(existing = {}, updates = {}) {
+  return {
+    ...DEFAULT_USER,
+    ...existing,
+    ...updates,
+    api_keys: {
+      ...DEFAULT_USER.api_keys,
+      ...(existing.api_keys ?? {}),
+      ...(updates.api_keys ?? {}),
+    },
+    preferences: {
+      ...DEFAULT_USER.preferences,
+      ...(existing.preferences ?? {}),
+      ...(updates.preferences ?? {}),
+    },
+  };
+}
+
+function readUserData() {
+  try {
+    return mergeUserData(readJSON(USER_FILE));
+  } catch {
+    return mergeUserData();
+  }
+}
+
+function writeUserData(updates = {}) {
+  const nextUser = mergeUserData(readUserData(), updates);
+  writeJSON(USER_FILE, nextUser);
+  return nextUser;
+}
+
+function readCustomInstructions() {
+  try {
+    return readText(CUSTOM_INSTRUCTIONS_FILE);
+  } catch {
+    return '';
+  }
+}
 
 const isFirstRun = () => {
   try { return readJSON(USER_FILE).setup_complete !== true; }
@@ -86,8 +151,8 @@ app.on('window-all-closed', () => {
 ══════════════════════════════════════════ */
 ipcMain.handle('save-user', (_e, userData) => {
   try {
-    writeJSON(USER_FILE, userData);
-    return { ok: true };
+    const user = writeUserData(userData);
+    return { ok: true, user };
   } catch (err) {
     return { ok: false, error: err.message };
   }
@@ -95,9 +160,49 @@ ipcMain.handle('save-user', (_e, userData) => {
 
 ipcMain.handle('save-api-keys', (_e, keysMap) => {
   try {
-    const user = readJSON(USER_FILE);
-    user.api_keys = { ...(user.api_keys ?? {}), ...keysMap };
-    writeJSON(USER_FILE, user);
+    const user = readUserData();
+    const nextKeys = { ...(user.api_keys ?? {}) };
+
+    Object.entries(keysMap ?? {}).forEach(([providerId, apiKey]) => {
+      if (typeof apiKey === 'string') {
+        const trimmed = apiKey.trim();
+        if (trimmed) nextKeys[providerId] = trimmed;
+        return;
+      }
+
+      if (apiKey === null) delete nextKeys[providerId];
+    });
+
+    const nextUser = mergeUserData(user, { api_keys: nextKeys });
+    writeJSON(USER_FILE, nextUser);
+    return { ok: true, user: nextUser };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+});
+
+ipcMain.handle('save-user-profile', (_e, profile) => {
+  try {
+    const updates = {};
+
+    if (typeof profile?.name === 'string') {
+      updates.name = profile.name.trim();
+    }
+
+    const user = writeUserData(updates);
+    return { ok: true, user };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+});
+
+ipcMain.handle('get-custom-instructions', () => {
+  return readCustomInstructions();
+});
+
+ipcMain.handle('save-custom-instructions', (_e, content) => {
+  try {
+    writeText(CUSTOM_INSTRUCTIONS_FILE, String(content ?? '').replace(/\r\n/g, '\n'));
     return { ok: true };
   } catch (err) {
     return { ok: false, error: err.message };
@@ -112,11 +217,11 @@ ipcMain.handle('launch-main', () => {
 /* ══════════════════════════════════════════
    IPC — RUNTIME READS
 ══════════════════════════════════════════ */
-ipcMain.handle('get-user', () => readJSON(USER_FILE));
+ipcMain.handle('get-user', () => readUserData());
 
 ipcMain.handle('get-models', () => {
   const models = readJSON(MODELS_FILE);
-  const apiKeys = readJSON(USER_FILE)?.api_keys ?? {};
+  const apiKeys = readUserData().api_keys ?? {};
   return models.map(provider => ({
     ...provider,
     api: apiKeys[provider.provider] ?? null,
@@ -124,7 +229,7 @@ ipcMain.handle('get-models', () => {
 });
 
 ipcMain.handle('get-api-key', (_e, providerId) => {
-  return readJSON(USER_FILE)?.api_keys?.[providerId] ?? null;
+  return readUserData()?.api_keys?.[providerId] ?? null;
 });
 
 /* ══════════════════════════════════════════

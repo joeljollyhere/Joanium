@@ -1,124 +1,420 @@
-import { applyTheme } from './Themes.js';
 import {
-    state,
-    avatarBtn,
-    avatarPanel,
-    avatarPanelBadge,
-    avatarPanelName,
-    avatarSettingsBtn,
-    themePanel,
-    libraryBackdrop,
-    syncModalOpenState,
-    settingsModalBackdrop,
-    settingsModalClose,
+  state,
+  avatarBtn,
+  avatarPanel,
+  avatarPanelBadge,
+  avatarPanelName,
+  avatarSettingsBtn,
+  themePanel,
+  libraryBackdrop,
+  syncModalOpenState,
+  settingsModalBackdrop,
+  settingsModalClose,
 } from './Root.js';
+import { loadProviders } from './ModelSelector.js';
 
-/* USER INIT - load name from User.json */
-export async function loadUser() {
-    try {
-        const user = await window.electronAPI?.getUser();
-        if (!user?.name) {
-            renderSettingsProviders();
-            return;
-        }
+const settingsTabs = Array.from(document.querySelectorAll('[data-settings-tab]'));
+const settingsPanels = Array.from(document.querySelectorAll('[data-settings-panel]'));
+const settingsUserNameInput = document.getElementById('settings-user-name');
+const settingsCustomInstructionsInput = document.getElementById('settings-custom-instructions');
+const settingsProvidersList = document.getElementById('settings-providers-list');
+const settingsSaveBtn = document.getElementById('settings-save');
+const settingsSaveFeedback = document.getElementById('settings-save-feedback');
 
-        state.userName = user.name;
-        const parts = user.name.trim().split(/\s+/);
-        state.userInitials = parts.length >= 2
-            ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
-            : parts[0].slice(0, 2).toUpperCase();
+const PROVIDER_META = {
+  anthropic: { color: '#cc785c', placeholder: 'sk-ant-api03-...' },
+  openai: { color: '#10a37f', placeholder: 'sk-proj-...' },
+  google: { color: '#4285f4', placeholder: 'AIza...' },
+  openrouter: { color: '#9b59b6', placeholder: 'sk-or-v1-...' },
+};
 
-        if (avatarBtn) {
-            avatarBtn.textContent = state.userInitials;
-            avatarBtn.title = user.name;
-            avatarBtn.setAttribute('data-tip', user.name);
-        }
+const settingsState = {
+  activeTab: 'user',
+  providerCatalog: [],
+  pendingProviderKeys: {},
+};
 
-        if (avatarPanelBadge) avatarPanelBadge.textContent = state.userInitials;
-        if (avatarPanelName) avatarPanelName.textContent = user.name;
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
 
-        const welcomeTitle = document.querySelector('.welcome-title');
-        if (welcomeTitle) welcomeTitle.textContent = `Welcome, ${parts[0]}`;
+function getDisplayName(name) {
+  const trimmed = String(name ?? '').trim();
+  return trimmed || 'User';
+}
 
-        renderSettingsProviders();
-    } catch (e) {
-        console.warn('[openworld] Could not load user:', e);
-    }
+function getInitials(name) {
+  const displayName = getDisplayName(name);
+  const parts = displayName.split(/\s+/).filter(Boolean);
+
+  if (parts.length >= 2) {
+    return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+  }
+
+  return displayName.slice(0, 2).toUpperCase();
+}
+
+function setFeedback(element, message = '', tone = 'info') {
+  if (!element) return;
+
+  element.textContent = message;
+  element.className = message ? `settings-feedback ${tone}` : 'settings-feedback';
+}
+
+function applyUserProfile(user = {}) {
+  const rawName = String(user?.name ?? '').trim();
+  const displayName = getDisplayName(rawName);
+  const initials = getInitials(displayName);
+  const firstName = displayName.split(/\s+/)[0];
+
+  state.userName = rawName;
+  state.userInitials = initials;
+
+  if (avatarBtn) {
+    avatarBtn.textContent = initials;
+    avatarBtn.title = displayName;
+    avatarBtn.setAttribute('data-tip', displayName);
+  }
+
+  if (avatarPanelBadge) avatarPanelBadge.textContent = initials;
+  if (avatarPanelName) avatarPanelName.textContent = displayName;
+
+  const welcomeTitle = document.querySelector('.welcome-title');
+  if (welcomeTitle) {
+    welcomeTitle.textContent = rawName ? `Welcome, ${firstName}` : 'Welcome';
+  }
+}
+
+function switchSettingsTab(tabId) {
+  settingsState.activeTab = tabId;
+
+  settingsTabs.forEach((button) => {
+    const isActive = button.dataset.settingsTab === tabId;
+    button.classList.toggle('active', isActive);
+    button.setAttribute('aria-selected', String(isActive));
+  });
+
+  settingsPanels.forEach((panel) => {
+    const isActive = panel.dataset.settingsPanel === tabId;
+    panel.classList.toggle('active', isActive);
+    panel.hidden = !isActive;
+  });
+
+  setFeedback(settingsSaveFeedback);
+  updateSaveButtonState();
+}
+
+function focusActiveSettingsTab() {
+  if (settingsState.activeTab === 'providers') {
+    settingsProvidersList?.querySelector('input')?.focus();
+    return;
+  }
+
+  if (settingsState.activeTab === 'user') {
+    settingsUserNameInput?.focus();
+  }
+}
+
+function updateSaveButtonState() {
+  if (!settingsSaveBtn) return;
+
+  if (settingsState.activeTab === 'user') {
+    settingsSaveBtn.textContent = 'Save name and instructions';
+    settingsSaveBtn.disabled = false;
+    return;
+  }
+
+  if (settingsState.activeTab === 'providers') {
+    settingsSaveBtn.textContent = 'Save provider changes';
+    settingsSaveBtn.disabled = false;
+    return;
+  }
+
+  settingsSaveBtn.textContent = 'No changes to save';
+  settingsSaveBtn.disabled = true;
+}
+
+function getProviderPlaceholder(providerId) {
+  return PROVIDER_META[providerId]?.placeholder ?? 'Paste API key';
 }
 
 function renderSettingsProviders() {
-    const container = document.getElementById('settings-providers-list');
-    if (!container) return;
+  if (!settingsProvidersList) return;
 
-    if (state.providers.length === 0) {
-        container.innerHTML = `<div class="settings-empty-card">No API keys configured</div>`;
-        return;
-    }
+  if (settingsState.providerCatalog.length === 0) {
+    settingsProvidersList.innerHTML = '<div class="settings-empty-card">No providers available</div>';
+    updateSaveButtonState();
+    return;
+  }
 
-    const providerColors = {
-        anthropic: '#cc785c',
-        openai: '#10a37f',
-        google: '#4285f4',
-        openrouter: '#9b59b6',
-    };
+  const sortedProviders = [...settingsState.providerCatalog].sort((left, right) => {
+    const leftConnected = String(left.api ?? '').trim().length > 0;
+    const rightConnected = String(right.api ?? '').trim().length > 0;
+    return Number(rightConnected) - Number(leftConnected);
+  });
 
-    container.innerHTML = state.providers.map((provider) => `
-    <div class="ap-provider-item">
-      <span class="ap-provider-dot" style="background:${providerColors[provider.provider] ?? 'var(--accent)'}"></span>
-      <span class="ap-provider-name">${provider.label}</span>
-      <span class="ap-provider-status">Connected</span>
-    </div>`).join('');
+  settingsProvidersList.innerHTML = sortedProviders
+    .map((provider) => {
+      const meta = PROVIDER_META[provider.provider] ?? {};
+      const currentKey = String(provider.api ?? '').trim();
+      const nextKey = settingsState.pendingProviderKeys[provider.provider] ?? '';
+      const isConnected = currentKey.length > 0;
+      const modelCount = Object.keys(provider.models ?? {}).length;
+      const modelLabel = modelCount === 1 ? 'model' : 'models';
+      const inputId = `settings-key-${provider.provider}`;
+
+      return `
+        <article class="settings-provider-card" style="--p-color:${meta.color ?? 'var(--accent)'}">
+          <div class="settings-provider-head">
+            <div class="settings-provider-title">
+              <span class="settings-provider-dot" style="background:${meta.color ?? 'var(--accent)'}"></span>
+              <div>
+                <h4>${escapeHtml(provider.label)}</h4>
+                <p>${modelCount} ${modelLabel} available</p>
+              </div>
+            </div>
+            <span class="settings-provider-status ${isConnected ? 'connected' : 'disconnected'}">
+              ${isConnected ? 'Connected' : 'Not connected'}
+            </span>
+          </div>
+
+          <label class="settings-field">
+            <span class="settings-field-label">API key</span>
+            <div class="key-input-wrap">
+              <input
+                class="key-input settings-provider-input"
+                id="${escapeHtml(inputId)}"
+                type="password"
+                data-provider-input="${escapeHtml(provider.provider)}"
+                placeholder="${escapeHtml(getProviderPlaceholder(provider.provider))}"
+                value="${escapeHtml(nextKey)}"
+                autocomplete="off"
+                spellcheck="false"
+              />
+              <button type="button" class="key-eye" data-target="${escapeHtml(inputId)}" title="Show/hide">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke-width="1.8"/>
+                  <circle cx="12" cy="12" r="3" stroke-width="1.8"/>
+                </svg>
+              </button>
+            </div>
+          </label>
+        </article>`;
+    })
+    .join('');
+
+  settingsProvidersList.querySelectorAll('[data-provider-input]').forEach((input) => {
+    input.addEventListener('input', () => {
+      settingsState.pendingProviderKeys[input.dataset.providerInput] = input.value;
+      updateSaveButtonState();
+    });
+  });
+
+  settingsProvidersList.querySelectorAll('.key-eye').forEach((button) => {
+    button.addEventListener('click', () => {
+      const input = document.getElementById(button.dataset.target);
+      if (!input) return;
+      input.type = input.type === 'password' ? 'text' : 'password';
+    });
+  });
+
+  updateSaveButtonState();
 }
 
-/* AVATAR PANEL */
-export function toggleAvatarPanel(e) {
-    e?.stopPropagation();
-    avatarPanel?.classList.toggle('open');
-    themePanel?.classList.remove('open');
+async function hydrateSettingsModal() {
+  setFeedback(settingsSaveFeedback);
+
+  const [user, customInstructions, providers] = await Promise.all([
+    window.electronAPI?.getUser?.(),
+    window.electronAPI?.getCustomInstructions?.(),
+    window.electronAPI?.getModels?.(),
+  ]);
+
+  applyUserProfile(user ?? {});
+  settingsState.providerCatalog = Array.isArray(providers) ? providers : [];
+  settingsState.pendingProviderKeys = {};
+
+  if (settingsUserNameInput) settingsUserNameInput.value = user?.name ?? '';
+  if (settingsCustomInstructionsInput) settingsCustomInstructionsInput.value = customInstructions ?? '';
+
+  renderSettingsProviders();
+  updateSaveButtonState();
+}
+
+async function saveUserSettings() {
+  const nextName = settingsUserNameInput?.value.trim() ?? '';
+  const nextInstructions = settingsCustomInstructionsInput?.value ?? '';
+
+  if (nextName.length < 2) {
+    setFeedback(settingsSaveFeedback, 'Enter a name with at least 2 characters.', 'error');
+    settingsUserNameInput?.focus();
+    return;
+  }
+
+  settingsSaveBtn.disabled = true;
+  setFeedback(settingsSaveFeedback, 'Saving your profile...', 'info');
+
+  try {
+    const [profileResult, instructionsResult] = await Promise.all([
+      window.electronAPI?.saveUserProfile?.({ name: nextName }),
+      window.electronAPI?.saveCustomInstructions?.(nextInstructions),
+    ]);
+
+    if (!profileResult?.ok) {
+      throw new Error(profileResult?.error ?? 'Could not save your profile.');
+    }
+
+    if (!instructionsResult?.ok) {
+      throw new Error(instructionsResult?.error ?? 'Could not save custom instructions.');
+    }
+
+    applyUserProfile(profileResult.user ?? { name: nextName });
+    setFeedback(settingsSaveFeedback, 'User settings saved.', 'success');
+  } catch (error) {
+    console.error('[openworld] Could not save user settings:', error);
+    setFeedback(settingsSaveFeedback, error.message || 'Could not save user settings.', 'error');
+  } finally {
+    updateSaveButtonState();
+  }
+}
+
+async function saveProviderSettings() {
+  const changes = Object.fromEntries(
+    Object.entries(settingsState.pendingProviderKeys)
+      .map(([providerId, apiKey]) => [providerId, String(apiKey ?? '').trim()])
+      .filter(([, apiKey]) => apiKey.length > 0)
+  );
+
+  if (Object.keys(changes).length === 0) {
+    setFeedback(settingsSaveFeedback, 'Add at least one API key before saving.', 'error');
+    return;
+  }
+
+  settingsSaveBtn.disabled = true;
+  setFeedback(settingsSaveFeedback, 'Saving provider keys...', 'info');
+
+  try {
+    const result = await window.electronAPI?.saveAPIKeys?.(changes);
+    if (!result?.ok) {
+      throw new Error(result?.error ?? 'Could not save provider keys.');
+    }
+
+    await loadProviders();
+    settingsState.providerCatalog = state.allProviders;
+    settingsState.pendingProviderKeys = {};
+    renderSettingsProviders();
+
+    const count = Object.keys(changes).length;
+    setFeedback(
+      settingsSaveFeedback,
+      count === 1 ? 'Provider key saved.' : `${count} provider keys saved.`,
+      'success'
+    );
+  } catch (error) {
+    console.error('[openworld] Could not save provider keys:', error);
+    setFeedback(settingsSaveFeedback, error.message || 'Could not save provider keys.', 'error');
+  } finally {
+    updateSaveButtonState();
+  }
+}
+
+function saveActiveSettingsTab() {
+  if (settingsState.activeTab === 'user') {
+    void saveUserSettings();
+    return;
+  }
+
+  if (settingsState.activeTab === 'providers') {
+    void saveProviderSettings();
+  }
+}
+
+export async function loadUser() {
+  try {
+    const user = await window.electronAPI?.getUser?.();
+    applyUserProfile(user ?? {});
+  } catch (error) {
+    console.warn('[openworld] Could not load user:', error);
+    applyUserProfile({});
+  }
+}
+
+export function toggleAvatarPanel(event) {
+  event?.stopPropagation();
+  avatarPanel?.classList.toggle('open');
+  themePanel?.classList.remove('open');
 }
 
 export function closeAvatarPanel() {
-    avatarPanel?.classList.remove('open');
+  avatarPanel?.classList.remove('open');
 }
 
-export function openSettingsModal() {
-    closeAvatarPanel();
-    themePanel?.classList.remove('open');
-    libraryBackdrop?.classList.remove('open');
-    document.querySelector('[data-view="library"]')?.classList.remove('active');
-    renderSettingsProviders();
-    settingsModalBackdrop?.classList.add('open');
-    syncModalOpenState();
+export async function openSettingsModal(tabId = settingsState.activeTab) {
+  closeAvatarPanel();
+  themePanel?.classList.remove('open');
+  libraryBackdrop?.classList.remove('open');
+  document.querySelector('[data-view="library"]')?.classList.remove('active');
+
+  switchSettingsTab(tabId);
+  settingsModalBackdrop?.classList.add('open');
+  syncModalOpenState();
+
+  try {
+    await hydrateSettingsModal();
+  } catch (error) {
+    console.error('[openworld] Could not load settings modal:', error);
+    setFeedback(settingsSaveFeedback, 'Could not load settings.', 'error');
+  }
+
+  requestAnimationFrame(() => {
+    focusActiveSettingsTab();
+  });
 }
 
 export function closeSettingsModal() {
-    settingsModalBackdrop?.classList.remove('open');
-    syncModalOpenState();
+  settingsModalBackdrop?.classList.remove('open');
+  syncModalOpenState();
 }
+
+settingsTabs.forEach((button) => {
+  button.addEventListener('click', () => {
+    switchSettingsTab(button.dataset.settingsTab);
+    focusActiveSettingsTab();
+  });
+});
 
 avatarBtn?.addEventListener('click', toggleAvatarPanel);
 
-avatarSettingsBtn?.addEventListener('click', (e) => {
-    e.stopPropagation();
-    openSettingsModal();
+avatarSettingsBtn?.addEventListener('click', (event) => {
+  event.stopPropagation();
+  void openSettingsModal();
+});
+
+settingsSaveBtn?.addEventListener('click', () => {
+  saveActiveSettingsTab();
 });
 
 settingsModalClose?.addEventListener('click', closeSettingsModal);
 
-settingsModalBackdrop?.addEventListener('click', (e) => {
-    if (e.target === settingsModalBackdrop) closeSettingsModal();
+settingsModalBackdrop?.addEventListener('click', (event) => {
+  if (event.target === settingsModalBackdrop) closeSettingsModal();
 });
 
-document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') closeSettingsModal();
+document.addEventListener('keydown', (event) => {
+  const isSaveShortcut = (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's';
+  if (isSaveShortcut && settingsModalBackdrop?.classList.contains('open')) {
+    event.preventDefault();
+    saveActiveSettingsTab();
+    return;
+  }
+
+  if (event.key === 'Escape') closeSettingsModal();
 });
 
-document.addEventListener('click', (e) => {
-    if (!avatarPanel?.contains(e.target) && e.target !== avatarBtn) closeAvatarPanel();
-});
-
-// Handle theme buttons inside the settings modal
-settingsModalBackdrop?.addEventListener('click', (e) => {
-    const opt = e.target.closest('.ap-theme-option');
-    if (opt) applyTheme(opt.dataset.theme);
+document.addEventListener('click', (event) => {
+  if (!avatarPanel?.contains(event.target) && event.target !== avatarBtn) closeAvatarPanel();
 });
