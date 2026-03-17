@@ -163,8 +163,6 @@ function renderSettingsProviders() {
       const currentKey = String(provider.api ?? '').trim();
       const nextKey = settingsState.pendingProviderKeys[provider.provider] ?? '';
       const isConnected = currentKey.length > 0;
-      const modelCount = Object.keys(provider.models ?? {}).length;
-      const modelLabel = modelCount === 1 ? 'model' : 'models';
       const inputId = `settings-key-${provider.provider}`;
 
       return `
@@ -174,7 +172,6 @@ function renderSettingsProviders() {
               <span class="settings-provider-dot" style="background:${meta.color ?? 'var(--accent)'}"></span>
               <div>
                 <h4>${escapeHtml(provider.label)}</h4>
-                <p>${modelCount} ${modelLabel} available</p>
               </div>
             </div>
             <span class="settings-provider-status ${isConnected ? 'connected' : 'disconnected'}">
