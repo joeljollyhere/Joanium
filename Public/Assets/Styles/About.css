@@ -125,7 +125,7 @@
   gap: 8px;
   padding: 11px 22px;
   border-radius: 999px;
-  background: linear-gradient(135deg, #e05d94, #c2185b);
+  background: linear-gradient(135deg, var(--accent-hover), var(--accent));
   color: #fff;
   font-family: var(--font-ui);
   font-size: 13px;
@@ -138,7 +138,7 @@
     transform var(--transition-fast),
     box-shadow var(--transition-mid),
     filter var(--transition-fast);
-  box-shadow: 0 4px 20px rgba(224, 93, 148, 0.35);
+  box-shadow: 0 4px 20px var(--accent-glow);
 }
 
 .about-sponsor-btn svg {
@@ -149,34 +149,10 @@
 
 .about-sponsor-btn:hover {
   transform: translateY(-2px) scale(1.03);
-  box-shadow: 0 8px 28px rgba(224, 93, 148, 0.5);
+  box-shadow: 0 8px 28px var(--accent-glow);
   filter: brightness(1.08);
 }
 
 .about-sponsor-btn:active {
   transform: translateY(0) scale(0.98);
-}
-
-.about-credit {
-  font-size: 12px;
-  color: var(--text-muted);
-  line-height: 1.5;
-}
-
-.about-heart {
-  color: #e05d94;
-  display: inline-block;
-  animation: heartBeat 2.4s ease-in-out infinite;
-}
-
-.about-author-link {
-  color: var(--accent);
-  text-decoration: none;
-  font-weight: 500;
-  transition: color var(--transition-fast);
-}
-
-.about-author-link:hover {
-  color: var(--accent-hover);
-  text-decoration: underline;
 }
