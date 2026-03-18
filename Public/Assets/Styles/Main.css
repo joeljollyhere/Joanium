@@ -2469,3 +2469,187 @@ body.modal-open {
   cursor: not-allowed;
   box-shadow: none;
 }
+
+/* ══════════════════════════════════════════
+   GLOBAL MOTION TOKENS (Material-ish feel)
+══════════════════════════════════════════ */
+:root {
+  --motion-smooth: cubic-bezier(0.2, 0, 0, 1);
+  --motion-emphasized: cubic-bezier(0.2, 0, 0, 1.2);
+  --motion-decelerate: cubic-bezier(0, 0, 0.2, 1);
+}
+
+/* ══════════════════════════════════════════
+   FADE + SCALE UTILITY (used across UI)
+══════════════════════════════════════════ */
+@keyframes fadeScaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes fadeScaleOut {
+  from {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.96) translateY(6px);
+  }
+}
+
+/* ══════════════════════════════════════════
+   TITLEBAR (no animation before → add subtle)
+══════════════════════════════════════════ */
+#titlebar {
+  animation: fadeScaleIn 0.45s var(--motion-decelerate);
+}
+
+/* ══════════════════════════════════════════
+   BODY WRAP (smooth mount)
+══════════════════════════════════════════ */
+#body-wrap {
+  animation: fadeScaleIn 0.5s var(--motion-decelerate);
+}
+
+/* ══════════════════════════════════════════
+   SIDEBAR BUTTON STAGGER (feels premium)
+══════════════════════════════════════════ */
+.sidebar-btn {
+  animation: fadeScaleIn 0.4s var(--motion-smooth);
+}
+
+.sidebar-btn:nth-child(1) { animation-delay: 0.05s; }
+.sidebar-btn:nth-child(2) { animation-delay: 0.08s; }
+.sidebar-btn:nth-child(3) { animation-delay: 0.11s; }
+.sidebar-btn:nth-child(4) { animation-delay: 0.14s; }
+
+/* ══════════════════════════════════════════
+   INPUT BOX (micro-interaction upgrade)
+══════════════════════════════════════════ */
+.input-box {
+  transition:
+    border-color var(--transition-mid),
+    box-shadow var(--transition-mid),
+    transform var(--transition-fast),
+    background 0.25s var(--motion-smooth);
+}
+
+.input-box:hover {
+  background: color-mix(in srgb, var(--bg-input) 92%, var(--accent) 3%);
+}
+
+/* ══════════════════════════════════════════
+   MODEL DROPDOWN ITEMS (stagger reveal)
+══════════════════════════════════════════ */
+.model-item {
+  opacity: 0;
+  transform: translateY(6px);
+}
+
+#model-dropdown.open .model-item {
+  animation: fadeScaleIn 0.25s var(--motion-smooth) forwards;
+}
+
+#model-dropdown.open .model-item:nth-child(1) { animation-delay: 0.02s; }
+#model-dropdown.open .model-item:nth-child(2) { animation-delay: 0.04s; }
+#model-dropdown.open .model-item:nth-child(3) { animation-delay: 0.06s; }
+#model-dropdown.open .model-item:nth-child(4) { animation-delay: 0.08s; }
+
+/* ══════════════════════════════════════════
+   ICON BUTTON PRESS FEEDBACK (M3 feel)
+══════════════════════════════════════════ */
+.icon-btn {
+  position: relative;
+  overflow: hidden;
+}
+
+.icon-btn::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle, rgba(255,255,255,0.25) 0%, transparent 70%);
+  opacity: 0;
+  transform: scale(0.5);
+  transition: opacity 0.25s ease, transform 0.35s ease;
+}
+
+.icon-btn:active::after {
+  opacity: 1;
+  transform: scale(2);
+  transition: none;
+}
+
+/* ══════════════════════════════════════════
+   CHAT MESSAGES (already animated → enhance layering)
+══════════════════════════════════════════ */
+.message-row {
+  will-change: transform, opacity;
+}
+
+/* subtle hover lift for assistant blocks */
+.message-row.assistant .content:hover {
+  transform: translateY(-1px);
+  transition: transform 0.2s var(--motion-smooth);
+}
+
+/* ══════════════════════════════════════════
+   CODE BLOCK (was static → now alive)
+══════════════════════════════════════════ */
+.code-wrapper {
+  animation: fadeScaleIn 0.35s var(--motion-smooth);
+}
+
+/* ══════════════════════════════════════════
+   LIBRARY ITEMS (add entrance)
+══════════════════════════════════════════ */
+.lp-item {
+  animation: fadeScaleIn 0.35s var(--motion-smooth);
+}
+
+/* ══════════════════════════════════════════
+   SETTINGS PANELS (switching tabs feel smooth)
+══════════════════════════════════════════ */
+.settings-panel.active {
+  animation: fadeScaleIn 0.35s var(--motion-decelerate);
+}
+
+/* ══════════════════════════════════════════
+   MODAL BACKDROP (soft fade instead of jump)
+══════════════════════════════════════════ */
+#settings-modal-backdrop,
+#library-modal-backdrop {
+  transition:
+    opacity 0.25s var(--motion-decelerate),
+    backdrop-filter 0.25s var(--motion-decelerate);
+}
+
+/* ══════════════════════════════════════════
+   BUTTON RIPPLE (GLOBAL reusable)
+══════════════════════════════════════════ */
+button {
+  position: relative;
+  overflow: hidden;
+}
+
+button::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle, rgba(255,255,255,0.18) 0%, transparent 70%);
+  opacity: 0;
+  transform: scale(0.5);
+  transition: opacity 0.3s ease, transform 0.4s ease;
+}
+
+button:active::before {
+  opacity: 1;
+  transform: scale(2);
+  transition: none;
+}
