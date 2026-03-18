@@ -1,10 +1,3 @@
-// ─────────────────────────────────────────────
-//  openworld — Packages/System/SystemPrompt.js
-//  Builds the AI system prompt from all available context:
-//  user name · local time · country · OS · GitHub repos ·
-//  Gmail · Memory.md · CustomInstructions.md
-// ─────────────────────────────────────────────
-
 import os from 'os';
 
 /* ── Country lookup (cached for the session) ── */
