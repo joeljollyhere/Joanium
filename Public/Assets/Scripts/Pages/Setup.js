@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────
-//  openworld — setup.js
-//  First-run onboarding · Provider key collection
+//  openworld — SetupPage.js
+//  First-run onboarding · Splash → Name → Providers → Done
 // ─────────────────────────────────────────────
 
 const PROVIDERS = [
@@ -53,27 +53,74 @@ const PROVIDERS = [
 
 /* ── State ── */
 const state = {
-  step: 1, // 1 = name, 2 = providers, 3 = done
+  step: 0,              // 0=splash, 1=name, 2=providers, 3=done
   name: '',
   selectedProviders: new Set(),
-  apiKeys: {}, // { providerId: 'key' }
+  apiKeys: {},
 };
 
 /* ── DOM refs ── */
-const stepName      = document.getElementById('step-name');
+const stepSplash = document.getElementById('step-splash');
+const stepName = document.getElementById('step-name');
 const stepProviders = document.getElementById('step-providers');
-const stepDone      = document.getElementById('step-done');
-const nameInput     = document.getElementById('name-input');
-const nameContinue  = document.getElementById('name-continue');
-const providerGrid  = document.getElementById('provider-grid');
-const keysSection   = document.getElementById('keys-section');
-const keysContinue  = document.getElementById('keys-continue');
-const progressDots  = document.querySelectorAll('.dot');
-const doneTitle     = document.getElementById('done-title');
+const stepDone = document.getElementById('step-done');
+
+const tcCheck = document.getElementById('tc-check');
+const splashContinue = document.getElementById('splash-continue');
+
+const nameInput = document.getElementById('name-input');
+const nameContinue = document.getElementById('name-continue');
+
+const providerGrid = document.getElementById('provider-grid');
+const keysSection = document.getElementById('keys-section');
+const keysContinue = document.getElementById('keys-continue');
+
+const progressTrack = document.getElementById('progress-track');
+const setupLogo = document.getElementById('setup-logo');
+const progressDots = document.querySelectorAll('.dot'); // 4 dots
+const doneTitle = document.getElementById('done-title');
+
+// Step elements in order (index = step number)
+const STEP_ELS = [stepSplash, stepName, stepProviders, stepDone];
 
 /* ══════════════════════════════════════════
-   STEP 1 — Name
-══════════════════════════════════════════ */
+     Particles (splash background)
+   ══════════════════════════════════════════ */
+(function spawnParticles() {
+  const canvas = document.getElementById('splash-canvas');
+  if (!canvas) return;
+  for (let i = 0; i < 18; i++) {
+    const p = document.createElement('div');
+    p.className = 'particle';
+    const size = 2 + Math.random() * 4;
+    p.style.cssText = `
+      width:${size}px; height:${size}px;
+      left:${Math.random() * 100}%;
+      bottom:${Math.random() * 40}%;
+      --dur:${4 + Math.random() * 6}s;
+      --delay:-${Math.random() * 5}s;
+    `;
+    canvas.appendChild(p);
+  }
+})();
+
+/* ══════════════════════════════════════════
+     STEP 0 — Splash / T&C
+   ══════════════════════════════════════════ */
+tcCheck.addEventListener('change', () => {
+  const checked = tcCheck.checked;
+  splashContinue.disabled = !checked;
+  splashContinue.classList.toggle('ready', checked);
+});
+
+splashContinue.addEventListener('click', () => {
+  if (!tcCheck.checked) return;
+  goToStep(1);
+});
+
+/* ══════════════════════════════════════════
+     STEP 1 — Name
+   ══════════════════════════════════════════ */
 nameInput.addEventListener('input', () => {
   const val = nameInput.value.trim();
   nameContinue.classList.toggle('ready', val.length >= 2);
@@ -93,8 +140,8 @@ function tryAdvanceFromName() {
 }
 
 /* ══════════════════════════════════════════
-   STEP 2 — Providers
-══════════════════════════════════════════ */
+     STEP 2 — Providers
+   ══════════════════════════════════════════ */
 function buildProviderGrid() {
   providerGrid.innerHTML = '';
   PROVIDERS.forEach(p => {
@@ -119,20 +166,12 @@ function buildProviderGrid() {
         <span class="p-icon-fallback">${p.fallback}</span>
       </span>`;
 
-    if (isSelected) {
-      card.classList.add('selected');
-    }
+    if (isSelected) card.classList.add('selected');
 
     const image = card.querySelector('.p-icon-image');
-    image.addEventListener('error', () => {
-      card.classList.add('icon-missing');
-    });
-    image.addEventListener('load', () => {
-      card.classList.remove('icon-missing');
-    });
-    if (image.complete && image.naturalWidth === 0) {
-      card.classList.add('icon-missing');
-    }
+    image.addEventListener('error', () => card.classList.add('icon-missing'));
+    image.addEventListener('load', () => card.classList.remove('icon-missing'));
+    if (image.complete && image.naturalWidth === 0) card.classList.add('icon-missing');
 
     card.addEventListener('click', () => toggleProvider(p.id, card));
     providerGrid.appendChild(card);
@@ -209,7 +248,6 @@ function updateKeysContinue() {
     keysContinue.classList.remove('ready');
     return;
   }
-  // All selected providers must have a non-empty key
   const allFilled = [...state.selectedProviders].every(id => {
     const input = document.getElementById(`key-${id}`);
     return input && input.value.trim().length > 8;
@@ -220,7 +258,6 @@ function updateKeysContinue() {
 keysContinue.addEventListener('click', async () => {
   if (!keysContinue.classList.contains('ready')) return;
 
-  // Collect final keys
   state.selectedProviders.forEach(id => {
     const input = document.getElementById(`key-${id}`);
     if (input) state.apiKeys[id] = input.value.trim();
@@ -231,11 +268,10 @@ keysContinue.addEventListener('click', async () => {
 });
 
 /* ══════════════════════════════════════════
-   SAVE — write User.json + Models.json
-══════════════════════════════════════════ */
+     SAVE — write User.json + Models.json
+   ══════════════════════════════════════════ */
 async function saveSetup() {
   try {
-    // Save user profile
     await window.electronAPI.saveUser({
       name: state.name,
       setup_complete: true,
@@ -247,7 +283,6 @@ async function saveSetup() {
       },
     });
 
-    // Save API keys into Models.json
     await window.electronAPI.saveAPIKeys(
       Object.fromEntries(
         [...state.selectedProviders].map(id => [id, state.apiKeys[id]])
@@ -260,37 +295,55 @@ async function saveSetup() {
 }
 
 /* ══════════════════════════════════════════
-   STEP TRANSITIONS
-══════════════════════════════════════════ */
+     STEP TRANSITIONS
+   ══════════════════════════════════════════ */
 function goToStep(n) {
+  const fromEl = STEP_ELS[state.step];
+  const toEl = STEP_ELS[n];
+
+  // Animate out
+  fromEl.classList.remove('visible');
+  fromEl.classList.add('leaving');
+  setTimeout(() => {
+    fromEl.classList.remove('leaving');
+    fromEl.style.display = 'none';
+  }, 340);
+
+  // Show logo + progress dots when leaving splash
+  if (n >= 1) {
+    setupLogo.style.opacity = '1';
+    setupLogo.style.pointerEvents = 'auto';
+    progressTrack.style.opacity = '1';
+  }
+
+  // Update dots: done = before current, active = current, rest = idle
+  progressDots.forEach((dot, i) => {
+    dot.classList.remove('active', 'done');
+    if (i < n) dot.classList.add('done');
+    if (i === n) dot.classList.add('active');
+  });
+
+  // Animate in
+  toEl.style.display = 'flex';
+  toEl.classList.add('entering');
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      toEl.classList.remove('entering');
+      toEl.classList.add('visible');
+    });
+  });
+
   state.step = n;
 
-  // Update dots
-  progressDots.forEach((dot, i) => {
-    dot.classList.toggle('active', i < n);
-    dot.classList.toggle('done', i < n - 1);
-  });
+  // Step-specific side-effects
+  if (n === 1) {
+    setTimeout(() => nameInput.focus(), 360);
+  }
 
-  const steps = [stepName, stepProviders, stepDone];
-  steps.forEach((el, i) => {
-    if (i + 1 === n) {
-      el.classList.add('entering');
-      el.style.display = 'flex';
-      requestAnimationFrame(() => {
-        el.classList.remove('entering');
-        el.classList.add('visible');
-      });
-    } else {
-      el.classList.remove('visible');
-      el.classList.add('leaving');
-      setTimeout(() => {
-        el.classList.remove('leaving');
-        el.style.display = 'none';
-      }, 320);
-    }
-  });
+  if (n === 2) {
+    buildProviderGrid();
+  }
 
-  if (n === 2) buildProviderGrid();
   if (n === 3) {
     const first = state.name.split(' ')[0];
     doneTitle.textContent = `You're all set, ${first} 🎉`;
@@ -300,7 +353,19 @@ function goToStep(n) {
   }
 }
 
-/* ── Init ── */
+/* ── Init: only splash is visible, everything else hidden ── */
+stepName.style.display = 'none';
 stepProviders.style.display = 'none';
 stepDone.style.display = 'none';
-nameInput.focus();
+
+// Logo + dots hidden until we leave splash
+setupLogo.style.opacity = '0';
+setupLogo.style.pointerEvents = 'none';
+setupLogo.style.transition = 'opacity 0.4s ease';
+progressTrack.style.opacity = '0';
+progressTrack.style.transition = 'opacity 0.4s ease';
+
+// Dot 0 (splash) active on load
+progressDots.forEach((dot, i) => {
+  dot.classList.toggle('active', i === 0);
+});

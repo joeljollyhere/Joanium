@@ -9,31 +9,3 @@
 
 /* 4. Footer */
 @import './Footer.css';
-
-#step-providers {
-    max-height: 100vh;
-    overflow-y: auto;
-    padding: 60px 24px 56px; /* 56px bottom clears the fixed footer */
-}
-
-#keys-section {
-    width: 100%;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    max-height: 320px;        /* ← shows ~3 keys comfortably */
-    overflow-y: auto;
-    padding-right: 4px;       /* prevents scrollbar overlapping inputs */
-}
-
-/* Optional: thin styled scrollbar */
-#keys-section::-webkit-scrollbar {
-    width: 4px;
-}
-#keys-section::-webkit-scrollbar-track {
-    background: transparent;
-}
-#keys-section::-webkit-scrollbar-thumb {
-    background: var(--border);
-    border-radius: 99px;
-}
