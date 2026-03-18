@@ -217,7 +217,7 @@ export async function fetchWithTools(provider, modelId, messages, sysPrompt = ''
     return { type: 'text', text: part?.text ?? '(empty response)' };
   }
 
-  /* ── OpenAI / OpenRouter ── */
+  /* ── OpenAI / OpenRouter / Mistral ── */
   const openAIMessages = [
     ...(sysPrompt ? [{ role: 'system', content: sysPrompt }] : []),
     ...history.map(m => ({ role: m.role, content: buildOpenAIContent(m) })),

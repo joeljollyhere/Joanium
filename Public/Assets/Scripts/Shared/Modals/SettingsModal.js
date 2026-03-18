@@ -7,6 +7,7 @@ const PROVIDER_META = {
   openai:     { color: '#10a37f', placeholder: 'sk-proj-…',      iconPath: 'Assets/Icons/ChatGPT.png',    fallback: 'GPT' },
   google:     { color: '#4285f4', placeholder: 'AIza…',          iconPath: 'Assets/Icons/Gemini.png',     fallback: 'G'   },
   openrouter: { color: '#9b59b6', placeholder: 'sk-or-v1-…',     iconPath: 'Assets/Icons/OpenRouter.png', fallback: 'OR'  },
+  mistral:    { color: '#f54e42', placeholder: 'Enter Mistral API key', iconPath: 'Assets/Icons/Mistral.png', fallback: 'M' },
 };
 
 // HELPERS
