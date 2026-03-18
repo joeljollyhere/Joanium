@@ -33,15 +33,17 @@ const library = initLibraryModal({
 
 // Sidebar
 const sidebar = initSidebar({
-  activePage: 'chat',
-  onNewChat: () => startNewChat(() => { library.close(); settings.close(); }),
-  onLibrary: () => library.isOpen() ? library.close() : library.open(),
+  activePage:    'chat',
+  onNewChat:     () => startNewChat(() => { library.close(); settings.close(); }),
+  onLibrary:     () => library.isOpen() ? library.close() : library.open(),
   onAutomations: () => window.electronAPI?.launchAutomations?.(),
-  onSettings: () => settings.open(),
-  onAbout: () => about.open(),
+  onSkills:      () => window.electronAPI?.launchSkills?.(),
+  onAgents:      () => window.electronAPI?.launchAgents?.(),
+  onSettings:    () => settings.open(),
+  onAbout:       () => about.open(),
 });
 
-// Keep sidebar in sync whenever the user profile updates (e.g. after saving settings)
+// Keep sidebar in sync whenever the user profile updates
 window.addEventListener('ow:user-profile-updated', e => {
   sidebar.setUser(e.detail?.name ?? state.userName);
 });
@@ -101,7 +103,7 @@ loadProviders().then(async () => {
   sidebar.setUser(user?.name ?? '');
   await refreshSystemPrompt();
 
-  // Load a chat that was selected from the Automations library
+  // Load a chat that was selected from the library on another page
   const pendingChatId = localStorage.getItem('ow-pending-chat');
   if (pendingChatId) {
     localStorage.removeItem('ow-pending-chat');

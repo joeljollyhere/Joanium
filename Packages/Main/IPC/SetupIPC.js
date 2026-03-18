@@ -1,6 +1,7 @@
 // ─────────────────────────────────────────────
 //  openworld — Packages/Main/IPC/SetupIPC.js
-//  Handlers used only during the first-run setup wizard.
+//  Handlers used during first-run setup wizard
+//  and global page navigation.
 // ─────────────────────────────────────────────
 
 import { ipcMain } from 'electron';
@@ -21,9 +22,20 @@ export function register() {
     catch (err) { return { ok: false, error: err.message }; }
   });
 
-  // Transition from Setup page → Main page
+  // ── Page navigation ────────────────────────────────────────────────
+
   ipcMain.handle('launch-main', () => {
     loadPage(Paths.MAIN_PAGE);
+    return { ok: true };
+  });
+
+  ipcMain.handle('launch-skills', () => {
+    loadPage(Paths.SKILLS_PAGE);
+    return { ok: true };
+  });
+
+  ipcMain.handle('launch-agents', () => {
+    loadPage(Paths.AGENTS_PAGE);
     return { ok: true };
   });
 }

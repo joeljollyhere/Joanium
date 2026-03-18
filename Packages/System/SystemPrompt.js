@@ -10,15 +10,9 @@ const __dirname = path.dirname(__filename);
 //  SKILLS — read frontmatter from Skills/*.md
 // ─────────────────────────────────────────────
 
-/**
- * Parse YAML-style frontmatter from a markdown string.
- * Only handles simple `key: value` pairs (no nesting needed).
- * Returns {} if no frontmatter block is found.
- */
 function parseFrontmatter(content) {
   const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
   if (!match) return {};
-
   const result = {};
   for (const line of match[1].split('\n')) {
     const idx = line.indexOf(':');
@@ -30,19 +24,14 @@ function parseFrontmatter(content) {
   return result;
 }
 
-/**
- * Walk the Skills/ directory next to this file and collect
- * { name, trigger, description } from each *.md file that has
- * all three frontmatter fields.
- */
+const SKIP_FILES = new Set(['Debug.md']);
+
 function loadSkills() {
   const skillsDir = path.resolve(__dirname, '..', '..', 'Skills');
   if (!fs.existsSync(skillsDir)) return [];
-
   const skills = [];
-
   for (const file of fs.readdirSync(skillsDir)) {
-    if (!file.endsWith('.md')) continue;
+    if (!file.endsWith('.md') || SKIP_FILES.has(file)) continue;
     try {
       const content = fs.readFileSync(path.join(skillsDir, file), 'utf-8');
       const meta = parseFrontmatter(content);
@@ -50,35 +39,26 @@ function loadSkills() {
       if (name && (trigger || description)) {
         skills.push({ name, trigger: trigger || '', description: description || '' });
       }
-    } catch {
-      // skip unreadable files silently
-    }
+    } catch { /* skip */ }
   }
-
   return skills;
 }
 
-/**
- * Build the ## Skills block from discovered skill files.
- * Returns an empty string when no skills are found.
- */
 function buildSkillsBlock() {
   const skills = loadSkills();
   if (!skills.length) return '';
-
   const lines = [
     '## Skills',
     'You have built-in skills. Apply whichever fits the task silently — no need to announce them:',
     '',
     ...skills.map(s => {
       const when = s.trigger ? ` Use when: ${s.trigger}.` : '';
-      const how = s.description ? ` Approach: ${s.description}` : '';
+      const how  = s.description ? ` Approach: ${s.description}` : '';
       return `- **${s.name}** —${when}${how}`;
     }),
     '',
     'Blend skills when relevant. If none fit, just answer normally.',
   ];
-
   return lines.join('\n');
 }
 
@@ -90,9 +70,9 @@ let _country = null;
 async function fetchCountry() {
   if (_country) return _country;
   try {
-    const ctrl = new AbortController();
+    const ctrl  = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), 3000);
-    const res = await fetch('https://ipapi.co/country_name/', { signal: ctrl.signal });
+    const res   = await fetch('https://ipapi.co/country_name/', { signal: ctrl.signal });
     clearTimeout(timer);
     if (res.ok) { _country = (await res.text()).trim(); return _country; }
   } catch { /* optional */ }
@@ -113,6 +93,7 @@ async function fetchCountry() {
  * @param {string}   [opts.githubUsername]
  * @param {object[]} [opts.githubRepos]
  * @param {string}   [opts.gmailEmail]
+ * @param {object}   [opts.activeAgent]  – { name, personality, description, instructions }
  * @returns {Promise<string>}
  */
 export async function buildSystemPrompt({
@@ -122,6 +103,7 @@ export async function buildSystemPrompt({
   githubUsername = null,
   githubRepos = [],
   gmailEmail = null,
+  activeAgent = null,
 } = {}) {
 
   /* ── Time ── */
@@ -132,23 +114,43 @@ export async function buildSystemPrompt({
   });
 
   /* ── OS & hardware ── */
-  const platform = process.platform;
-  const osName = platform === 'darwin' ? 'macOS' : platform === 'win32' ? 'Windows' : 'Linux';
-  const release = os.release();
+  const platform  = process.platform;
+  const osName    = platform === 'darwin' ? 'macOS' : platform === 'win32' ? 'Windows' : 'Linux';
+  const release   = os.release();
   const totalMemGB = (os.totalmem() / 1_073_741_824).toFixed(1);
-  const cpus = os.cpus();
-  const cpuModel = (cpus[0]?.model ?? 'Unknown CPU').replace(/\s+/g, ' ').trim();
-  const cpuCores = cpus.length;
+  const cpus      = os.cpus();
+  const cpuModel  = (cpus[0]?.model ?? 'Unknown CPU').replace(/\s+/g, ' ').trim();
+  const cpuCores  = cpus.length;
 
   /* ── Country ── */
   const country = await fetchCountry();
 
   /* ── Build ── */
   const L = [];
-  const push = (...args) => L.push(...args);
+  const push  = (...args) => L.push(...args);
   const blank = () => L.push('');
 
-  push(`You are an intelligent AI assistant running inside openworld — a personal desktop AI platform built by Joel Jolly.`);
+  /* ── Opening — agent persona OR default assistant ── */
+  if (activeAgent) {
+    push(`You are ${activeAgent.name}.`);
+    if (activeAgent.personality) {
+      push(`Your personality: ${activeAgent.personality}.`);
+    }
+    if (activeAgent.description) {
+      push(activeAgent.description);
+    }
+    if (activeAgent.instructions?.trim()) {
+      blank();
+      push(activeAgent.instructions.trim());
+    }
+    blank();
+    push('---');
+    blank();
+    push(`You are running inside openworld, a personal desktop AI platform.`);
+  } else {
+    push(`You are an intelligent AI assistant running inside openworld — a personal desktop AI platform built by Joel Jolly.`);
+  }
+
   blank();
   push(`## User`);
   push(`- **Name:** ${userName || 'User'}`);
@@ -158,7 +160,7 @@ export async function buildSystemPrompt({
   push(`- **Hardware:** ${cpuCores}-core CPU (${cpuModel}), ${totalMemGB} GB RAM`);
 
   const connected = [];
-  if (gmailEmail) connected.push(`Gmail (${gmailEmail})`);
+  if (gmailEmail)    connected.push(`Gmail (${gmailEmail})`);
   if (githubUsername) connected.push(`GitHub (@${githubUsername})`);
   if (connected.length) push(`- **Connected services:** ${connected.join(', ')}`);
 
@@ -168,7 +170,7 @@ export async function buildSystemPrompt({
     push(`The user has these repos (most recently updated first):`);
     githubRepos.slice(0, 20).forEach(r => {
       const desc = r.description ? ` — ${r.description}` : '';
-      const lang = r.language ? ` [${r.language}]` : '';
+      const lang = r.language    ? ` [${r.language}]`    : '';
       push(`- \`${r.full_name}\`${desc}${lang}`);
     });
     push(`When the user asks about "my repo" or references a project by name, match it against the list above.`);

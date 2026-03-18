@@ -25,12 +25,19 @@ export const Paths = {
   CHATS_DIR:                path.join(ROOT, 'Data', 'Chats'),
   AUTOMATIONS_FILE:         path.join(ROOT, 'Data', 'Automations.json'),
   CONNECTORS_FILE:          path.join(ROOT, 'Data', 'Connectors.json'),
+  ACTIVE_AGENT_FILE:        path.join(ROOT, 'Data', 'ActiveAgent.json'),
+
+  // Skills & Agents directories (project root)
+  SKILLS_DIR: path.join(ROOT, 'Skills'),
+  AGENTS_DIR: path.join(ROOT, 'Agents'),
 
   // Electron
-  PRELOAD:         path.join(ROOT, 'Packages', 'Electron', 'Preload.js'),
-  SETUP_PAGE:      path.join(ROOT, 'Public', 'Setup.html'),
-  MAIN_PAGE:       path.join(ROOT, 'Public', 'index.html'),
+  PRELOAD:          path.join(ROOT, 'Packages', 'Electron', 'Preload.js'),
+  SETUP_PAGE:       path.join(ROOT, 'Public', 'Setup.html'),
+  MAIN_PAGE:        path.join(ROOT, 'Public', 'index.html'),
   AUTOMATIONS_PAGE: path.join(ROOT, 'Public', 'Automations.html'),
+  SKILLS_PAGE:      path.join(ROOT, 'Public', 'Skills.html'),
+  AGENTS_PAGE:      path.join(ROOT, 'Public', 'Agents.html'),
 };
 
 export default Paths;

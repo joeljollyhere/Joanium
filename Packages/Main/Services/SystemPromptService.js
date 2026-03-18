@@ -1,11 +1,13 @@
 // ─────────────────────────────────────────────
 //  openworld — Packages/Main/Services/SystemPromptService.js
 //  Builds and caches the context-aware system prompt.
-//  Cache is invalidated whenever settings or connectors change.
+//  Cache is invalidated whenever settings, connectors, or active agent change.
 // ─────────────────────────────────────────────
 
+import fs from 'fs';
 import * as GithubAPI    from '../../Automation/Github.js';
 import { buildSystemPrompt } from '../../System/SystemPrompt.js';
+import Paths from '../Paths.js';
 
 const TTL_MS = 5 * 60_000; // 5 minutes
 
@@ -22,7 +24,7 @@ export function invalidate() {
  * Return the system prompt, building (and caching) it if needed.
  *
  * @param {object} opts
- * @param {object}          opts.user               – result of UserService.readUser()
+ * @param {object}          opts.user
  * @param {string}          opts.customInstructions
  * @param {string}          opts.memory
  * @param {ConnectorEngine} opts.connectorEngine
@@ -48,13 +50,24 @@ export async function get({ user, customInstructions, memory, connectorEngine })
     }
   }
 
+  // Load active agent (if any)
+  let activeAgent = null;
+  try {
+    if (fs.existsSync(Paths.ACTIVE_AGENT_FILE)) {
+      activeAgent = JSON.parse(fs.readFileSync(Paths.ACTIVE_AGENT_FILE, 'utf-8'));
+    }
+  } catch {
+    activeAgent = null;
+  }
+
   _cache = await buildSystemPrompt({
     userName:           user.name,
     customInstructions,
     memory,
     githubUsername,
     githubRepos,
-    gmailEmail: gmailCreds?.email ?? null,
+    gmailEmail:  gmailCreds?.email ?? null,
+    activeAgent,
   });
   _cacheTime = now;
 

@@ -13,6 +13,16 @@ const ICON = {
                   <path d="M13 2L4.5 13H11l-1 9L20.5 11H14L13 2z" stroke-linejoin="round"/>
                 </svg>`,
 
+  skills: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+             <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+                   stroke-linecap="round" stroke-linejoin="round"/>
+           </svg>`,
+
+  agents: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+             <circle cx="12" cy="8" r="4"/>
+             <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" stroke-linecap="round"/>
+           </svg>`,
+
   theme: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
             <circle cx="12" cy="12" r="4"/>
             <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41
@@ -72,10 +82,11 @@ function buildSidebarHTML(activePage) {
   };
 
   return `
-
     ${btn('chat',        ICON.newChat,     'New chat')}
     ${btn('library',     ICON.library,     'Library')}
     ${btn('automations', ICON.automations, 'Automations')}
+    ${btn('skills',      ICON.skills,      'Skills')}
+    ${btn('agents',      ICON.agents,      'Agents')}
 
     <div class="sidebar-spacer"></div>
 
@@ -134,18 +145,22 @@ function buildAvatarPanelHTML() {
  * Mount and wire the shared sidebar.
  *
  * @param {object} opts
- * @param {'chat'|'library'|'automations'} [opts.activePage='chat']
- * @param {() => void} [opts.onNewChat]       - handler for the + (new chat) button
- * @param {() => void} [opts.onLibrary]       - handler for the library button
- * @param {() => void} [opts.onAutomations]   - handler for the automations button
- * @param {() => void} [opts.onSettings]      - handler for avatar-panel → Settings
- * @param {() => void} [opts.onAbout]         - handler for avatar-panel → About
+ * @param {'chat'|'library'|'automations'|'skills'|'agents'} [opts.activePage='chat']
+ * @param {() => void} [opts.onNewChat]
+ * @param {() => void} [opts.onLibrary]
+ * @param {() => void} [opts.onAutomations]
+ * @param {() => void} [opts.onSkills]
+ * @param {() => void} [opts.onAgents]
+ * @param {() => void} [opts.onSettings]
+ * @param {() => void} [opts.onAbout]
  */
 export function initSidebar({
   activePage    = 'chat',
   onNewChat     = () => {},
   onLibrary     = () => {},
   onAutomations = () => {},
+  onSkills      = () => {},
+  onAgents      = () => {},
   onSettings    = () => {},
   onAbout       = () => {},
 } = {}) {
@@ -181,6 +196,8 @@ export function initSidebar({
       if (view === 'chat')        { onNewChat();     return; }
       if (view === 'library')     { onLibrary();     return; }
       if (view === 'automations') { onAutomations(); return; }
+      if (view === 'skills')      { onSkills();      return; }
+      if (view === 'agents')      { onAgents();      return; }
     });
   });
 
@@ -248,16 +265,14 @@ export function initSidebar({
     }
   })();
 
-  // Return helpers so callers can update the sidebar
   return { setUser, setActivePage };
 
-  // Helpers
   function setUser(name) {
     const displayName = String(name ?? '').trim() || 'User';
     const initials    = getInitials(displayName);
     const avatarBtnEl = document.getElementById('sidebar-avatar-btn');
     if (avatarBtnEl) { avatarBtnEl.textContent = initials; avatarBtnEl.title = displayName; }
-    const badge = document.getElementById('avatar-panel-badge');
+    const badge  = document.getElementById('avatar-panel-badge');
     const nameEl = document.getElementById('avatar-panel-name');
     if (badge)  badge.textContent  = initials;
     if (nameEl) nameEl.textContent = displayName;

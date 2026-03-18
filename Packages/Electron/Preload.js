@@ -7,6 +7,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   saveAPIKeys:            (keysMap)  => ipcRenderer.invoke('save-api-keys', keysMap),
   saveUserProfile:        (profile)  => ipcRenderer.invoke('save-user-profile', profile),
   launchMain:             ()         => ipcRenderer.invoke('launch-main'),
+  launchSkills:           ()         => ipcRenderer.invoke('launch-skills'),
+  launchAgents:           ()         => ipcRenderer.invoke('launch-agents'),
 
   // Runtime reads
   getUser:                ()         => ipcRenderer.invoke('get-user'),
@@ -54,6 +56,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   githubGetPRs:           (owner, repo, state)     => ipcRenderer.invoke('github-get-prs', owner, repo, state),
   githubGetNotifications: ()                       => ipcRenderer.invoke('github-get-notifications'),
   githubGetCommits:       (owner, repo)            => ipcRenderer.invoke('github-get-commits', owner, repo),
+
+  // Skills
+  getSkills: () => ipcRenderer.invoke('get-skills'),
+
+  // Agents
+  getAgents:        ()            => ipcRenderer.invoke('get-agents'),
+  getActiveAgent:   ()            => ipcRenderer.invoke('get-active-agent'),
+  setActiveAgent:   (agentData)   => ipcRenderer.invoke('set-active-agent', agentData),
+  resetActiveAgent: ()            => ipcRenderer.invoke('reset-active-agent'),
 
   // Window controls
   minimize: () => ipcRenderer.send('window-minimize'),

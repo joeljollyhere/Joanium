@@ -28,6 +28,8 @@ import * as ConnectorIPC  from './Packages/Main/IPC/ConnectorIPC.js';
 import * as GmailIPC      from './Packages/Main/IPC/GmailIPC.js';
 import * as GithubIPC     from './Packages/Main/IPC/GithubIPC.js';
 import * as WindowIPC     from './Packages/Main/IPC/WindowIPC.js';
+import * as SkillsIPC     from './Packages/Main/IPC/SkillsIPC.js';
+import * as AgentsIPC     from './Packages/Main/IPC/AgentsIPC.js';
 
 /* ══════════════════════════════════════════
    ENGINES  (singletons shared across IPC modules)
@@ -48,6 +50,8 @@ ConnectorIPC.register(connectorEngine);
 GmailIPC.register(connectorEngine);
 GithubIPC.register(connectorEngine);
 WindowIPC.register();
+SkillsIPC.register();
+AgentsIPC.register();
 
 /* ══════════════════════════════════════════
    APP LIFECYCLE
