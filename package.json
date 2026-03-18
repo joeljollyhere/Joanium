@@ -2,7 +2,6 @@
   "name": "openworld",
   "version": "0.1.0",
   "description": "An Electron app that connects and controls your world",
-  "type": "module",
   "main": "App.js",
   "scripts": {
     "start": "electron .",
@@ -31,6 +30,7 @@
     "productName": "openworld",
     "asar": true,
     "compression": "maximum",
+    "forceCodeSigning": false,
     "directories": {
       "output": "dist"
     },
@@ -41,7 +41,9 @@
       "Data/**/*"
     ],
     "win": {
-      "target": "nsis"
+      "target": "nsis",
+      "sign": null,
+      "signingHashAlgorithms": null
     }
   }
 }
