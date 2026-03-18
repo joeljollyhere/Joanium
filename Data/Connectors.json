@@ -3,14 +3,14 @@
     "gmail": {
       "enabled": true,
       "credentials": {
-        "accessToken": "ya29.a0ATkoCc5x5MlyDPYG0hQUc5jam5D5UlDmAITYTECzy-1pPJj_juiZa1eFtBO6alZIb0li_FPmm26ciBZjQAJVbaor7dev94AmBpq-EhENDJJgywVBcaAaJSvbd3oyTWUoBQETD7u9EU49P5nz7Ihpx0zl9k7dlof8b_fix01DPxiR64s5_Gx4ymSASrN95k_P9NrcvX4aCgYKATwSARESFQHGX2MiTYuNoQ21txeZsGCeF9EqrA0206",
-        "refreshToken": "1//0gzmpd8JaLbznCgYIARAAGBASNwF-L9IrFNJub21rml8sPclqMhBcEcJMeeoVmG_jaUQ-B7nK4RAGW2a4y2w2I3DoEYtxBsEgzoc",
-        "tokenExpiry": "2026-03-18T05:52:41.667Z",
+        "accessToken": "ya29.a0ATkoCc7KfoGdjD2LLVHICx5LXH-iWKOY2jZveoHUnR4J-WQiyb4-KURJUsHsBSIOsQPny1mHhh88-g8rI7HQh8X1JQDIq6_hdQRgxPCpXX72fXeh9iLPa_nJoCkB8q1LqcM_9HD-7mLl5IbBgB_JE1ETgL_LMz8dmszJSWbLWcyOQXtmzkeCTahAhXDsKhoImKLY2jAaCgYKAaoSARESFQHGX2MiqZ0cZwL8inZBMOf4SxjzHA0206",
+        "refreshToken": "1//0gArNnzcw1YpeCgYIARAAGBASNwF-L9IrQiyXG1u_YpXh2LAwX0anZxn3zMmO6GqcI7Z3IbRFzyaJ1kIMLoWwIIAT3PQXOMuIeFc",
+        "tokenExpiry": 1773827731165,
         "email": "joeljollyhere@gmail.com",
         "clientId": "492756371702-6o4sfs7hsksds0aqgf3vgr14jm6voftl.apps.googleusercontent.com",
         "clientSecret": "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"
       },
-      "connectedAt": "2026-03-18T04:52:42.792Z"
+      "connectedAt": "2026-03-18T08:55:32.224Z"
     },
     "github": {
       "enabled": true,

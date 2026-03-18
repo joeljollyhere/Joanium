@@ -1,18 +1,18 @@
 // ─────────────────────────────────────────────
 //  openworld — Packages/Main/IPC/GmailIPC.js
-//  Handlers for Gmail OAuth + read/search/send operations.
 // ─────────────────────────────────────────────
 
-import { ipcMain } from 'electron';
-import * as GmailAPI                          from '../../Automation/Gmail.js';
-import { startGmailOAuthFlow }                from '../../Automation/Gmail.js';
-import { invalidate as invalidateSysPrompt }  from '../Services/SystemPromptService.js';
+import { ipcMain }                                from 'electron';
+import * as GmailAPI                              from '../../Automation/Gmail.js';
+import { startGmailOAuthFlow, setConnectorEngine } from '../../Automation/Gmail.js';
+import { invalidate as invalidateSysPrompt }      from '../Services/SystemPromptService.js';
 
-/**
- * @param {ConnectorEngine} connectorEngine
- */
 export function register(connectorEngine) {
-  // ── One-click Google OAuth flow ──────────────────────────────────────
+  // Give Gmail.js a reference to connectorEngine so it can
+  // persist refreshed tokens automatically
+  setConnectorEngine(connectorEngine);
+
+  // ── OAuth ─────────────────────────────────────────────────────────────
   ipcMain.handle('gmail-oauth-start', async (_e, clientId, clientSecret) => {
     try {
       if (!clientId?.trim() || !clientSecret?.trim())
@@ -25,7 +25,7 @@ export function register(connectorEngine) {
     } catch (err) { return { ok: false, error: err.message }; }
   });
 
-  // ── Read / browse ─────────────────────────────────────────────────────
+  // ── Read ──────────────────────────────────────────────────────────────
   ipcMain.handle('gmail-get-brief', async (_e, maxResults = 15) => {
     try {
       const creds = connectorEngine.getCredentials('gmail');
