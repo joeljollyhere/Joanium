@@ -1,21 +1,7 @@
-// ─────────────────────────────────────────────
-//  openworld — Public/Assets/Scripts/Shared/AboutModal.js
-//
-//  Self-contained About modal. Injects its own HTML,
-//  wires all events, and exports open / close.
-//
-//  Usage (any page):
-//    import { initAboutModal } from '../Shared/AboutModal.js';
-//    const about = initAboutModal();
-//    // then: about.open() / about.close()
-// ─────────────────────────────────────────────
-
 const SPONSOR_URL = 'https://github.com/sponsors/withinjoel';
 const AUTHOR_URL  = 'https://joeljolly.vercel.app';
 
-/* ══════════════════════════════════════════
-   HTML TEMPLATE
-══════════════════════════════════════════ */
+// HTML TEMPLATE
 function buildHTML() {
   return /* html */`
     <div id="about-modal-backdrop">
@@ -69,9 +55,7 @@ function buildHTML() {
   `;
 }
 
-/* ══════════════════════════════════════════
-   HELPERS
-══════════════════════════════════════════ */
+// HELPERS
 function openExternal(url) {
   const a = Object.assign(document.createElement('a'), {
     href: url, target: '_blank', rel: 'noopener noreferrer',
@@ -79,26 +63,24 @@ function openExternal(url) {
   a.click();
 }
 
-/* ══════════════════════════════════════════
-   MAIN EXPORT
-══════════════════════════════════════════ */
+// MAIN EXPORT
 export function initAboutModal() {
 
-  /* ── 1. Inject HTML (only once) ── */
+  // 1. Inject HTML (only once)
   if (!document.getElementById('about-modal-backdrop')) {
     const wrap = document.createElement('div');
     wrap.innerHTML = buildHTML();
     document.body.appendChild(wrap.firstElementChild);
   }
 
-  /* ── 2. Element refs ── */
+  // 2. Element refs
   const backdrop   = document.getElementById('about-modal-backdrop');
   const closeBtn   = document.getElementById('about-modal-close');
   const versionEl  = document.getElementById('about-version');
   const sponsorBtn = document.getElementById('about-sponsor-btn');
   const authorLink = document.getElementById('about-author-link');
 
-  /* ── 3. Hydrate dynamic values ── */
+  // 3. Hydrate dynamic values
   // Try Electron API for version; fall back to DOM meta or hardcoded
   (async () => {
     try {
@@ -110,7 +92,7 @@ export function initAboutModal() {
   if (sponsorBtn) sponsorBtn.href = SPONSOR_URL;
   if (authorLink) authorLink.href = AUTHOR_URL;
 
-  /* ── 4. Wire events ── */
+  // 4. Wire events
   sponsorBtn?.addEventListener('click', e => { e.preventDefault(); openExternal(SPONSOR_URL); });
   authorLink?.addEventListener('click', e => { e.preventDefault(); openExternal(AUTHOR_URL); });
 
@@ -120,7 +102,7 @@ export function initAboutModal() {
     if (e.key === 'Escape' && backdrop?.classList.contains('open')) close();
   });
 
-  /* ── 5. Public API ── */
+  // 5. Public API
   function open() {
     backdrop?.classList.add('open');
     document.body.classList.add('modal-open');

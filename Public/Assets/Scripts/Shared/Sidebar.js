@@ -1,37 +1,4 @@
-// ─────────────────────────────────────────────
-//  openworld — Public/Assets/Scripts/Shared/Sidebar.js
-//
-//  Renders the shared sidebar + theme panel + avatar panel
-//  into whatever page imports it.
-//
-//  Usage (in Main.js, Automations.js, or any future page):
-//
-//    import { initSidebar } from '../Shared/Sidebar.js';
-//
-//    initSidebar({
-//      activePage: 'chat',          // 'chat' | 'library' | 'automations'
-//      onNewChat:   () => { ... },  // called when the + button is clicked
-//      onLibrary:   () => { ... },  // called when the library button is clicked
-//      onAutomations: () => { ... },// called when automations button is clicked
-//      onSettings:  () => { ... },  // called when avatar-panel "Settings" is clicked
-//    });
-//
-//  The function mounts HTML into #sidebar, #theme-panel, and #avatar-panel
-//  (all of which must already exist in the page's DOM — see the stub below).
-//  It also wires every interactive element so the caller never has to.
-//
-//  Minimal stub to add to any HTML page
-//  (paste inside #body-wrap, before your <main>):
-//
-//    <!-- populated by Sidebar.js -->
-//    <aside id="sidebar"></aside>
-//    <div  id="theme-panel"></div>
-//    <div  id="avatar-panel"></div>
-// ─────────────────────────────────────────────
-
-/* ══════════════════════════════════════════
-   ICONS  (reusable SVG strings)
-══════════════════════════════════════════ */
+// ICONS  (reusable SVG strings)
 const ICON = {
   logo: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
            <path d="M12 2L8 6H4v4L2 12l2 2v4h4l4 4 4-4h4v-4l2-2-2-2V6h-4L12 2z" stroke-width="1.5"/>
@@ -61,9 +28,7 @@ const ICON = {
                  </svg>`,
 };
 
-/* ══════════════════════════════════════════
-   THEME DATA
-══════════════════════════════════════════ */
+// THEME DATA
 const THEMES = [
   { id: 'dark',      label: 'Dark',      swatchClass: 'swatch-dark'      },
   { id: 'light',     label: 'Light',     swatchClass: 'swatch-light'     },
@@ -72,9 +37,7 @@ const THEMES = [
   { id: 'pinky',     label: 'Pinky',     swatchClass: 'swatch-pinky'     },
 ];
 
-/* ══════════════════════════════════════════
-   HELPERS
-══════════════════════════════════════════ */
+// HELPERS
 function getInitials(name) {
   const parts = String(name ?? '').trim().split(/\s+/).filter(Boolean);
   if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
@@ -102,9 +65,7 @@ function applyTheme(theme, animate = true) {
   });
 }
 
-/* ══════════════════════════════════════════
-   HTML BUILDERS
-══════════════════════════════════════════ */
+// HTML BUILDERS
 function buildSidebarHTML(activePage) {
   const btn = (view, icon, tip) => {
     const isActive = view === activePage ? ' active' : '';
@@ -173,9 +134,7 @@ function buildAvatarPanelHTML() {
   `;
 }
 
-/* ══════════════════════════════════════════
-   MAIN EXPORT
-══════════════════════════════════════════ */
+// MAIN EXPORT
 
 /**
  * Mount and wire the shared sidebar.
@@ -197,7 +156,7 @@ export function initSidebar({
   onAbout       = () => {},
 } = {}) {
 
-  /* ── 1. Inject keyframe once ── */
+  // Inject keyframe once
   if (!document.getElementById('ow-sidebar-style')) {
     const style = document.createElement('style');
     style.id = 'ow-sidebar-style';
@@ -205,7 +164,7 @@ export function initSidebar({
     document.head.appendChild(style);
   }
 
-  /* ── 2. Mount HTML ── */
+  // Mount HTML
   const sidebarEl     = document.getElementById('sidebar');
   const themePanelEl  = document.getElementById('theme-panel');
   const avatarPanelEl = document.getElementById('avatar-panel');
@@ -218,10 +177,10 @@ export function initSidebar({
   themePanelEl.innerHTML  = buildThemePanelHTML();
   avatarPanelEl.innerHTML = buildAvatarPanelHTML();
 
-  /* ── 3. Apply saved theme (no flash on load) ── */
+  // Apply saved theme (no flash on load)
   applyTheme(localStorage.getItem('ow-theme') || 'dark', false);
 
-  /* ── 4. Wire navigation buttons ── */
+  // Wire navigation buttons
   sidebarEl.querySelectorAll('.sidebar-btn[data-view]').forEach(btn => {
     btn.addEventListener('click', () => {
       const view = btn.dataset.view;
@@ -231,7 +190,7 @@ export function initSidebar({
     });
   });
 
-  /* ── 5. Theme panel ── */
+  // Theme panel
   const themeToggleBtn = document.getElementById('theme-toggle-btn');
 
   themeToggleBtn?.addEventListener('click', e => {
@@ -247,7 +206,7 @@ export function initSidebar({
     });
   });
 
-  /* ── 6. Avatar panel ── */
+  // Avatar panel
   const avatarBtn = document.getElementById('sidebar-avatar-btn');
 
   avatarBtn?.addEventListener('click', e => {
@@ -268,7 +227,7 @@ export function initSidebar({
     onAbout();
   });
 
-  /* ── 7. Close panels on outside click ── */
+  // Close panels on outside click
   document.addEventListener('click', e => {
     if (!avatarPanelEl.contains(e.target) && e.target !== avatarBtn)
       avatarPanelEl.classList.remove('open');
@@ -276,7 +235,7 @@ export function initSidebar({
       themePanelEl.classList.remove('open');
   });
 
-  /* ── 8. Keyboard shortcut: Escape closes panels ── */
+  // Keyboard shortcut: Escape closes panels
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape') {
       avatarPanelEl.classList.remove('open');
@@ -284,21 +243,21 @@ export function initSidebar({
     }
   });
 
-  /* ── 9. Populate user name / initials from Electron if available ── */
+  // Populate user name / initials from Electron if available
   (async () => {
     try {
       const user = await window.electronAPI?.getUser?.();
       const name = String(user?.name ?? '').trim() || 'User';
       setUser(name);
     } catch {
-      /* not in Electron — leave defaults */
+      // not in Electron — leave defaults
     }
   })();
 
-  /* ── Return helpers so callers can update the sidebar ── */
+  // Return helpers so callers can update the sidebar
   return { setUser, setActivePage };
 
-  /* ── Helpers ── */
+  // Helpers
   function setUser(name) {
     const displayName = String(name ?? '').trim() || 'User';
     const initials    = getInitials(displayName);

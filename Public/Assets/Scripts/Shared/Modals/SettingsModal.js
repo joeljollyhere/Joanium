@@ -1,24 +1,7 @@
-// ─────────────────────────────────────────────
-//  openworld — Public/Assets/Scripts/Shared/SettingsModal.js
-//
-//  Self-contained Settings modal. Injects its own HTML,
-//  handles all three tabs (User / Providers / Connectors),
-//  and exports open / close / loadUser.
-//
-//  Usage (any page):
-//    import { initSettingsModal } from '../Shared/SettingsModal.js';
-//
-//    const settings = initSettingsModal();
-//    // then: settings.open() / settings.open('providers') / settings.close()
-//    // loadUser() returns { name } and dispatches 'ow:user-profile-updated'
-// ─────────────────────────────────────────────
-
 import { state }              from '../State.js';
 import { loadConnectorsPanel } from '../../Features/Connectors/Connectors.js';
 
-/* ══════════════════════════════════════════
-   PROVIDER META
-══════════════════════════════════════════ */
+// PROVIDER META
 const PROVIDER_META = {
   anthropic:  { color: '#cc785c', placeholder: 'sk-ant-api03-…', iconPath: 'Assets/Icons/Claude.png',     fallback: 'C'   },
   openai:     { color: '#10a37f', placeholder: 'sk-proj-…',      iconPath: 'Assets/Icons/ChatGPT.png',    fallback: 'GPT' },
@@ -26,9 +9,7 @@ const PROVIDER_META = {
   openrouter: { color: '#9b59b6', placeholder: 'sk-or-v1-…',     iconPath: 'Assets/Icons/OpenRouter.png', fallback: 'OR'  },
 };
 
-/* ══════════════════════════════════════════
-   HELPERS
-══════════════════════════════════════════ */
+// HELPERS
 function escapeHtml(v) {
   return String(v ?? '')
     .replace(/&/g, '&amp;').replace(/</g, '&lt;')
@@ -41,9 +22,7 @@ function getInitials(name) {
   return (parts[0] ?? 'OW').slice(0, 2).toUpperCase();
 }
 
-/* ══════════════════════════════════════════
-   HTML TEMPLATE
-══════════════════════════════════════════ */
+// HTML TEMPLATE
 function buildHTML() {
   return /* html */`
     <div id="settings-modal-backdrop">
@@ -145,26 +124,24 @@ function buildHTML() {
   `;
 }
 
-/* ══════════════════════════════════════════
-   MAIN EXPORT
-══════════════════════════════════════════ */
+// MAIN EXPORT
 export function initSettingsModal() {
 
-  /* ── 1. Inject HTML (only once) ── */
+  // 1. Inject HTML (only once)
   if (!document.getElementById('settings-modal-backdrop')) {
     const wrap = document.createElement('div');
     wrap.innerHTML = buildHTML();
     document.body.appendChild(wrap.firstElementChild);
   }
 
-  /* ── 2. Module state ── */
+  // 2. Module state
   const settingsState = {
     activeTab:           'user',
     providerCatalog:     [],
     pendingProviderKeys: {},
   };
 
-  /* ── 3. Element accessors (resolved after injection) ── */
+  // 3. Element accessors (resolved after injection)
   const $  = (id) => document.getElementById(id);
   const $$ = (sel) => Array.from(document.querySelectorAll(sel));
 
@@ -180,7 +157,7 @@ export function initSettingsModal() {
   const tabs   = () => $$('[data-settings-tab]');
   const panels = () => $$('[data-settings-panel]');
 
-  /* ── 4. Feedback ── */
+  // 4. Feedback
   function setFeedback(msg = '', tone = 'info') {
     const el = saveFeedback();
     if (!el) return;
@@ -198,7 +175,7 @@ export function initSettingsModal() {
     btn.disabled    = true;
   }
 
-  /* ── 5. Tabs ── */
+  // 5. Tabs
   function switchTab(tabId) {
     settingsState.activeTab = tabId;
     tabs().forEach(btn => {
@@ -221,7 +198,7 @@ export function initSettingsModal() {
     if (settingsState.activeTab === 'user')      nameInput()?.focus();
   }
 
-  /* ── 6. Providers tab ── */
+  // 6. Providers tab
   function renderProviders() {
     const list = providersList();
     if (!list) return;
@@ -288,7 +265,7 @@ export function initSettingsModal() {
     updateSaveBtn();
   }
 
-  /* ── 7. Apply user profile to DOM + state ── */
+  // 7. Apply user profile to DOM + state
   function applyUserProfile(user = {}) {
     const rawName     = String(user?.name ?? '').trim();
     const displayName = rawName || 'User';
@@ -307,7 +284,7 @@ export function initSettingsModal() {
     }));
   }
 
-  /* ── 8. Load user (public — call from outside to hydrate sidebar etc.) ── */
+  // 8. Load user (public — call from outside to hydrate sidebar etc.)
   async function loadUser() {
     try {
       const user = await window.electronAPI?.getUser?.();
@@ -320,7 +297,7 @@ export function initSettingsModal() {
     }
   }
 
-  /* ── 9. Hydrate modal fields ── */
+  // 9. Hydrate modal fields
   async function hydrateModal() {
     setFeedback();
     const [user, customInstructions, memory, providers] = await Promise.all([
@@ -342,7 +319,7 @@ export function initSettingsModal() {
     updateSaveBtn();
   }
 
-  /* ── 10. Save — user tab ── */
+  // 10. Save — user tab
   async function saveUserTab() {
     const nextName  = nameInput()?.value.trim() ?? '';
     const nextMem   = memoryInput()?.value ?? '';
@@ -375,7 +352,7 @@ export function initSettingsModal() {
     } finally { updateSaveBtn(); }
   }
 
-  /* ── 11. Save — providers tab ── */
+  // 11. Save — providers tab
   async function saveProvidersTab() {
     const changes = Object.fromEntries(
       Object.entries(settingsState.pendingProviderKeys)
@@ -412,7 +389,7 @@ export function initSettingsModal() {
     } finally { updateSaveBtn(); }
   }
 
-  /* ── 12. Wire all events ── */
+  // 12. Wire all events
   function wireEvents() {
     // Tabs
     tabs().forEach(btn => {
@@ -449,7 +426,7 @@ export function initSettingsModal() {
 
   wireEvents();
 
-  /* ── 13. Sync body class helper ── */
+  // 13. Sync body class helper
   function syncBodyClass() {
     const hasOpen = Boolean(
       document.querySelector(
@@ -459,7 +436,7 @@ export function initSettingsModal() {
     document.body.classList.toggle('modal-open', hasOpen);
   }
 
-  /* ── 14. Public API ── */
+  // 14. Public API
   async function open(tabId = settingsState.activeTab) {
     switchTab(tabId);
     backdrop()?.classList.add('open');

@@ -1,9 +1,3 @@
-// ─────────────────────────────────────────────
-//  openworld — Public/Assets/Scripts/Shared/Markdown.js
-//  Lightweight markdown → HTML renderer.
-//  No external dependencies — pure string transforms.
-// ─────────────────────────────────────────────
-
 import { escapeHtml } from './Utils.js';
 
 /**

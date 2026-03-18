@@ -1,8 +1,3 @@
-// ─────────────────────────────────────────────
-//  openworld — Public/Assets/Scripts/Shared/Config.js
-//  App-wide renderer constants.
-// ─────────────────────────────────────────────
-
 export const APP_NAME = 'openworld';
 
 export default {

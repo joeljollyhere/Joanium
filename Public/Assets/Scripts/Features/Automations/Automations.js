@@ -1,16 +1,9 @@
-// ─────────────────────────────────────────────
-//  openworld — Public/Assets/Scripts/Features/Automations/Automations.js
-//  Renderer-side logic for the Automations page.
-// ─────────────────────────────────────────────
-
 import { initSidebar }       from '../../Shared/Sidebar.js';
 import { initAboutModal }    from '../../Shared/Modals/AboutModal.js';
 import { initLibraryModal }  from '../../Shared/Modals/LibraryModal.js';
 import { initSettingsModal } from '../../Shared/Modals/SettingsModal.js';
 
-/* ══════════════════════════════════════════
-   SHARED MODALS
-══════════════════════════════════════════ */
+// Shared modals
 const about    = initAboutModal();
 const settings = initSettingsModal();
 
@@ -22,9 +15,7 @@ const library = initLibraryModal({
   },
 });
 
-/* ══════════════════════════════════════════
-   SHARED SIDEBAR
-══════════════════════════════════════════ */
+// Shared sidebar
 const sidebar = initSidebar({
   activePage:    'automations',
   onNewChat:     () => window.electronAPI?.launchMain(),
@@ -42,16 +33,12 @@ window.addEventListener('ow:user-profile-updated', e => {
 // Hydrate sidebar avatar on load
 settings.loadUser().then(user => sidebar.setUser(user?.name ?? ''));
 
-/* ══════════════════════════════════════════
-   WINDOW CONTROLS
-══════════════════════════════════════════ */
+// Window controls
 document.getElementById('btn-minimize')?.addEventListener('click', () => window.electronAPI?.minimize());
 document.getElementById('btn-maximize')?.addEventListener('click', () => window.electronAPI?.maximize());
 document.getElementById('btn-close')?.addEventListener('click',    () => window.electronAPI?.close());
 
-/* ══════════════════════════════════════════
-   HELPERS
-══════════════════════════════════════════ */
+// Helpers
 function escapeHtml(v) {
   return String(v ?? '')
     .replace(/&/g, '&amp;').replace(/</g, '&lt;')
@@ -111,9 +98,7 @@ function formatLastRun(lastRun) {
   return `Last run: ${d.toLocaleDateString()}`;
 }
 
-/* ══════════════════════════════════════════
-   ACTION META
-══════════════════════════════════════════ */
+// Action meta
 const ACTION_META = {
   open_site:           { label: '🌐 Open website',             fields: ['url'],                  group: 'System' },
   open_folder:         { label: '📁 Open folder',               fields: ['path'],  hasSub: true,  group: 'System' },
@@ -307,9 +292,7 @@ function collectActionFromRow(row) {
   return action;
 }
 
-/* ══════════════════════════════════════════
-   AUTOMATIONS STATE + RENDER
-══════════════════════════════════════════ */
+// Automations state + render
 let automations = [];
 
 const grid      = document.getElementById('auto-grid');
@@ -399,9 +382,7 @@ async function loadAutomations() {
   renderAutomations();
 }
 
-/* ══════════════════════════════════════════
-   CONFIRM DELETE
-══════════════════════════════════════════ */
+// Confirm delete
 const confirmOverlay        = document.getElementById('confirm-overlay');
 const confirmCancelBtn      = document.getElementById('confirm-cancel');
 const confirmDeleteBtn      = document.getElementById('confirm-delete');
@@ -428,9 +409,7 @@ confirmDeleteBtn?.addEventListener('click', async () => {
 });
 confirmOverlay?.addEventListener('click', e => { if (e.target === confirmOverlay) closeConfirm(); });
 
-/* ══════════════════════════════════════════
-   MODAL — ADD / EDIT
-══════════════════════════════════════════ */
+// Modal — add / edit
 const modalBackdrop   = document.getElementById('automation-modal-backdrop');
 const modalTitle      = document.getElementById('auto-modal-title-text');
 const nameInput       = document.getElementById('auto-name');

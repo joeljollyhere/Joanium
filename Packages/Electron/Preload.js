@@ -1,19 +1,14 @@
-// ─────────────────────────────────────────────
-//  openworld — Packages/Electron/Preload.js
-//  contextBridge between main process ↔ renderer
-// ─────────────────────────────────────────────
-
 import { contextBridge, ipcRenderer } from 'electron';
 
 contextBridge.exposeInMainWorld('electronAPI', {
 
-  /* ── Setup ── */
+  // Setup
   saveUser:               (userData) => ipcRenderer.invoke('save-user', userData),
   saveAPIKeys:            (keysMap)  => ipcRenderer.invoke('save-api-keys', keysMap),
   saveUserProfile:        (profile)  => ipcRenderer.invoke('save-user-profile', profile),
   launchMain:             ()         => ipcRenderer.invoke('launch-main'),
 
-  /* ── Runtime reads ── */
+  // Runtime reads
   getUser:                ()         => ipcRenderer.invoke('get-user'),
   getModels:              ()         => ipcRenderer.invoke('get-models'),
   getAPIKey:              (id)       => ipcRenderer.invoke('get-api-key', id),
@@ -22,36 +17,36 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getMemory:              ()         => ipcRenderer.invoke('get-memory'),
   saveMemory:             (content)  => ipcRenderer.invoke('save-memory', content),
 
-  /* ── System prompt (context-aware, cached) ── */
+  // System prompt (context-aware, cached)
   getSystemPrompt:        ()         => ipcRenderer.invoke('get-system-prompt'),
 
-  /* ── Chat storage ── */
+  // Chat storage
   saveChat:   (chatData) => ipcRenderer.invoke('save-chat', chatData),
   getChats:   ()         => ipcRenderer.invoke('get-chats'),
   loadChat:   (chatId)   => ipcRenderer.invoke('load-chat', chatId),
   deleteChat: (chatId)   => ipcRenderer.invoke('delete-chat', chatId),
 
-  /* ── Automations ── */
+  // Automations
   launchAutomations:  ()                   => ipcRenderer.invoke('launch-automations'),
   getAutomations:     ()                   => ipcRenderer.invoke('get-automations'),
   saveAutomation:     (automation)         => ipcRenderer.invoke('save-automation', automation),
   deleteAutomation:   (id)                 => ipcRenderer.invoke('delete-automation', id),
   toggleAutomation:   (id, enabled)        => ipcRenderer.invoke('toggle-automation', id, enabled),
 
-  /* ── Connectors (credential management) ── */
+  // Connectors (credential management)
   getConnectors:     ()                       => ipcRenderer.invoke('get-connectors'),
   saveConnector:     (name, credentials)      => ipcRenderer.invoke('save-connector', name, credentials),
   removeConnector:   (name)                   => ipcRenderer.invoke('remove-connector', name),
   validateConnector: (name)                   => ipcRenderer.invoke('validate-connector', name),
 
-  /* ── Gmail ── */
+  // Gmail
   gmailOAuthStart:  (clientId, clientSecret)  => ipcRenderer.invoke('gmail-oauth-start', clientId, clientSecret),
   gmailGetBrief:    (maxResults)              => ipcRenderer.invoke('gmail-get-brief', maxResults),
   gmailGetUnread:   (maxResults)              => ipcRenderer.invoke('gmail-get-unread', maxResults),
   gmailSend:        (to, subject, body)       => ipcRenderer.invoke('gmail-send', to, subject, body),
   gmailSearch:      (query, maxResults)       => ipcRenderer.invoke('gmail-search', query, maxResults),
 
-  /* ── GitHub ── */
+  // GitHub
   githubGetRepos:         ()                       => ipcRenderer.invoke('github-get-repos'),
   githubGetFile:          (owner, repo, filePath)  => ipcRenderer.invoke('github-get-file', owner, repo, filePath),
   githubGetTree:          (owner, repo, branch)    => ipcRenderer.invoke('github-get-tree', owner, repo, branch),
@@ -60,7 +55,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   githubGetNotifications: ()                       => ipcRenderer.invoke('github-get-notifications'),
   githubGetCommits:       (owner, repo)            => ipcRenderer.invoke('github-get-commits', owner, repo),
 
-  /* ── Frameless window controls ── */
+  // Window controls
   minimize: () => ipcRenderer.send('window-minimize'),
   maximize: () => ipcRenderer.send('window-maximize'),
   close:    () => ipcRenderer.send('window-close'),

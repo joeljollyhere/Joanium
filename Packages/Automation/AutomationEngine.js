@@ -16,18 +16,16 @@ import {writeFile} from './File.js';
 import {shouldRunNow} from './Scheduling.js';
 
 
-/* ══════════════════════════════════════════
-   ACTION DISPATCHER
-   connectorEngine is passed from AutomationEngine._execute()
-   so Gmail / GitHub actions can access live credentials.
-══════════════════════════════════════════ */
+// ACTION DISPATCHER
+// connectorEngine is passed from AutomationEngine._execute()
+// so Gmail / GitHub actions can access live credentials.
 
 export async function runAction(action, connectorEngine = null) {
   if (!action?.type) return;
 
   switch (action.type) {
 
-    /* ── Existing system actions ── */
+    // Existing system actions
 
     case 'open_site':
       return openSite(action.url);
@@ -53,7 +51,7 @@ export async function runAction(action, connectorEngine = null) {
     case 'write_file':
       return writeFile(action.filePath, action.content);
 
-    /* ── Gmail actions ── */
+    // Gmail actions
 
     case 'gmail_send_email': {
       const creds = connectorEngine?.getCredentials('gmail');
@@ -79,7 +77,7 @@ export async function runAction(action, connectorEngine = null) {
       return;
     }
 
-    /* ── GitHub actions ── */
+    // GitHub actions
 
     case 'github_open_repo': {
       const owner = action.owner?.trim();
@@ -131,9 +129,7 @@ export async function runAction(action, connectorEngine = null) {
   }
 }
 
-/* ══════════════════════════════════════════
-   AUTOMATION ENGINE CLASS
-══════════════════════════════════════════ */
+// AUTOMATION ENGINE CLASS
 
 export class AutomationEngine {
   /**
@@ -147,7 +143,7 @@ export class AutomationEngine {
     this._ticker         = null;
   }
 
-  /* ── Lifecycle ─────────────────────── */
+  // Lifecycle
 
   start() {
     this._load();
@@ -166,7 +162,7 @@ export class AutomationEngine {
     console.log('[AutomationEngine] Reloaded —', this.automations.length, 'automation(s)');
   }
 
-  /* ── CRUD ── */
+  // CRUD
 
   getAll() {
     this._load();
@@ -194,7 +190,7 @@ export class AutomationEngine {
     if (a) { a.enabled = Boolean(enabled); this._persist(); }
   }
 
-  /* ── Private helpers ─────────────────── */
+  // Private helpers
 
   _load() {
     try {

@@ -1,22 +1,4 @@
-// ─────────────────────────────────────────────
-//  openworld — Public/Assets/Scripts/Shared/LibraryModal.js
-//
-//  Self-contained Library (chat history) modal.
-//  Injects its own HTML, wires all events, handles
-//  search + delete, and exports open / close / isOpen.
-//
-//  Usage (any page):
-//    import { initLibraryModal } from '../Shared/LibraryModal.js';
-//
-//    const library = initLibraryModal({
-//      onChatSelect: (chatId) => loadChat(chatId),
-//    });
-//    // then: library.open() / library.close() / library.isOpen()
-// ─────────────────────────────────────────────
-
-/* ══════════════════════════════════════════
-   HTML TEMPLATE
-══════════════════════════════════════════ */
+// HTML TEMPLATE
 function buildHTML() {
   return /* html */`
     <div id="library-modal-backdrop">
@@ -59,9 +41,7 @@ function buildHTML() {
   `;
 }
 
-/* ══════════════════════════════════════════
-   HELPERS
-══════════════════════════════════════════ */
+// HELPERS
 function escapeHtml(v) {
   return String(v ?? '')
     .replace(/&/g, '&amp;').replace(/</g, '&lt;')
@@ -78,25 +58,23 @@ function formatChatDate(date) {
   return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
 }
 
-/* ══════════════════════════════════════════
-   MAIN EXPORT
-══════════════════════════════════════════ */
+// MAIN EXPORT
 export function initLibraryModal({ onChatSelect = () => {} } = {}) {
 
-  /* ── 1. Inject HTML (only once) ── */
+  // 1. Inject HTML (only once)
   if (!document.getElementById('library-modal-backdrop')) {
     const wrap = document.createElement('div');
     wrap.innerHTML = buildHTML();
     document.body.appendChild(wrap.firstElementChild);
   }
 
-  /* ── 2. Element refs (resolved after injection) ── */
+  // 2. Element refs (resolved after injection)
   const backdrop    = () => document.getElementById('library-modal-backdrop');
   const closeBtn    = () => document.getElementById('library-close');
   const searchInput = () => document.getElementById('library-search');
   const chatListEl  = () => document.getElementById('chat-list');
 
-  /* ── 3. Render ── */
+  // 3. Render
   function renderChatList(chats, filter = '') {
     const list  = chatListEl();
     if (!list) return;
@@ -159,7 +137,7 @@ export function initLibraryModal({ onChatSelect = () => {} } = {}) {
     }
   }
 
-  /* ── 4. Wire events ── */
+  // 4. Wire events
   function wireEvents() {
     closeBtn()?.addEventListener('click', close);
 
@@ -187,7 +165,7 @@ export function initLibraryModal({ onChatSelect = () => {} } = {}) {
 
   wireEvents();
 
-  /* ── 5. Sync body class helper ── */
+  // 5. Sync body class helper
   function syncBodyClass() {
     const hasOpen = Boolean(
       document.querySelector(
@@ -197,7 +175,7 @@ export function initLibraryModal({ onChatSelect = () => {} } = {}) {
     document.body.classList.toggle('modal-open', hasOpen);
   }
 
-  /* ── 6. Public API ── */
+  // 6. Public API
   async function open() {
     document.querySelector('[data-view="library"]')?.classList.add('active');
     backdrop()?.classList.add('open');

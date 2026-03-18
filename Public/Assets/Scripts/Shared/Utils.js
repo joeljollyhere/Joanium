@@ -1,9 +1,3 @@
-// ─────────────────────────────────────────────
-//  openworld — Public/Assets/Scripts/Shared/Utils.js
-//  Pure helper functions — no DOM, no state, no side effects.
-//  Import freely from anywhere in the renderer.
-// ─────────────────────────────────────────────
-
 /** Escape a string for safe insertion into HTML. */
 export function escapeHtml(value) {
   return String(value ?? '')

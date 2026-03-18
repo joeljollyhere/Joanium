@@ -1,8 +1,3 @@
-// ─────────────────────────────────────────────
-//  openworld — Public/Assets/Scripts/Pages/Main.js
-//  Page orchestrator for the main chat interface.
-// ─────────────────────────────────────────────
-
 import { APP_NAME } from '../Shared/Config.js';
 import { state } from '../Shared/State.js';
 import {
@@ -10,13 +5,13 @@ import {
   modelDropdown, modelSelectorBtn,
 } from '../Shared/DOM.js';
 
-// ── Shared UI modules ──────────────────────────────────────────────────
+// Shared UI modules
 import { initSidebar } from '../Shared/Sidebar.js';
 import { initAboutModal } from '../Shared/Modals/AboutModal.js';
 import { initLibraryModal } from '../Shared/Modals/LibraryModal.js';
 import { initSettingsModal } from '../Shared/Modals/SettingsModal.js';
 
-// ── Features ───────────────────────────────────────────────────────────
+// Features
 import { init as initModelSelector, loadProviders, updateModelLabel, buildModelDropdown, notifyModelSelectionChanged } from '../Features/ModelSelector/ModelSelector.js';
 import { init as initComposer, syncCapabilities } from '../Features/Composer/Composer.js';
 import {
@@ -24,9 +19,7 @@ import {
   setSendBtnUpdater,
 } from '../Features/Chat/Chat.js';
 
-/* ══════════════════════════════════════════
-   MODAL INSTANCES
-══════════════════════════════════════════ */
+// Modal instances
 const about = initAboutModal();
 const settings = initSettingsModal();
 
@@ -38,9 +31,7 @@ const library = initLibraryModal({
   }),
 });
 
-/* ══════════════════════════════════════════
-   SIDEBAR
-══════════════════════════════════════════ */
+// Sidebar
 const sidebar = initSidebar({
   activePage: 'chat',
   onNewChat: () => startNewChat(() => { library.close(); settings.close(); }),
@@ -55,9 +46,7 @@ window.addEventListener('ow:user-profile-updated', e => {
   sidebar.setUser(e.detail?.name ?? state.userName);
 });
 
-/* ══════════════════════════════════════════
-   SEND BUTTON STATE
-══════════════════════════════════════════ */
+// Send button state
 function updateSendBtn() {
   const hasText = textarea.value.trim().length > 0;
   const hasAttachments = state.composerAttachments.length > 0;
@@ -69,18 +58,14 @@ function updateSendBtn() {
 }
 setSendBtnUpdater(updateSendBtn);
 
-/* ══════════════════════════════════════════
-   SYSTEM PROMPT
-══════════════════════════════════════════ */
+// System prompt
 async function refreshSystemPrompt() {
   try { state.systemPrompt = await window.electronAPI?.getSystemPrompt?.() ?? ''; }
   catch { state.systemPrompt = ''; }
 }
 window.addEventListener('ow:settings-saved', refreshSystemPrompt);
 
-/* ══════════════════════════════════════════
-   CHIPS
-══════════════════════════════════════════ */
+// Chips
 chips.forEach(chip => {
   chip.addEventListener('click', () => {
     textarea.value = chip.getAttribute('data-prompt');
@@ -93,17 +78,13 @@ chips.forEach(chip => {
   });
 });
 
-/* ══════════════════════════════════════════
-   CLOSE MODEL DROPDOWN ON OUTSIDE CLICK
-══════════════════════════════════════════ */
+// Close model dropdown on outside click
 document.addEventListener('click', e => {
   if (modelDropdown && !modelDropdown.contains(e.target) && !modelSelectorBtn?.contains(e.target))
     modelDropdown.classList.remove('open');
 });
 
-/* ══════════════════════════════════════════
-   INIT
-══════════════════════════════════════════ */
+// Init
 document.title = APP_NAME;
 
 initModelSelector();
