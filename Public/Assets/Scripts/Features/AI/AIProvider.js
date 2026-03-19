@@ -1,7 +1,7 @@
 // ─────────────────────────────────────────────
 //  openworld — Public/Assets/Scripts/Features/AI/AIProvider.js
 //  Provider adapters with NATIVE function/tool calling support.
-//  Each provider has its own tool format — we normalize here.
+//  Supports streaming (SSE) for all providers, with retry helper.
 //  Returns token usage alongside responses for analytics.
 // ─────────────────────────────────────────────
 
@@ -114,19 +114,340 @@ function toGoogleTools(tools) {
 }
 
 /* ══════════════════════════════════════════
-   MAIN FETCH — TEXT ONLY (existing behaviour)
+   RETRY HELPERS
+   withRetry — exported, used by Chat.js agentLoop.
+   Respects err.noRetry flag to stop retrying when
+   a streaming response has already started delivering
+   tokens (re-trying would cause duplicate content).
 ══════════════════════════════════════════ */
-export async function fetchFromProvider(provider, modelId, messages, sysPrompt = '') {
-  const result = await fetchWithTools(provider, modelId, messages, sysPrompt, []);
-  if (result.type === 'text') return result.text;
-  return '(unexpected tool call in text-only mode)';
+
+function isTransientError(err) {
+  const msg = String(err?.message ?? '').toLowerCase();
+  return (
+    msg.includes('429')        ||
+    msg.includes('500')        ||
+    msg.includes('502')        ||
+    msg.includes('503')        ||
+    msg.includes('504')        ||
+    msg.includes('overloaded') ||
+    msg.includes('rate limit') ||
+    msg.includes('etimedout')  ||
+    msg.includes('econnreset') ||
+    msg.includes('network')
+  );
+}
+
+/**
+ * Retry `fn` up to `maxAttempts` times on transient errors.
+ * If err.noRetry is set, re-throws immediately (used to abort
+ * retry once streaming has already started).
+ *
+ * @param {() => Promise<any>} fn
+ * @param {number} maxAttempts
+ * @param {number} baseDelayMs   Base delay; doubles each retry + random jitter.
+ */
+export async function withRetry(fn, maxAttempts = 3, baseDelayMs = 600) {
+  let lastErr;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastErr = err;
+      // Respect explicit no-retry flag (set when streaming has started)
+      if (err.noRetry) throw err;
+      // Only retry transient errors, and not on the last attempt
+      if (!isTransientError(err) || attempt >= maxAttempts - 1) throw err;
+      const delay = baseDelayMs * Math.pow(2, attempt) + Math.random() * 300;
+      console.warn(
+        `[AIProvider] Retry ${attempt + 1}/${maxAttempts - 1} in ${Math.round(delay)}ms — ${err.message}`,
+      );
+      await new Promise(r => setTimeout(r, delay));
+    }
+  }
+  throw lastErr;
 }
 
 /* ══════════════════════════════════════════
-   MAIN FETCH — WITH NATIVE TOOL CALLING
+   SSE PARSER
+   Async generator that yields raw `data:` payloads
+   from a Server-Sent Events response body.
+══════════════════════════════════════════ */
+
+async function* parseSSE(response) {
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() ?? '';
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed.startsWith('data: ')) continue;
+        const payload = trimmed.slice(6);
+        if (payload === '[DONE]') return;
+        if (payload) yield payload;
+      }
+    }
+    // Flush remaining buffer
+    if (buffer.startsWith('data: ')) {
+      const payload = buffer.slice(6).trim();
+      if (payload && payload !== '[DONE]') yield payload;
+    }
+  } finally {
+    try { reader.releaseLock(); } catch { /* already released */ }
+  }
+}
+
+/* ══════════════════════════════════════════
+   STREAMING FETCH — WITH NATIVE TOOL CALLING
+   onToken(chunk: string) is called for each streamed
+   text token. If the response is a tool call, onToken
+   is never called (the JSON accumulates internally).
+
    Returns:
      { type: 'text',      text, usage: {inputTokens, outputTokens} }
      { type: 'tool_call', name, params, callId, usage: {...} }
+══════════════════════════════════════════ */
+export async function fetchStreamingWithTools(
+  provider,
+  modelId,
+  messages,
+  sysPrompt = '',
+  tools = [],
+  onToken = null,
+) {
+  const { provider: providerId, endpoint, api, auth_header, auth_prefix = '' } = provider;
+  const history = messages.slice(-20).map(normalizeMessage);
+
+  /* ── Anthropic ── */
+  if (providerId === 'anthropic') {
+    const maxTokens = provider.models?.[modelId]?.max_output ?? 4096;
+    const body = {
+      model:      modelId,
+      max_tokens: maxTokens,
+      stream:     true,
+      messages:   history.map(m => ({ role: m.role, content: buildAnthropicContent(m) })),
+    };
+    if (sysPrompt) body.system = sysPrompt;
+    if (tools.length) body.tools = toAnthropicTools(tools);
+
+    const res = await fetch(endpoint, {
+      method:  'POST',
+      headers: {
+        'content-type':      'application/json',
+        'x-api-key':         api,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      const e = await res.json().catch(() => ({}));
+      throw new Error(e?.error?.message ?? `HTTP ${res.status}`);
+    }
+
+    let fullText     = '';
+    let toolName     = null;
+    let toolId       = null;
+    let toolInputJson = '';
+    let inputTokens  = 0;
+    let outputTokens = 0;
+
+    for await (const raw of parseSSE(res)) {
+      let ev;
+      try { ev = JSON.parse(raw); } catch { continue; }
+
+      switch (ev.type) {
+        case 'message_start':
+          inputTokens = ev.message?.usage?.input_tokens ?? 0;
+          break;
+
+        case 'content_block_start':
+          if (ev.content_block?.type === 'tool_use') {
+            toolName = ev.content_block.name;
+            toolId   = ev.content_block.id;
+            toolInputJson = '';
+          }
+          break;
+
+        case 'content_block_delta': {
+          const d = ev.delta;
+          if (d?.type === 'text_delta' && d.text) {
+            fullText += d.text;
+            onToken?.(d.text);
+          } else if (d?.type === 'input_json_delta') {
+            toolInputJson += d.partial_json ?? '';
+          }
+          break;
+        }
+
+        case 'message_delta':
+          outputTokens = ev.usage?.output_tokens ?? 0;
+          break;
+      }
+    }
+
+    const usage = { inputTokens, outputTokens };
+    if (toolName) {
+      let params = {};
+      try { params = JSON.parse(toolInputJson); } catch { /* malformed JSON */ }
+      return { type: 'tool_call', name: toolName, params, callId: toolId, usage };
+    }
+    return { type: 'text', text: fullText || '(empty response)', usage };
+  }
+
+  /* ── Google Gemini ── */
+  if (providerId === 'google') {
+    // Switch to the streaming endpoint and request SSE format
+    const streamUrl = endpoint
+      .replace('{model}', modelId)
+      .replace(':generateContent', ':streamGenerateContent') +
+      `?key=${api}&alt=sse`;
+
+    const body = {
+      contents: history.map(m => ({
+        role:  m.role === 'assistant' ? 'model' : 'user',
+        parts: buildGoogleParts(m),
+      })),
+    };
+    if (sysPrompt) body.systemInstruction = { parts: [{ text: sysPrompt }] };
+    if (tools.length) body.tools = toGoogleTools(tools);
+
+    const res = await fetch(streamUrl, {
+      method:  'POST',
+      headers: { 'content-type': 'application/json' },
+      body:    JSON.stringify(body),
+    });
+    if (!res.ok) {
+      const e = await res.json().catch(() => ({}));
+      throw new Error(e?.error?.message ?? `HTTP ${res.status}`);
+    }
+
+    let fullText    = '';
+    let fnCall      = null;
+    let inputTokens  = 0;
+    let outputTokens = 0;
+
+    for await (const raw of parseSSE(res)) {
+      let ev;
+      try { ev = JSON.parse(raw); } catch { continue; }
+
+      const part = ev.candidates?.[0]?.content?.parts?.[0];
+      if (part?.text) {
+        fullText += part.text;
+        onToken?.(part.text);
+      } else if (part?.functionCall && !fnCall) {
+        fnCall = part.functionCall;
+      }
+      if (ev.usageMetadata) {
+        inputTokens  = ev.usageMetadata.promptTokenCount     ?? inputTokens;
+        outputTokens = ev.usageMetadata.candidatesTokenCount ?? outputTokens;
+      }
+    }
+
+    const usage = { inputTokens, outputTokens };
+    if (fnCall) {
+      return {
+        type:   'tool_call',
+        name:   fnCall.name,
+        params: fnCall.args ?? {},
+        callId: null,
+        usage,
+      };
+    }
+    return { type: 'text', text: fullText || '(empty response)', usage };
+  }
+
+  /* ── OpenAI / OpenRouter / Mistral ── */
+  const openAIMessages = [
+    ...(sysPrompt ? [{ role: 'system', content: sysPrompt }] : []),
+    ...history.map(m => ({ role: m.role, content: buildOpenAIContent(m) })),
+  ];
+
+  const maxTokens = provider.models?.[modelId]?.max_output ?? 4096;
+  const body = {
+    model:      modelId,
+    max_tokens: maxTokens,
+    messages:   openAIMessages,
+    stream:     true,
+  };
+  // stream_options (usage in stream) is an OpenAI-native feature;
+  // other OpenAI-compatible APIs silently ignore unknown fields.
+  if (providerId === 'openai') {
+    body.stream_options = { include_usage: true };
+  }
+  if (tools.length) {
+    body.tools       = toOpenAITools(tools);
+    body.tool_choice = 'auto';
+  }
+
+  const res = await fetch(endpoint, {
+    method:  'POST',
+    headers: {
+      'content-type': 'application/json',
+      [auth_header]:  `${auth_prefix}${api}`,
+      ...(providerId === 'openrouter'
+        ? { 'HTTP-Referer': 'https://openworld.app', 'X-Title': 'openworld' }
+        : {}),
+    },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const e = await res.json().catch(() => ({}));
+    throw new Error(e?.error?.message ?? `HTTP ${res.status}`);
+  }
+
+  let fullText     = '';
+  let toolName     = null;
+  let toolId       = null;
+  let toolArgsJson = '';
+  let inputTokens  = 0;
+  let outputTokens = 0;
+
+  for await (const raw of parseSSE(res)) {
+    let ev;
+    try { ev = JSON.parse(raw); } catch { continue; }
+
+    // Usage appears in the final chunk (openai stream_options)
+    if (ev.usage) {
+      inputTokens  = ev.usage.prompt_tokens     ?? inputTokens;
+      outputTokens = ev.usage.completion_tokens ?? outputTokens;
+    }
+
+    const delta = ev.choices?.[0]?.delta;
+    if (!delta) continue;
+
+    if (delta.content) {
+      fullText += delta.content;
+      onToken?.(delta.content);
+    }
+
+    const tc = delta.tool_calls?.[0];
+    if (tc) {
+      if (tc.id)                  toolId        = tc.id;
+      if (tc.function?.name)      toolName      = tc.function.name;
+      if (tc.function?.arguments) toolArgsJson += tc.function.arguments;
+    }
+  }
+
+  const usage = { inputTokens, outputTokens };
+  if (toolName) {
+    let params = {};
+    try { params = JSON.parse(toolArgsJson); } catch { /* malformed */ }
+    return { type: 'tool_call', name: toolName, params, callId: toolId, usage };
+  }
+  return { type: 'text', text: fullText || '(empty response)', usage };
+}
+
+/* ══════════════════════════════════════════
+   NON-STREAMING FETCH — kept for skill detection,
+   callAI, and callAIWithContext (legacy paths).
+   Returns:
+     { type: 'text',      text, usage }
+     { type: 'tool_call', name, params, callId, usage }
 ══════════════════════════════════════════ */
 export async function fetchWithTools(provider, modelId, messages, sysPrompt = '', tools = []) {
   const { provider: providerId, endpoint, api, auth_header, auth_prefix = '' } = provider;
@@ -134,9 +455,10 @@ export async function fetchWithTools(provider, modelId, messages, sysPrompt = ''
 
   /* ── Anthropic ── */
   if (providerId === 'anthropic') {
+    const maxTokens = provider.models?.[modelId]?.max_output ?? 4096;
     const body = {
       model:      modelId,
-      max_tokens: 2048,
+      max_tokens: maxTokens,
       messages:   history.map(m => ({ role: m.role, content: buildAnthropicContent(m) })),
     };
     if (sysPrompt) body.system = sysPrompt;
@@ -153,7 +475,7 @@ export async function fetchWithTools(provider, modelId, messages, sysPrompt = ''
     });
     if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e?.error?.message ?? `HTTP ${res.status}`); }
 
-    const data = await res.json();
+    const data  = await res.json();
     const usage = {
       inputTokens:  data.usage?.input_tokens  ?? 0,
       outputTokens: data.usage?.output_tokens ?? 0,
@@ -169,7 +491,6 @@ export async function fetchWithTools(provider, modelId, messages, sysPrompt = ''
         usage,
       };
     }
-
     return { type: 'text', text: data.content?.find(b => b.type === 'text')?.text ?? '(empty response)', usage };
   }
 
@@ -192,7 +513,7 @@ export async function fetchWithTools(provider, modelId, messages, sysPrompt = ''
     });
     if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e?.error?.message ?? `HTTP ${res.status}`); }
 
-    const data = await res.json();
+    const data  = await res.json();
     const usage = {
       inputTokens:  data.usageMetadata?.promptTokenCount     ?? 0,
       outputTokens: data.usageMetadata?.candidatesTokenCount ?? 0,
@@ -208,7 +529,6 @@ export async function fetchWithTools(provider, modelId, messages, sysPrompt = ''
         usage,
       };
     }
-
     return { type: 'text', text: part?.text ?? '(empty response)', usage };
   }
 
@@ -218,7 +538,8 @@ export async function fetchWithTools(provider, modelId, messages, sysPrompt = ''
     ...history.map(m => ({ role: m.role, content: buildOpenAIContent(m) })),
   ];
 
-  const body = { model: modelId, messages: openAIMessages };
+  const maxTokensNS = provider.models?.[modelId]?.max_output ?? 4096;
+  const body = { model: modelId, max_tokens: maxTokensNS, messages: openAIMessages };
   if (tools.length) {
     body.tools       = toOpenAITools(tools);
     body.tool_choice = 'auto';
@@ -254,6 +575,14 @@ export async function fetchWithTools(provider, modelId, messages, sysPrompt = ''
       usage,
     };
   }
-
   return { type: 'text', text: message?.content ?? '(empty response)', usage };
+}
+
+/* ══════════════════════════════════════════
+   LEGACY TEXT-ONLY HELPER
+══════════════════════════════════════════ */
+export async function fetchFromProvider(provider, modelId, messages, sysPrompt = '') {
+  const result = await fetchWithTools(provider, modelId, messages, sysPrompt, []);
+  if (result.type === 'text') return result.text;
+  return '(unexpected tool call in text-only mode)';
 }

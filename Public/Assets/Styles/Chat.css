@@ -1,7 +1,8 @@
 /* ─────────────────────────────────────────────
    chat.css
    Chat view, message rows, bubbles, assistant icon,
-   rendered markdown styles inside messages
+   rendered markdown styles, streaming dot cursor,
+   and token footer (always visible).
 ───────────────────────────────────────────── */
 
 /* ══════════════════════════════════════════
@@ -64,7 +65,6 @@
 
 .message-row.user .bubble.has-attachments { padding: 10px; }
 
-/* Attachments inside bubble */
 .bubble-attachments {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
@@ -86,7 +86,7 @@
   object-fit: cover;
 }
 
-.bubble-text                            { margin-top: 8px; }
+.bubble-text                               { margin-top: 8px; }
 .bubble:not(.has-attachments) .bubble-text { margin-top: 0; }
 
 /* ── Assistant message ── */
@@ -121,10 +121,58 @@
   user-select: text;
 }
 
-/* Subtle hover lift */
 .message-row.assistant .content:hover {
   transform: translateY(-1px);
   transition: transform 0.2s var(--motion-smooth);
+}
+
+/* ══════════════════════════════════════════
+   AGENT REPLY WRAPPER
+══════════════════════════════════════════ */
+.agent-reply {
+  display: block;
+  font-size: 14px;
+  color: var(--text-primary);
+  line-height: 1.8;
+  user-select: text;
+  word-break: break-word;
+}
+
+/* ══════════════════════════════════════════
+   STREAMING CURSOR
+   renderMarkdown() wraps text in <p> tags.
+   JS appends <span.stream-cursor> as the last
+   child of .agent-reply, so the DOM looks like:
+
+     .agent-reply.is-streaming
+       <p>last paragraph of text</p>   ← sibling
+       <span.stream-cursor />           ← sibling
+
+   Making the last <p> inside a streaming reply
+   display:inline causes it and the cursor span
+   that follows it to sit on the same line.
+   The cursor itself is a simple inline-block dot.
+══════════════════════════════════════════ */
+.agent-reply.is-streaming > p:last-of-type {
+  display: inline;
+}
+
+.stream-cursor {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 5px var(--accent-glow);
+  vertical-align: middle;
+  margin-left: 4px;
+  margin-bottom: 2px;
+  animation: streamDotPulse 0.85s ease-in-out infinite;
+}
+
+@keyframes streamDotPulse {
+  0%, 100% { opacity: 1;   transform: scale(1);   }
+  50%       { opacity: 0.2; transform: scale(0.55); }
 }
 
 /* ══════════════════════════════════════════
@@ -173,6 +221,61 @@
   padding: 0;
   font-size: 12.5px;
   line-height: 1.7;
+}
+
+/* ══════════════════════════════════════════
+   TOKEN FOOTER
+   Always visible (html.show-tokens added
+   at module load in Chat.js).
+══════════════════════════════════════════ */
+.token-footer {
+  display: none;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 4px 11px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  width: fit-content;
+  animation: tokenFooterIn 0.3s var(--ease-spring) both;
+}
+
+html.show-tokens .token-footer {
+  display: flex;
+}
+
+@keyframes tokenFooterIn {
+  from { opacity: 0; transform: translateY(4px) scale(0.94); }
+  to   { opacity: 1; transform: none; }
+}
+
+.tf-item {
+  font-size: 11px;
+  font-family: var(--font-mono);
+  font-weight: 500;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.tf-sep {
+  font-size: 11px;
+  color: var(--border);
+  user-select: none;
+}
+
+.tf-in  { color: var(--text-muted); }
+.tf-out { color: var(--text-muted); }
+
+.tf-cost {
+  color: var(--accent);
+  font-weight: 600;
+  animation: tokenCostPop 0.35s var(--ease-spring) both;
+}
+
+@keyframes tokenCostPop {
+  from { transform: scale(0.8); opacity: 0; }
+  to   { transform: scale(1);   opacity: 1; }
 }
 
 /* ══════════════════════════════════════════

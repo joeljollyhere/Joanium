@@ -62,6 +62,141 @@
       "inputTokens": 7069,
       "outputTokens": 1220,
       "chatId": "2026-03-19_14-06-49"
+    },
+    {
+      "timestamp": "2026-03-19T09:26:17.993Z",
+      "provider": "openrouter",
+      "model": "deepseek/deepseek-r1",
+      "modelName": "DeepSeek R1",
+      "inputTokens": 12847,
+      "outputTokens": 1275,
+      "chatId": "2026-03-19_14-55-40"
+    },
+    {
+      "timestamp": "2026-03-19T09:43:21.076Z",
+      "provider": "openrouter",
+      "model": "deepseek/deepseek-r1",
+      "modelName": "DeepSeek R1",
+      "inputTokens": 13910,
+      "outputTokens": 79,
+      "chatId": "2026-03-19_15-12-52"
+    },
+    {
+      "timestamp": "2026-03-19T09:47:58.231Z",
+      "provider": "openrouter",
+      "model": "deepseek/deepseek-r1",
+      "modelName": "DeepSeek R1",
+      "inputTokens": 14059,
+      "outputTokens": 67,
+      "chatId": "2026-03-19_15-17-39"
+    },
+    {
+      "timestamp": "2026-03-19T10:03:11.890Z",
+      "provider": "openrouter",
+      "model": "meta-llama/llama-3.3-70b-instruct",
+      "modelName": "Llama 3.3 70B Instruct",
+      "inputTokens": 64422,
+      "outputTokens": 4210,
+      "chatId": "2026-03-19_15-29-46"
+    },
+    {
+      "timestamp": "2026-03-19T10:14:02.244Z",
+      "provider": "openrouter",
+      "model": "meta-llama/llama-3.3-70b-instruct",
+      "modelName": "Llama 3.3 70B Instruct",
+      "inputTokens": 15291,
+      "outputTokens": 127,
+      "chatId": "2026-03-19_15-43-38"
+    },
+    {
+      "timestamp": "2026-03-19T10:17:54.144Z",
+      "provider": "openrouter",
+      "model": "meta-llama/llama-3.3-70b-instruct",
+      "modelName": "Llama 3.3 70B Instruct",
+      "inputTokens": 15297,
+      "outputTokens": 231,
+      "chatId": "2026-03-19_15-47-37"
+    },
+    {
+      "timestamp": "2026-03-19T10:25:56.491Z",
+      "provider": "openrouter",
+      "model": "meta-llama/llama-3.3-70b-instruct",
+      "modelName": "Llama 3.3 70B Instruct",
+      "inputTokens": 15320,
+      "outputTokens": 64,
+      "chatId": "2026-03-19_15-55-19"
+    },
+    {
+      "timestamp": "2026-03-19T10:26:40.654Z",
+      "provider": "openrouter",
+      "model": "meta-llama/llama-3.3-70b-instruct",
+      "modelName": "Llama 3.3 70B Instruct",
+      "inputTokens": 15299,
+      "outputTokens": 66,
+      "chatId": "2026-03-19_15-56-14"
+    },
+    {
+      "timestamp": "2026-03-19T10:32:41.373Z",
+      "provider": "openrouter",
+      "model": "meta-llama/llama-3.3-70b-instruct",
+      "modelName": "Llama 3.3 70B Instruct",
+      "inputTokens": 15307,
+      "outputTokens": 165,
+      "chatId": "2026-03-19_16-02-28"
+    },
+    {
+      "timestamp": "2026-03-19T10:35:01.427Z",
+      "provider": "openrouter",
+      "model": "meta-llama/llama-3.3-70b-instruct",
+      "modelName": "Llama 3.3 70B Instruct",
+      "inputTokens": 15309,
+      "outputTokens": 377,
+      "chatId": "2026-03-19_16-04-44"
+    },
+    {
+      "timestamp": "2026-03-19T10:35:55.319Z",
+      "provider": "openrouter",
+      "model": "meta-llama/llama-3.3-70b-instruct",
+      "modelName": "Llama 3.3 70B Instruct",
+      "inputTokens": 15151,
+      "outputTokens": 387,
+      "chatId": "2026-03-19_16-05-46"
+    },
+    {
+      "timestamp": "2026-03-19T10:41:51.868Z",
+      "provider": "openrouter",
+      "model": "meta-llama/llama-3.3-70b-instruct",
+      "modelName": "Llama 3.3 70B Instruct",
+      "inputTokens": 15727,
+      "outputTokens": 388,
+      "chatId": "2026-03-19_16-11-43"
+    },
+    {
+      "timestamp": "2026-03-19T10:42:08.463Z",
+      "provider": "openrouter",
+      "model": "meta-llama/llama-3.3-70b-instruct",
+      "modelName": "Llama 3.3 70B Instruct",
+      "inputTokens": 16483,
+      "outputTokens": 560,
+      "chatId": "2026-03-19_16-11-43"
+    },
+    {
+      "timestamp": "2026-03-19T10:43:05.769Z",
+      "provider": "openrouter",
+      "model": "meta-llama/llama-3.3-70b-instruct",
+      "modelName": "Llama 3.3 70B Instruct",
+      "inputTokens": 17066,
+      "outputTokens": 358,
+      "chatId": "2026-03-19_16-11-43"
+    },
+    {
+      "timestamp": "2026-03-19T10:43:42.672Z",
+      "provider": "openrouter",
+      "model": "meta-llama/llama-3.3-70b-instruct",
+      "modelName": "Llama 3.3 70B Instruct",
+      "inputTokens": 18511,
+      "outputTokens": 595,
+      "chatId": "2026-03-19_16-11-43"
     }
   ]
 }
