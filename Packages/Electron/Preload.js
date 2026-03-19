@@ -63,7 +63,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   githubGetCommits:       (owner, repo)            => ipcRenderer.invoke('github-get-commits', owner, repo),
 
   // Skills
-  getSkills: () => ipcRenderer.invoke('get-skills'),
+  getSkills:        ()                     => ipcRenderer.invoke('get-skills'),
+  toggleSkill:      (filename, enabled)    => ipcRenderer.invoke('toggle-skill', filename, enabled),
+  enableAllSkills:  ()                     => ipcRenderer.invoke('enable-all-skills'),
+  disableAllSkills: ()                     => ipcRenderer.invoke('disable-all-skills'),
 
   // Personas (custom AI personalities)
   getPersonas:          ()              => ipcRenderer.invoke('get-personas'),

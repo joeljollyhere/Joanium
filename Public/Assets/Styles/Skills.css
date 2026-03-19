@@ -22,10 +22,11 @@
 /* ── Page header ── */
 .skills-page-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   margin-bottom: 24px;
   gap: 20px;
+  flex-wrap: wrap;
 }
 
 .skills-page-header-copy h2 {
@@ -40,6 +41,70 @@
   font-size: 13px;
   color: var(--text-muted);
   line-height: 1.5;
+}
+
+/* ── Header right-side actions ── */
+.skills-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+
+/* ── Enabled count pill ── */
+.skills-enabled-count {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-subtle);
+  padding: 5px 12px;
+  border-radius: 999px;
+  white-space: nowrap;
+  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast);
+}
+
+.skills-enabled-count--active {
+  color: var(--accent);
+  background: var(--accent-dim);
+  border-color: color-mix(in srgb, var(--accent) 25%, transparent);
+}
+
+/* ── Bulk action buttons ── */
+.skills-bulk-btn {
+  padding: 7px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background   var(--transition-fast),
+    color        var(--transition-fast),
+    border-color var(--transition-fast),
+    transform    var(--transition-fast);
+}
+
+.skills-bulk-btn:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  transform: translateY(-1px);
+}
+
+.skills-bulk-btn.skills-bulk-btn--enable:hover:not(:disabled) {
+  background: var(--accent-dim);
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 28%, transparent);
+}
+
+.skills-bulk-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
 }
 
 /* ── Shared page count pill ── */
@@ -95,10 +160,7 @@
   box-shadow: 0 0 28px var(--accent-glow);
 }
 
-.page-empty-icon svg {
-  width: 26px;
-  height: 26px;
-}
+.page-empty-icon svg { width: 26px; height: 26px; }
 
 .page-empty h3 {
   font-size: 17px;
@@ -130,7 +192,9 @@
   gap: 16px;
 }
 
-/* ── Skill card ── */
+/* ══════════════════════════════════════════
+   SKILL CARD
+══════════════════════════════════════════ */
 .skill-card {
   background: var(--bg-secondary);
   border: 1px solid var(--border-subtle);
@@ -140,19 +204,39 @@
   flex-direction: column;
   gap: 12px;
   cursor: pointer;
+  position: relative;
   transition:
     border-color var(--transition-fast),
-    transform var(--transition-fast),
-    box-shadow var(--transition-mid);
+    transform    var(--transition-fast),
+    box-shadow   var(--transition-mid),
+    opacity      var(--transition-mid);
   animation: messageIn 0.35s var(--ease-out-expo) both;
 }
 
+/* Disabled / inactive cards are slightly dimmed */
+.skill-card:not(.skill-card--enabled) {
+  opacity: 0.65;
+}
+
 .skill-card:hover {
+  opacity: 1;
   border-color: color-mix(in srgb, var(--accent) 30%, var(--border));
   transform: translateY(-3px);
   box-shadow: 0 20px 48px rgba(0, 0, 0, 0.14);
 }
 
+/* Enabled card gets an accent border glow */
+.skill-card.skill-card--enabled {
+  border-color: color-mix(in srgb, var(--accent) 28%, var(--border-subtle));
+  opacity: 1;
+}
+
+.skill-card.skill-card--enabled:hover {
+  border-color: color-mix(in srgb, var(--accent) 50%, var(--border));
+  box-shadow: 0 0 0 1px var(--accent-dim), 0 20px 48px rgba(0, 0, 0, 0.14);
+}
+
+/* ── Card head ── */
 .skill-card-head {
   display: flex;
   align-items: flex-start;
@@ -170,12 +254,14 @@
   justify-content: center;
   color: var(--accent);
   flex-shrink: 0;
+  transition: background var(--transition-fast), box-shadow var(--transition-fast);
 }
 
-.skill-icon svg {
-  width: 20px;
-  height: 20px;
+.skill-card--enabled .skill-icon {
+  box-shadow: 0 0 14px var(--accent-glow);
 }
+
+.skill-icon svg { width: 20px; height: 20px; }
 
 .skill-card-title-group {
   flex: 1;
@@ -207,6 +293,61 @@
   border: 1px solid color-mix(in srgb, var(--accent) 20%, transparent);
 }
 
+/* ══════════════════════════════════════════
+   SKILL TOGGLE SWITCH
+   Sits in the top-right of each card head.
+══════════════════════════════════════════ */
+.skill-toggle {
+  position: relative;
+  width: 40px;
+  height: 22px;
+  flex-shrink: 0;
+  cursor: pointer;
+  /* Prevent card click from propagating (handled in JS too) */
+  z-index: 2;
+}
+
+.skill-toggle-input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+  position: absolute;
+}
+
+.skill-toggle-track {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: background 0.22s, border-color 0.22s;
+}
+
+.skill-toggle-track::after {
+  content: '';
+  position: absolute;
+  left: 3px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  transition: transform 0.22s var(--ease-spring), background 0.22s;
+}
+
+.skill-toggle-input:checked + .skill-toggle-track {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.skill-toggle-input:checked + .skill-toggle-track::after {
+  transform: translateY(-50%) translateX(18px);
+  background: #fff;
+}
+
+/* ── Trigger block ── */
 .skill-trigger {
   display: flex;
   align-items: flex-start;
@@ -230,6 +371,7 @@
   margin-top: 1px;
 }
 
+/* ── Description ── */
 .skill-description {
   font-size: 12.5px;
   color: var(--text-muted);
@@ -240,6 +382,7 @@
   overflow: hidden;
 }
 
+/* ── Card footer ── */
 .skill-card-footer {
   display: flex;
   align-items: center;
@@ -262,16 +405,13 @@
   font-weight: 500;
   cursor: pointer;
   transition:
-    background var(--transition-fast),
-    color var(--transition-fast),
-    border-color var(--transition-fast),
-    transform var(--transition-fast);
+    background     var(--transition-fast),
+    color          var(--transition-fast),
+    border-color   var(--transition-fast),
+    transform      var(--transition-fast);
 }
 
-.skill-read-btn svg {
-  width: 13px;
-  height: 13px;
-}
+.skill-read-btn svg { width: 13px; height: 13px; }
 
 .skill-read-btn:hover {
   background: var(--accent-dim);
@@ -352,10 +492,7 @@
   flex-shrink: 0;
 }
 
-.skill-modal-icon svg {
-  width: 17px;
-  height: 17px;
-}
+.skill-modal-icon svg { width: 17px; height: 17px; }
 
 .skill-modal-name {
   font-size: 18px;
@@ -381,48 +518,14 @@
   color: var(--text-primary);
 }
 
-.skill-modal-content h1 {
-  font-size: 20px;
-  font-weight: 600;
-  margin: 0 0 12px;
-}
-
-.skill-modal-content h2 {
-  font-size: 16px;
-  font-weight: 600;
-  margin: 20px 0 8px;
-}
-
-.skill-modal-content h3 {
-  font-size: 14px;
-  font-weight: 600;
-  margin: 16px 0 6px;
-  color: var(--text-secondary);
-}
-
-.skill-modal-content p {
-  margin-bottom: 12px;
-  color: var(--text-secondary);
-}
-
-.skill-modal-content p:last-child {
-  margin-bottom: 0;
-}
-
-.skill-modal-content li {
-  margin: 4px 0 4px 20px;
-  color: var(--text-secondary);
-}
-
-.skill-modal-content strong {
-  color: var(--text-primary);
-  font-weight: 600;
-}
-
-.skill-modal-content em {
-  font-style: italic;
-  color: var(--text-muted);
-}
+.skill-modal-content h1 { font-size: 20px; font-weight: 600; margin: 0 0 12px; }
+.skill-modal-content h2 { font-size: 16px; font-weight: 600; margin: 20px 0 8px; }
+.skill-modal-content h3 { font-size: 14px; font-weight: 600; margin: 16px 0 6px; color: var(--text-secondary); }
+.skill-modal-content p  { margin-bottom: 12px; color: var(--text-secondary); }
+.skill-modal-content p:last-child { margin-bottom: 0; }
+.skill-modal-content li { margin: 4px 0 4px 20px; color: var(--text-secondary); }
+.skill-modal-content strong { color: var(--text-primary); font-weight: 600; }
+.skill-modal-content em { font-style: italic; color: var(--text-muted); }
 
 .skill-modal-content code {
   font-family: var(--font-mono);
@@ -451,28 +554,7 @@
 }
 
 /* ── Keyframes ── */
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
+@keyframes fadeIn    { from { opacity: 0; }                                          to { opacity: 1; } }
+@keyframes messageIn { from { opacity: 0; transform: translateY(12px) scale(0.98); } to { opacity: 1; transform: none; } }
 
-  to {
-    opacity: 1;
-  }
-}
-
-@keyframes messageIn {
-  from {
-    opacity: 0;
-    transform: translateY(12px) scale(0.98);
-  }
-
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-
-[hidden] {
-  display: none !important;
-}
+[hidden] { display: none !important; }

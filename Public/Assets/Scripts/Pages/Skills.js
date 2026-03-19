@@ -33,18 +33,21 @@ window.addEventListener('ow:user-profile-updated', e => sidebar.setUser(e.detail
 settings.loadUser().then(user => sidebar.setUser(user?.name ?? ''));
 
 // ── DOM refs ─────────────────────────────────────────────────────────────
-const skillsGrid    = document.getElementById('skills-grid');
-const skillsEmpty   = document.getElementById('skills-empty');
-const searchWrapper = document.getElementById('skills-search-wrapper');
-const searchInput   = document.getElementById('skills-search');
-const countEl       = document.getElementById('skills-count');
-const modalBackdrop = document.getElementById('skill-modal-backdrop');
-const modalName     = document.getElementById('skill-modal-name');
-const modalContent  = document.getElementById('skill-modal-content');
-const modalCloseBtn = document.getElementById('skill-modal-close');
+const skillsGrid        = document.getElementById('skills-grid');
+const skillsEmpty       = document.getElementById('skills-empty');
+const searchWrapper     = document.getElementById('skills-search-wrapper');
+const searchInput       = document.getElementById('skills-search');
+const countEl           = document.getElementById('skills-count');
+const enabledCountEl    = document.getElementById('skills-enabled-count');
+const enableAllBtn      = document.getElementById('skills-enable-all');
+const disableAllBtn     = document.getElementById('skills-disable-all');
+const modalBackdrop     = document.getElementById('skill-modal-backdrop');
+const modalName         = document.getElementById('skill-modal-name');
+const modalContent      = document.getElementById('skill-modal-content');
+const modalCloseBtn     = document.getElementById('skill-modal-close');
 
 // ── State ─────────────────────────────────────────────────────────────────
-let _allSkills = [];
+let _allSkills = [];   // full list with .enabled
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -82,9 +85,50 @@ function matchesSearch(skill, query) {
     .join(' ').toLowerCase().includes(q);
 }
 
+// ── Count helpers ─────────────────────────────────────────────────────────
+
+function updateCounts() {
+  const total   = _allSkills.length;
+  const enabled = _allSkills.filter(s => s.enabled).length;
+
+  if (countEl) countEl.textContent = `${total} skill${total !== 1 ? 's' : ''}`;
+
+  if (enabledCountEl) {
+    enabledCountEl.textContent = enabled === 0
+      ? 'None active'
+      : `${enabled} active`;
+    enabledCountEl.classList.toggle('skills-enabled-count--active', enabled > 0);
+  }
+
+  // Bulk buttons reflect current state
+  if (enableAllBtn)  enableAllBtn.disabled  = enabled === total;
+  if (disableAllBtn) disableAllBtn.disabled = enabled === 0;
+}
+
+// ── Toggle a skill ────────────────────────────────────────────────────────
+
+async function handleToggle(filename, newEnabled) {
+  // Optimistic update
+  const skill = _allSkills.find(s => s.filename === filename);
+  if (skill) skill.enabled = newEnabled;
+  updateCounts();
+
+  const res = await window.electronAPI?.toggleSkill?.(filename, newEnabled);
+  if (!res?.ok) {
+    // Roll back on failure
+    if (skill) skill.enabled = !newEnabled;
+    updateCounts();
+    console.error('[Skills] Toggle failed:', res?.error);
+  }
+}
+
+// ── Build skill card ──────────────────────────────────────────────────────
+
 function buildSkillCard(skill) {
   const card = document.createElement('div');
-  card.className = 'skill-card';
+  card.className = `skill-card${skill.enabled ? ' skill-card--enabled' : ''}`;
+  card.dataset.filename = skill.filename;
+
   card.innerHTML = `
     <div class="skill-card-head">
       <div class="skill-icon">
@@ -97,6 +141,10 @@ function buildSkillCard(skill) {
         <div class="skill-name">${escapeHtml(skill.name)}</div>
         <span class="skill-badge">Skill</span>
       </div>
+      <label class="skill-toggle" title="${skill.enabled ? 'Disable this skill' : 'Enable this skill'}">
+        <input type="checkbox" class="skill-toggle-input" ${skill.enabled ? 'checked' : ''} />
+        <span class="skill-toggle-track"></span>
+      </label>
     </div>
     ${skill.trigger ? `
       <div class="skill-trigger">
@@ -114,14 +162,37 @@ function buildSkillCard(skill) {
         Read
       </button>
     </div>`;
-  card.addEventListener('click', () => openModal(skill));
-  card.querySelector('.skill-read-btn').addEventListener('click', e => { e.stopPropagation(); openModal(skill); });
+
+  // Toggle interaction — stop propagation so card click (open modal) isn't triggered
+  const toggleInput = card.querySelector('.skill-toggle-input');
+  const toggleLabel = card.querySelector('.skill-toggle');
+
+  toggleLabel.addEventListener('click', e => e.stopPropagation());
+  toggleInput.addEventListener('change', async e => {
+    const newEnabled = e.target.checked;
+    toggleLabel.title = newEnabled ? 'Disable this skill' : 'Enable this skill';
+    card.classList.toggle('skill-card--enabled', newEnabled);
+    await handleToggle(skill.filename, newEnabled);
+  });
+
+  // Read modal — clicking anywhere on the card except the toggle opens the modal
+  card.addEventListener('click', e => {
+    if (e.target.closest('.skill-toggle')) return;
+    openModal(skill);
+  });
+  card.querySelector('.skill-read-btn').addEventListener('click', e => {
+    e.stopPropagation();
+    openModal(skill);
+  });
+
   return card;
 }
 
+// ── Render grid ───────────────────────────────────────────────────────────
+
 function render(query = '') {
   const filtered = _allSkills.filter(s => matchesSearch(s, query));
-  if (countEl) countEl.textContent = `${_allSkills.length} skill${_allSkills.length !== 1 ? 's' : ''}`;
+  updateCounts();
 
   if (_allSkills.length === 0) {
     skillsEmpty.hidden   = false;
@@ -146,6 +217,8 @@ function render(query = '') {
   filtered.forEach(skill => skillsGrid.appendChild(buildSkillCard(skill)));
 }
 
+// ── Modal ──────────────────────────────────────────────────────────────────
+
 function openModal(skill) {
   modalName.textContent  = skill.name;
   modalContent.innerHTML = renderMarkdown(skill.raw);
@@ -162,6 +235,8 @@ modalCloseBtn?.addEventListener('click', closeModal);
 modalBackdrop?.addEventListener('click', e => { if (e.target === modalBackdrop) closeModal(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
 
+// ── Search ────────────────────────────────────────────────────────────────
+
 const clearBtn = document.getElementById('skills-search-clear');
 
 searchInput?.addEventListener('input', () => {
@@ -175,6 +250,28 @@ clearBtn?.addEventListener('click', () => {
   render('');
   searchInput?.focus();
 });
+
+// ── Bulk actions ──────────────────────────────────────────────────────────
+
+enableAllBtn?.addEventListener('click', async () => {
+  enableAllBtn.disabled = true;
+  const res = await window.electronAPI?.enableAllSkills?.();
+  if (res?.ok !== false) {
+    _allSkills.forEach(s => { s.enabled = true; });
+    render(searchInput?.value?.trim() ?? '');
+  }
+});
+
+disableAllBtn?.addEventListener('click', async () => {
+  disableAllBtn.disabled = true;
+  const res = await window.electronAPI?.disableAllSkills?.();
+  if (res?.ok !== false) {
+    _allSkills.forEach(s => { s.enabled = false; });
+    render(searchInput?.value?.trim() ?? '');
+  }
+});
+
+// ── Boot ──────────────────────────────────────────────────────────────────
 
 async function load() {
   try {

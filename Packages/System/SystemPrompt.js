@@ -8,6 +8,8 @@ const __dirname = path.dirname(__filename);
 
 // ─────────────────────────────────────────────
 //  SKILLS — read frontmatter from Skills/*.md
+//  Only skills explicitly enabled in Data/Skills.json
+//  are injected into the system prompt.
 // ─────────────────────────────────────────────
 
 function parseFrontmatter(content) {
@@ -26,12 +28,38 @@ function parseFrontmatter(content) {
 
 const SKIP_FILES = new Set(['Debug.md']);
 
+/**
+ * Load the enabled map from Data/Skills.json.
+ * Returns { "FileName.md": true | false }.
+ * Missing entries are treated as false (disabled).
+ */
+function loadSkillsEnabledMap() {
+  const skillsFile = path.resolve(__dirname, '..', '..', 'Data', 'Skills.json');
+  try {
+    if (fs.existsSync(skillsFile)) {
+      const data = JSON.parse(fs.readFileSync(skillsFile, 'utf-8'));
+      return data.skills ?? {};
+    }
+  } catch { /* fall through */ }
+  return {};
+}
+
+/**
+ * Load only the skills that have been explicitly enabled.
+ */
 function loadSkills() {
   const skillsDir = path.resolve(__dirname, '..', '..', 'Skills');
   if (!fs.existsSync(skillsDir)) return [];
+
+  const enabledMap = loadSkillsEnabledMap();
   const skills = [];
+
   for (const file of fs.readdirSync(skillsDir)) {
     if (!file.endsWith('.md') || SKIP_FILES.has(file)) continue;
+
+    // Skip disabled skills — this is the key gating check
+    if (enabledMap[file] !== true) continue;
+
     try {
       const content = fs.readFileSync(path.join(skillsDir, file), 'utf-8');
       const meta = parseFrontmatter(content);
@@ -188,6 +216,7 @@ export async function buildSystemPrompt({
     push(customInstructions.trim());
   }
 
+  // Only enabled skills are included here — disabled skills are completely omitted
   const skillsBlock = buildSkillsBlock();
   if (skillsBlock) { blank(); push(skillsBlock); }
 
