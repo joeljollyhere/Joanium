@@ -43,6 +43,7 @@ const sidebar = initSidebar({
   onLibrary: () => library.isOpen() ? library.close() : library.open(),
   onAutomations: () => window.electronAPI?.launchAutomations?.(),
   onAgents: () => window.electronAPI?.launchAgents?.(),
+  onEvents: () => window.electronAPI?.launchEvents?.(),
   onSkills: () => window.electronAPI?.launchSkills?.(),
   onPersonas: () => window.electronAPI?.launchPersonas?.(),
   onUsage: () => window.electronAPI?.launchUsage?.(),

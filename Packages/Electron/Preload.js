@@ -19,7 +19,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getMemory: () => ipcRenderer.invoke('get-memory'),
   saveMemory: (content) => ipcRenderer.invoke('save-memory', content),
 
-  // System prompt (context-aware, cached)
+  // System prompt
   getSystemPrompt: () => ipcRenderer.invoke('get-system-prompt'),
 
   // Chat storage
@@ -35,7 +35,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   deleteAutomation: (id) => ipcRenderer.invoke('delete-automation', id),
   toggleAutomation: (id, enabled) => ipcRenderer.invoke('toggle-automation', id, enabled),
 
-  // Connectors — service (Gmail, GitHub)
+  // Connectors — service
   getConnectors: () => ipcRenderer.invoke('get-connectors'),
   saveConnector: (name, credentials) => ipcRenderer.invoke('save-connector', name, credentials),
   removeConnector: (name) => ipcRenderer.invoke('remove-connector', name),
@@ -68,7 +68,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   enableAllSkills: () => ipcRenderer.invoke('enable-all-skills'),
   disableAllSkills: () => ipcRenderer.invoke('disable-all-skills'),
 
-  // Personas (custom AI personalities)
+  // Personas
   getPersonas: () => ipcRenderer.invoke('get-personas'),
   getActivePersona: () => ipcRenderer.invoke('get-active-persona'),
   setActivePersona: (personaData) => ipcRenderer.invoke('set-active-persona', personaData),
@@ -87,6 +87,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   toggleAgent: (id, enabled) => ipcRenderer.invoke('toggle-agent', id, enabled),
   runAgentNow: (agentId) => ipcRenderer.invoke('run-agent-now', agentId),
   launchAgents: () => ipcRenderer.invoke('launch-agents'),
+
+  // Events
+  launchEvents: () => ipcRenderer.invoke('launch-events'),
+  getRunningJobs: () => ipcRenderer.invoke('get-running-jobs'),
+  clearEventsHistory: () => ipcRenderer.invoke('clear-events-history'),
 
   // Window controls
   minimize: () => ipcRenderer.send('window-minimize'),

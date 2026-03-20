@@ -1,3 +1,20 @@
 {
-  "automations": []
+  "automations": [
+    {
+      "id": "auto_1773994389750_d1uw0",
+      "name": "test baby",
+      "description": "baby girl",
+      "enabled": true,
+      "trigger": {
+        "type": "on_startup"
+      },
+      "actions": [
+        {
+          "type": "open_site",
+          "url": "joeljolly.vercel.app"
+        }
+      ],
+      "lastRun": "2026-03-20T08:34:53.561Z"
+    }
+  ]
 }

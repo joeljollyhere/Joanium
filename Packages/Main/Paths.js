@@ -43,6 +43,7 @@ export const Paths = {
   PERSONAS_PAGE:    path.join(ROOT, 'Public', 'Personas.html'),
   USAGE_PAGE:       path.join(ROOT, 'Public', 'Usage.html'),
   AGENTS_PAGE:      path.join(ROOT, 'Public', 'Agents.html'),
+  EVENTS_PAGE:      path.join(ROOT, 'Public', 'Events.html'),
 };
 
 export default Paths;
