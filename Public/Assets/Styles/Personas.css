@@ -95,14 +95,14 @@
   color: var(--text-muted);
   background: var(--bg-secondary);
   border: 1.5px dashed var(--border);
-  border-radius: 20px;
+  border-radius: var(--radius-lg);
 }
 
 /* ── Persona card ── */
 .persona-card {
   background: var(--bg-secondary);
   border: 1.5px solid var(--border-subtle);
-  border-radius: 24px;
+  border-radius: var(--radius-lg);
   padding: 22px;
   display: flex;
   flex-direction: column;

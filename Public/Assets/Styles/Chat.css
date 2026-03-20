@@ -73,7 +73,7 @@
 
 .bubble-attachment {
   width: 100%;
-  border-radius: 14px;
+  border-radius: var(--radius-md);
   overflow: hidden;
   background: var(--bg-secondary);
 }

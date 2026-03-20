@@ -202,7 +202,7 @@
 .icon-btn {
   width: 30px;
   height: 30px;
-  border-radius: var(--radius-sm);
+  border-radius: 50%;
   border: none;
   background: transparent;
   color: var(--text-muted);
@@ -269,7 +269,7 @@
 .send-btn {
   width: 30px;
   height: 30px;
-  border-radius: var(--radius-sm);
+  border-radius: 50%;
   border: none;
   background: var(--text-muted);
   color: var(--bg-primary);

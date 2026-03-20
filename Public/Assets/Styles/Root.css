@@ -6,10 +6,10 @@
 :root {
     --titlebar-h: 36px;
     --sidebar-w: 52px;
-    --radius-sm: 6px;
-    --radius-md: 10px;
-    --radius-lg: 16px;
-    --radius-xl: 22px;
+    --radius-sm: 8px;
+    --radius-md: 16px;
+    --radius-lg: 24px;
+    --radius-xl: 32px;
 
     --font-ui: 'Sora', sans-serif;
     --font-mono: 'JetBrains Mono', monospace;
@@ -24,9 +24,9 @@
     --transition-slow: 0.38s var(--ease-out-expo);
     --transition-theme: 0.4s var(--ease-in-out);
 
-    --shadow-sm: 0 1px 4px var(--shadow-color);
-    --shadow-md: 0 4px 24px var(--shadow-color);
-    --shadow-lg: 0 8px 48px var(--shadow-color);
+    --shadow-sm: 0 1px 3px 1px var(--shadow-color);
+    --shadow-md: 0 4px 12px 2px var(--shadow-color);
+    --shadow-lg: 0 8px 24px 6px var(--shadow-color);
 }
 
 /* ══════════════════════════════════════════
