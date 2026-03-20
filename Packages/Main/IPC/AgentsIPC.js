@@ -6,7 +6,7 @@ import { ipcMain } from 'electron';
 import { loadPage } from '../Window.js';
 import Paths        from '../Paths.js';
 
-export function register(agentsEngine) {
+export function register(agentsEngine, automationEngine = null) {
 
   ipcMain.handle('launch-agents', () => {
     loadPage(Paths.AGENTS_PAGE);
@@ -40,17 +40,9 @@ export function register(agentsEngine) {
       // 1 — Clear agent job history
       agentsEngine.clearAllHistory();
 
-      // 2 — Clear automation lastRun from disk
-      const { default: fs } = await import('fs');
-      if (fs.existsSync(Paths.AUTOMATIONS_FILE)) {
-        const raw  = fs.readFileSync(Paths.AUTOMATIONS_FILE, 'utf-8');
-        const data = JSON.parse(raw);
-        if (Array.isArray(data.automations)) {
-          for (const auto of data.automations) {
-            auto.lastRun = null;
-          }
-          fs.writeFileSync(Paths.AUTOMATIONS_FILE, JSON.stringify(data, null, 2), 'utf-8');
-        }
+      // 2 — Clear automation history
+      if (automationEngine) {
+        automationEngine.clearAllHistory();
       }
 
       return { ok: true };

@@ -414,6 +414,20 @@ export class AutomationEngine {
     if (a) { a.enabled = Boolean(enabled); this._persist(); }
   }
 
+  /**
+   * Clear all run history AND lastRun from every automation on disk.
+   * Called by the Events page "Clear" button.
+   */
+  clearAllHistory() {
+    this._load();
+    for (const auto of this.automations) {
+      auto.history = [];
+      auto.lastRun = null;
+    }
+    this._persist();
+    console.log('[AutomationEngine] All automation history cleared.');
+  }
+
   _load() {
     try {
       if (fs.existsSync(this.filePath)) {
@@ -459,14 +473,35 @@ export class AutomationEngine {
 
   async _execute(automation) {
     console.log(`[AutomationEngine] Executing: "${automation.name}"`);
+
+    const entry = {
+      timestamp: new Date().toISOString(),
+      status:    'success',
+      summary:   '',
+      error:     null,
+    };
+
     try {
+      const actionTypes = [];
       for (const action of (automation.actions ?? [])) {
         await runAction(action, this.connectorEngine);
+        if (action.type) actionTypes.push(action.type);
       }
-      automation.lastRun = new Date().toISOString();
-      this._persist();
+      entry.summary = actionTypes.length
+        ? `Ran: ${actionTypes.join(', ')}`
+        : 'Automation executed (no actions)';
+      automation.lastRun = entry.timestamp;
     } catch (err) {
+      entry.status  = 'error';
+      entry.error   = err.message;
+      entry.summary = `Error: ${err.message}`;
       console.error(`[AutomationEngine] Error in "${automation.name}":`, err);
     }
+
+    // Persist history
+    if (!Array.isArray(automation.history)) automation.history = [];
+    automation.history.unshift(entry);
+    if (automation.history.length > 30) automation.history = automation.history.slice(0, 30);
+    this._persist();
   }
 }

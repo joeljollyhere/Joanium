@@ -166,20 +166,39 @@ async function fetchHistory() {
     const res = await window.electronAPI?.getAutomations?.();
     const autos = Array.isArray(res?.automations) ? res.automations : [];
     for (const auto of autos) {
-      if (!auto.lastRun) continue;
-      events.push({
-        id: `auto__${auto.id}__${auto.lastRun}`,
-        type: 'automation',
-        source: auto.name,
-        autoId: auto.id,
-        status: 'success',
-        timestamp: auto.lastRun,
-        summary: auto.description || `${auto.actions?.length ?? 0} action(s) ran`,
-        error: null,
-        skipReason: null,
-        trigger: auto.trigger || null,
-        autoEnabled: auto.enabled,
-      });
+      for (const entry of (auto.history ?? [])) {
+        events.push({
+          id: `auto__${auto.id}__${entry.timestamp}`,
+          type: 'automation',
+          source: auto.name,
+          autoId: auto.id,
+          status: entry.error ? 'error' : 'success',
+          timestamp: entry.timestamp,
+          summary: entry.summary || auto.description || `${auto.actions?.length ?? 0} action(s) ran`,
+          fullResponse: entry.summary || '',
+          error: entry.error || null,
+          skipReason: null,
+          trigger: auto.trigger || null,
+          autoEnabled: auto.enabled,
+        });
+      }
+      // Fallback: if no history yet but lastRun exists, show a legacy entry
+      if (!(auto.history?.length) && auto.lastRun) {
+        events.push({
+          id: `auto__${auto.id}__${auto.lastRun}`,
+          type: 'automation',
+          source: auto.name,
+          autoId: auto.id,
+          status: 'success',
+          timestamp: auto.lastRun,
+          summary: auto.description || `${auto.actions?.length ?? 0} action(s) ran`,
+          fullResponse: '',
+          error: null,
+          skipReason: null,
+          trigger: auto.trigger || null,
+          autoEnabled: auto.enabled,
+        });
+      }
     }
   } catch { /* non-fatal */ }
 
@@ -288,7 +307,7 @@ function buildEventRow(ev, isNew = false) {
 
   const statusLabel = { success: '✓ Acted', error: '✗ Error', skipped: '— Skipped' }[ev.status] ?? ev.status;
   const triggerBadge = ev.trigger ? `<span class="event-trigger-badge">${esc(triggerLabel(ev.trigger))}</span>` : '';
-  const hasDetail = ev.type === 'agent' && (ev.fullResponse || ev.error || ev.summary);
+  const hasDetail = ev.fullResponse || ev.error || ev.summary;
 
   let bodyContent = '';
   if (ev.status === 'error' && ev.error) {

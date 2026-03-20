@@ -57,7 +57,7 @@ WindowIPC.register();
 SkillsIPC.register();
 PersonasIPC.register();
 UsageIPC.register();
-AgentsIPC.register(agentsEngine);
+AgentsIPC.register(agentsEngine, automationEngine);
 
 /* ══════════════════════════════════════════
    APP LIFECYCLE
