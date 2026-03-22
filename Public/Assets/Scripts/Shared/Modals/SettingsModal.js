@@ -89,7 +89,7 @@ function buildHTML() {
               <section class="settings-panel" data-settings-panel="providers" hidden>
                 <div class="settings-panel-header">
                   <h3>Connected Providers</h3>
-                  <p>Update provider API keys.</p>
+                  <p>Add, update, or remove API keys for AI providers. Active providers are available in the model selector.</p>
                 </div>
                 <div id="settings-providers-list" class="providers-stack">
                   <div class="ap-empty-hint">Loading…</div>
@@ -133,6 +133,7 @@ export function initSettingsModal() {
     const wrap = document.createElement('div');
     wrap.innerHTML = buildHTML();
     document.body.appendChild(wrap.firstElementChild);
+
   }
 
   // 2. Module state
@@ -140,6 +141,7 @@ export function initSettingsModal() {
     activeTab:           'user',
     providerCatalog:     [],
     pendingProviderKeys: {},
+    pendingDeletes:      new Set(), // provider IDs marked for key removal
   };
 
   // 3. Element accessors (resolved after injection)
@@ -171,7 +173,11 @@ export function initSettingsModal() {
     if (!btn) return;
     const tab = settingsState.activeTab;
     if (tab === 'user')      { btn.textContent = 'Save changes';          btn.disabled = false; return; }
-    if (tab === 'providers') { btn.textContent = 'Save provider changes'; btn.disabled = false; return; }
+    if (tab === 'providers') {
+      btn.textContent = 'Save provider changes';
+      btn.disabled    = false;
+      return;
+    }
     btn.textContent = 'No changes to save';
     btn.disabled    = true;
   }
@@ -199,68 +205,146 @@ export function initSettingsModal() {
     if (settingsState.activeTab === 'user')      nameInput()?.focus();
   }
 
-  // 6. Providers tab
+  // 6. Providers tab — enhanced with status badges + delete
   function renderProviders() {
     const list = providersList();
     if (!list) return;
+
     if (!settingsState.providerCatalog.length) {
       list.innerHTML = '<div class="settings-empty-card">No providers available</div>';
       updateSaveBtn(); return;
     }
 
+    // Sort: active (has key) first, then inactive
     const sorted = [...settingsState.providerCatalog].sort((a, b) => {
-      const ac = String(a.api ?? '').trim().length > 0;
-      const bc = String(b.api ?? '').trim().length > 0;
-      return Number(bc) - Number(ac);
+      const aActive = Boolean(String(a.api ?? '').trim());
+      const bActive = Boolean(String(b.api ?? '').trim());
+      return Number(bActive) - Number(aActive);
     });
 
-    list.innerHTML = sorted.map(p => {
-      const meta    = PROVIDER_META[p.provider] ?? {};
-      const inputId = `settings-key-${p.provider}`;
-      const pending = settingsState.pendingProviderKeys[p.provider] ?? '';
-      return `
-        <article class="settings-provider-row"
-                 style="--p-color:${meta.color ?? 'var(--accent)'}">
-          <div class="spr-icon">
-            <img class="spr-icon-img"
-                 src="${escapeHtml(meta.iconPath ?? '')}" alt="" draggable="false"/>
-          </div>
-          <div class="key-input-wrap spr-key-wrap">
-            <input class="key-input spr-key-input" id="${escapeHtml(inputId)}"
-              type="password" data-provider-input="${escapeHtml(p.provider)}"
-              placeholder="${escapeHtml(meta.placeholder ?? 'Paste API key')}"
-              value="${escapeHtml(pending)}"
-              autocomplete="off" spellcheck="false"/>
-            <button type="button" class="key-eye"
-                    data-target="${escapeHtml(inputId)}" title="Show / hide">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke-width="1.8"/>
-                <circle cx="12" cy="12" r="3" stroke-width="1.8"/>
-              </svg>
-            </button>
-          </div>
-        </article>`;
-    }).join('');
+    list.innerHTML = '';
 
-    list.querySelectorAll('.spr-icon-img').forEach(img => {
-      if (img.complete && img.naturalWidth === 0)
-        img.closest('.spr-icon')?.classList.add('icon-missing');
-      img.addEventListener('error', () => img.closest('.spr-icon')?.classList.add('icon-missing'));
-      img.addEventListener('load',  () => img.closest('.spr-icon')?.classList.remove('icon-missing'));
-    });
+    sorted.forEach(p => {
+      const meta       = PROVIDER_META[p.provider] ?? {};
+      const inputId    = `settings-key-${p.provider}`;
+      const savedKey   = String(p.api ?? '').trim();
+      const isActive   = savedKey.length > 0;
+      const isDeleting = settingsState.pendingDeletes.has(p.provider);
+      const pending    = settingsState.pendingProviderKeys[p.provider] ?? '';
 
-    list.querySelectorAll('[data-provider-input]').forEach(input => {
+      const row = document.createElement('div');
+      row.className = `spr-row${isActive && !isDeleting ? ' spr-row--active' : ''}${isDeleting ? ' spr-row--deleting' : ''}`;
+      row.style.setProperty('--p-color', meta.color ?? 'var(--accent)');
+
+      // ── Provider icon
+      const iconWrap = document.createElement('div');
+      iconWrap.className = 'spr-icon';
+      const img = document.createElement('img');
+      img.className = 'spr-icon-img';
+      img.src = meta.iconPath ?? '';
+      img.alt = '';
+      img.addEventListener('error', () => iconWrap.classList.add('icon-missing'));
+      img.addEventListener('load',  () => iconWrap.classList.remove('icon-missing'));
+      if (img.complete && img.naturalWidth === 0) iconWrap.classList.add('icon-missing');
+      iconWrap.appendChild(img);
+
+      // ── Provider name + status badge
+      const info = document.createElement('div');
+      info.className = 'spr-info';
+
+      const providerName = document.createElement('div');
+      providerName.className = 'spr-provider-name';
+      providerName.textContent = p.label ?? p.provider;
+
+      const statusBadge = document.createElement('span');
+      if (isDeleting) {
+        statusBadge.className = 'spr-status spr-status--removing';
+        statusBadge.textContent = '× Removing';
+      } else if (isActive) {
+        statusBadge.className = 'spr-status spr-status--active';
+        statusBadge.innerHTML = `
+          <span class="spr-status-dot"></span>
+          Active
+        `;
+      } else {
+        statusBadge.className = 'spr-status spr-status--inactive';
+        statusBadge.textContent = 'No key';
+      }
+
+      info.append(providerName, statusBadge);
+
+      // ── Key input area
+      const keyWrap = document.createElement('div');
+      keyWrap.className = 'key-input-wrap spr-key-wrap';
+
+      const input = document.createElement('input');
+      input.className = 'key-input spr-key-input';
+      input.id = inputId;
+      input.type = 'password';
+      input.dataset.providerInput = p.provider;
+      input.placeholder = isActive && !isDeleting ? '••••••••  (key saved)' : (meta.placeholder ?? 'Paste API key');
+      input.value = pending;
+      input.autocomplete = 'off';
+      input.spellcheck = false;
+      if (isDeleting) {
+        input.disabled = true;
+        input.placeholder = 'Key will be removed on save';
+      }
       input.addEventListener('input', () => {
-        settingsState.pendingProviderKeys[input.dataset.providerInput] = input.value;
+        settingsState.pendingProviderKeys[p.provider] = input.value;
+        // If they type a new key, cancel any pending delete
+        if (input.value.trim()) {
+          settingsState.pendingDeletes.delete(p.provider);
+          row.classList.remove('spr-row--deleting');
+          statusBadge.className = 'spr-status spr-status--inactive';
+          statusBadge.textContent = 'No key';
+        }
         updateSaveBtn();
       });
-    });
 
-    list.querySelectorAll('.key-eye').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const input = $(btn.dataset.target);
-        if (input) input.type = input.type === 'password' ? 'text' : 'password';
+      const eyeBtn = document.createElement('button');
+      eyeBtn.type = 'button';
+      eyeBtn.className = 'key-eye';
+      eyeBtn.title = 'Show / hide';
+      eyeBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke-width="1.8"/><circle cx="12" cy="12" r="3" stroke-width="1.8"/></svg>`;
+      eyeBtn.addEventListener('click', () => {
+        input.type = input.type === 'password' ? 'text' : 'password';
       });
+
+      keyWrap.append(input, eyeBtn);
+
+      // ── Delete / undo button (only shown when a key exists or is being deleted)
+      const actionArea = document.createElement('div');
+      actionArea.className = 'spr-actions';
+
+      if (isActive || isDeleting) {
+        const deleteBtn = document.createElement('button');
+        deleteBtn.type = 'button';
+        deleteBtn.className = isDeleting ? 'spr-undo-btn' : 'spr-delete-btn';
+        deleteBtn.title = isDeleting ? 'Undo removal' : 'Remove API key';
+        deleteBtn.innerHTML = isDeleting
+          ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 14l-4-4 4-4M5 10h11a4 4 0 010 8h-1" stroke-linecap="round" stroke-linejoin="round"/></svg> Undo`
+          : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+
+        deleteBtn.addEventListener('click', () => {
+          if (isDeleting) {
+            // Undo
+            settingsState.pendingDeletes.delete(p.provider);
+          } else {
+            // Mark for deletion, clear any pending key edit
+            settingsState.pendingDeletes.add(p.provider);
+            settingsState.pendingProviderKeys[p.provider] = '';
+            input.value = '';
+          }
+          updateSaveBtn();
+          renderProviders(); // re-render to update visual state
+        });
+
+        actionArea.appendChild(deleteBtn);
+      }
+
+      row.append(iconWrap, info, keyWrap, actionArea);
+      list.appendChild(row);
     });
 
     updateSaveBtn();
@@ -275,17 +359,15 @@ export function initSettingsModal() {
     state.userName     = rawName;
     state.userInitials = getInitials(displayName);
 
-    // Update welcome title if on main page
     const welcomeTitle = document.querySelector('.welcome-title');
     if (welcomeTitle) welcomeTitle.textContent = rawName ? `Welcome, ${firstName}` : 'Welcome';
 
-    // Notify sidebar and any other listeners
     window.dispatchEvent(new CustomEvent('ow:user-profile-updated', {
       detail: { name: displayName, initials: state.userInitials },
     }));
   }
 
-  // 8. Load user (public — call from outside to hydrate sidebar etc.)
+  // 8. Load user (public)
   async function loadUser() {
     try {
       const user = await window.electronAPI?.getUser?.();
@@ -301,6 +383,7 @@ export function initSettingsModal() {
   // 9. Hydrate modal fields
   async function hydrateModal() {
     setFeedback();
+    settingsState.pendingDeletes.clear();
     const [user, customInstructions, memory, providers] = await Promise.all([
       window.electronAPI?.getUser?.(),
       window.electronAPI?.getCustomInstructions?.(),
@@ -353,16 +436,25 @@ export function initSettingsModal() {
     } finally { updateSaveBtn(); }
   }
 
-  // 11. Save — providers tab
+  // 11. Save — providers tab (handles both new keys AND deletions)
   async function saveProvidersTab() {
-    const changes = Object.fromEntries(
-      Object.entries(settingsState.pendingProviderKeys)
-        .map(([id, key]) => [id, String(key ?? '').trim()])
-        .filter(([, key]) => key.length > 0),
-    );
+    const changes = {};
+
+    // New / updated keys
+    Object.entries(settingsState.pendingProviderKeys).forEach(([id, key]) => {
+      const trimmed = String(key ?? '').trim();
+      if (trimmed.length > 0 && !settingsState.pendingDeletes.has(id)) {
+        changes[id] = trimmed;
+      }
+    });
+
+    // Deletions — pass null to remove the key
+    settingsState.pendingDeletes.forEach(id => {
+      changes[id] = null;
+    });
 
     if (!Object.keys(changes).length) {
-      setFeedback('Add at least one API key before saving.', 'error'); return;
+      setFeedback('No changes to save.', 'error'); return;
     }
 
     saveBtn().disabled = true;
@@ -372,17 +464,21 @@ export function initSettingsModal() {
       const result = await window.electronAPI?.saveAPIKeys?.(changes);
       if (!result?.ok) throw new Error(result?.error ?? 'Could not save keys.');
 
-      // Reload providers in state
       const all = await window.electronAPI?.getModels?.() ?? [];
       state.allProviders = all;
       state.providers    = all.filter(p => p.api && p.api.trim() !== '');
 
       settingsState.providerCatalog     = all;
       settingsState.pendingProviderKeys = {};
+      settingsState.pendingDeletes.clear();
       renderProviders();
 
-      const count = Object.keys(changes).length;
-      setFeedback(count === 1 ? 'Provider key saved.' : `${count} provider keys saved.`, 'success');
+      const addedCount   = Object.values(changes).filter(v => v !== null).length;
+      const removedCount = Object.values(changes).filter(v => v === null).length;
+      const parts = [];
+      if (addedCount)   parts.push(`${addedCount} key${addedCount !== 1 ? 's' : ''} saved`);
+      if (removedCount) parts.push(`${removedCount} key${removedCount !== 1 ? 's' : ''} removed`);
+      setFeedback(parts.join(', ') + '.', 'success');
       window.dispatchEvent(new CustomEvent('ow:settings-saved'));
     } catch (err) {
       console.error('[SettingsModal] Save providers error:', err);
@@ -392,7 +488,6 @@ export function initSettingsModal() {
 
   // 12. Wire all events
   function wireEvents() {
-    // Tabs
     tabs().forEach(btn => {
       btn.addEventListener('click', () => {
         switchTab(btn.dataset.settingsTab);
@@ -400,19 +495,16 @@ export function initSettingsModal() {
       });
     });
 
-    // Save button
     saveBtn()?.addEventListener('click', () => {
       if (settingsState.activeTab === 'user')      void saveUserTab();
       if (settingsState.activeTab === 'providers') void saveProvidersTab();
     });
 
-    // Close modal
     closeBtn()?.addEventListener('click', close);
     backdrop()?.addEventListener('click', e => {
       if (e.target === backdrop()) close();
     });
 
-    // Keyboard shortcuts
     document.addEventListener('keydown', e => {
       const isSave = (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's';
       if (isSave && backdrop()?.classList.contains('open')) {
@@ -427,7 +519,7 @@ export function initSettingsModal() {
 
   wireEvents();
 
-  // 13. Sync body class helper
+  // 13. Sync body class
   function syncBodyClass() {
     const hasOpen = Boolean(
       document.querySelector(

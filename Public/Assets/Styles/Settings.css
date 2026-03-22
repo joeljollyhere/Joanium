@@ -1,7 +1,8 @@
 /* ─────────────────────────────────────────────
    settings.css
    Settings modal: backdrop, modal shell, tabs,
-   content panels, form inputs, action buttons
+   content panels, form inputs, action buttons,
+   and provider rows (spr-*)
 ───────────────────────────────────────────── */
 
 body.modal-open { overflow: hidden; }
@@ -257,8 +258,13 @@ body.modal-open { overflow: hidden; }
 .key-input::placeholder { color: var(--text-muted); }
 
 .key-input:focus {
-  border-color: var(--p-color);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--p-color) 18%, transparent);
+  border-color: var(--p-color, var(--accent));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--p-color, var(--accent)) 18%, transparent);
+}
+
+.key-input:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .key-eye {
@@ -281,47 +287,9 @@ body.modal-open { overflow: hidden; }
 .key-eye svg    { width: 14px; height: 14px; }
 
 /* ══════════════════════════════════════════
-   SETTINGS ROW (label | content grid)
-══════════════════════════════════════════ */
-.settings-row {
-  display: grid;
-  grid-template-columns: minmax(150px, 190px) minmax(0, 1fr);
-  gap: 24px;
-  padding: 24px 0;
-}
-
-.settings-row + .settings-row { border-top: 1px solid var(--border-subtle); }
-
-.settings-row-label    { display: flex; flex-direction: column; gap: 6px; }
-
-.settings-row-kicker {
-  font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-
-.settings-row-label h3     { margin: 0; font-size: 15px; color: var(--text-primary); }
-.settings-row-content      { min-width: 0; display: flex; flex-direction: column; gap: 10px; }
-
-.settings-theme-grid { padding-right: 24px; }
-
-/* ══════════════════════════════════════════
    ACTIONS + SAVE BUTTON
 ══════════════════════════════════════════ */
 .settings-actions { display: flex; justify-content: flex-start; align-items: center; gap: 12px; }
-
-.settings-actions-sticky {
-  position: sticky;
-  bottom: 0;
-  margin-top: auto;
-  padding-top: 14px;
-  padding-bottom: 4px;
-  background: linear-gradient(to top, var(--bg-secondary) 72%, transparent);
-}
-
-.settings-actions-hint { font-size: 11.5px; color: var(--text-muted); }
 
 .settings-save-btn {
   border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
@@ -365,9 +333,249 @@ body.modal-open { overflow: hidden; }
 }
 
 /* ══════════════════════════════════════════
-   PROVIDER CARDS (complex card variant)
+   PROVIDERS STACK + ROWS  (spr-*)
+   Properly scoped so nothing leaks out.
 ══════════════════════════════════════════ */
+
+/* Scrollable container */
 .providers-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: min(340px, calc(100vh - 360px));
+  overflow-y: auto;
+  padding-right: 6px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+.providers-stack::-webkit-scrollbar       { width: 4px; }
+.providers-stack::-webkit-scrollbar-track { background: transparent; }
+.providers-stack::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+/* Each provider row */
+.spr-row {
+  display: grid;
+  grid-template-columns: 36px minmax(130px, 170px) 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-subtle);
+  transition:
+    border-color 0.2s ease,
+    transform    0.15s ease,
+    box-shadow   0.2s ease;
+}
+
+.spr-row:hover {
+  border-color: color-mix(in srgb, var(--p-color, var(--accent)) 30%, var(--border));
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+}
+
+/* Active row: colored left border */
+.spr-row--active {
+  border-left: 3px solid var(--p-color, var(--accent));
+  padding-left: 11px;
+}
+
+/* Deleting row: red left border + dimmed */
+.spr-row--deleting {
+  border-left: 3px solid #f87171;
+  padding-left: 11px;
+  opacity: 0.65;
+}
+
+/* ── Icon ── */
+.spr-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.spr-icon-img {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+}
+
+.spr-icon.icon-missing .spr-icon-img { display: none; }
+
+/* ── Info column: name + badge ── */
+.spr-info {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.spr-provider-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Status badges */
+.spr-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 2px 9px;
+  border-radius: 999px;
+  width: fit-content;
+  letter-spacing: 0.2px;
+}
+
+.spr-status--active {
+  background: rgba(34, 197, 94, 0.10);
+  color: #16a34a;
+  border: 1px solid rgba(34, 197, 94, 0.24);
+}
+
+.spr-status--inactive {
+  background: var(--bg-secondary);
+  color: var(--text-muted);
+  border: 1px solid var(--border-subtle);
+}
+
+.spr-status--removing {
+  background: rgba(248, 113, 113, 0.10);
+  color: #dc2626;
+  border: 1px solid rgba(248, 113, 113, 0.24);
+}
+
+/* Pulsing dot inside Active badge */
+.spr-status-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #22c55e;
+  flex-shrink: 0;
+  animation: sprDotPulse 1.8s ease-in-out infinite;
+}
+
+@keyframes sprDotPulse {
+  0%, 100% { opacity: 1;   transform: scale(1);    }
+  50%       { opacity: 0.4; transform: scale(0.7); }
+}
+
+/* ── Key input column ── */
+.spr-key-wrap {
+  position: relative;
+  width: 100%;
+}
+
+.spr-key-input {
+  width: 100%;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 9px 40px 9px 12px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-primary);
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.spr-key-input::placeholder { color: var(--text-muted); }
+
+.spr-key-input:focus {
+  border-color: var(--p-color, var(--accent));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--p-color, var(--accent)) 18%, transparent);
+}
+
+.spr-key-input:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Eye toggle inside the key input */
+.spr-key-wrap .key-eye {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+/* ── Action column: trash / undo ── */
+.spr-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-shrink: 0;
+}
+
+.spr-delete-btn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition:
+    background    0.15s ease,
+    color         0.15s ease,
+    border-color  0.15s ease,
+    transform     0.12s ease;
+  flex-shrink: 0;
+}
+
+.spr-delete-btn svg { width: 14px; height: 14px; }
+
+.spr-delete-btn:hover {
+  background: rgba(220, 60, 60, 0.10);
+  color: #f87171;
+  border-color: rgba(220, 60, 60, 0.28);
+  transform: scale(1.08);
+}
+
+.spr-undo-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 11px;
+  border-radius: 8px;
+  border: 1px solid rgba(248, 113, 113, 0.32);
+  background: rgba(248, 113, 113, 0.08);
+  color: #f87171;
+  font-family: var(--font-ui);
+  font-size: 11.5px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s ease, transform 0.12s ease;
+}
+
+.spr-undo-btn svg { width: 13px; height: 13px; }
+
+.spr-undo-btn:hover {
+  background: rgba(248, 113, 113, 0.16);
+  transform: translateY(-1px);
+}
+
+/* ══════════════════════════════════════════
+   PROVIDER CARDS (complex card variant — legacy)
+══════════════════════════════════════════ */
+.providers-stack-legacy {
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -421,6 +629,33 @@ body.modal-open { overflow: hidden; }
 .settings-provider-status.disconnected { color: var(--text-muted); background: var(--bg-secondary); }
 
 /* ══════════════════════════════════════════
+   SETTINGS ROW (label | content grid)
+══════════════════════════════════════════ */
+.settings-row {
+  display: grid;
+  grid-template-columns: minmax(150px, 190px) minmax(0, 1fr);
+  gap: 24px;
+  padding: 24px 0;
+}
+
+.settings-row + .settings-row { border-top: 1px solid var(--border-subtle); }
+
+.settings-row-label    { display: flex; flex-direction: column; gap: 6px; }
+
+.settings-row-kicker {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.settings-row-label h3     { margin: 0; font-size: 15px; color: var(--text-primary); }
+.settings-row-content      { min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+
+.settings-theme-grid { padding-right: 24px; }
+
+/* ══════════════════════════════════════════
    RESPONSIVE
 ══════════════════════════════════════════ */
 @media (max-width: 860px) {
@@ -454,9 +689,16 @@ body.modal-open { overflow: hidden; }
   .settings-panel-header h3 { font-size: 20px; }
 
   .providers-stack {
-    max-height: min(380px, calc(100vh - 360px));
+    max-height: min(280px, calc(100vh - 400px));
     padding-right: 4px;
   }
+
+  .spr-row {
+    grid-template-columns: 32px 1fr auto;
+    gap: 10px;
+  }
+
+  .spr-info { display: none; } /* hide name col on small screens, icon + input + delete */
 
   .settings-actions        { flex-wrap: wrap; }
 

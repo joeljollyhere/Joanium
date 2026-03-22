@@ -83,6 +83,9 @@ export function readModelsWithKeys() {
 
 /* ══════════════════════════════════════════
    API KEYS
+   FIX: merge() spreads existing.api_keys before updates.api_keys, so
+   deleted keys (absent from nextKeys) still survive via the existing spread.
+   We bypass merge entirely for the api_keys field and write it directly.
 ══════════════════════════════════════════ */
 export function saveApiKeys(keysMap) {
   const user     = readUser();
@@ -93,11 +96,21 @@ export function saveApiKeys(keysMap) {
       const trimmed = key.trim();
       if (trimmed) nextKeys[id] = trimmed;
     } else if (key === null) {
+      // Explicitly delete — do NOT use merge() after this because
+      // merge spreads existing.api_keys first, which re-adds the deleted key.
       delete nextKeys[id];
     }
   });
 
-  return writeUser({ api_keys: nextKeys });
+  // Build the full user object with the final api_keys, bypassing the
+  // merge() spread that would resurrect deleted keys.
+  ensureDataDir();
+  const next = {
+    ...merge(user, {}),   // apply all defaults / preferences merges
+    api_keys: nextKeys,   // then stamp the correct final api_keys on top
+  };
+  fs.writeFileSync(Paths.USER_FILE, JSON.stringify(next, null, 2), 'utf-8');
+  return next;
 }
 
 /* ══════════════════════════════════════════

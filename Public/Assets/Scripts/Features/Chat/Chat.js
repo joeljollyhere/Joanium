@@ -7,6 +7,7 @@
 //    • Retry with exponential backoff
 //    • Unified AI planning step — AI decides skills + tools in one call
 //    • Edit & Retry for user messages; Retry for assistant messages
+//    • Auto-learning memory — extracts facts from conversation every 10 messages
 // ─────────────────────────────────────────────
 
 import { state } from '../../Shared/State.js';
@@ -129,6 +130,136 @@ function attachCopyEvent(btn, textToCopy) {
     } catch (err) { console.error('Failed to copy message:', err); }
   };
 }
+
+/* ══════════════════════════════════════════
+   AUTO-LEARNING MEMORY
+   Runs every 10 user messages in the background.
+   Extracts key facts about the user from recent
+   conversation and appends them to Memory.md.
+   Completely non-blocking — never affects the chat UX.
+══════════════════════════════════════════ */
+
+// How often (in user messages) to trigger a memory extraction
+const MEMORY_LEARN_INTERVAL = 5;
+
+// Track how many user messages have been sent this session
+let _userMessagesSinceLastLearn = 0;
+
+/**
+ * Show a brief "Learning..." indicator near the model selector.
+ * Returns a cleanup function to hide it.
+ */
+function showMemoryIndicator() {
+  const existing = document.getElementById('memory-learn-indicator');
+  if (existing) return () => {};
+
+  const el = document.createElement('div');
+  el.id = 'memory-learn-indicator';
+  el.innerHTML = `
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+         style="width:12px;height:12px;animation:spin 1.2s linear infinite;flex-shrink:0">
+      <path d="M21 12a9 9 0 11-6.219-8.56" stroke-linecap="round"/>
+    </svg>
+    Learning…
+  `;
+  el.style.cssText = `
+    position:fixed; top:48px; left:calc(var(--sidebar-w, 52px) + 14px); transform:none;
+    display:flex; align-items:center; gap:6px;
+    background:var(--bg-tertiary); border:1px solid var(--border-subtle);
+    border-radius:999px; padding:4px 12px;
+    font-size:11px; font-family:var(--font-ui); color:var(--text-muted);
+    z-index:50; animation:fadeIn 0.2s ease both;
+    pointer-events:none;
+  `;
+
+  // inject spin keyframe once
+  if (!document.getElementById('mem-spin-style')) {
+    const style = document.createElement('style');
+    style.id = 'mem-spin-style';
+    style.textContent = '@keyframes spin{to{transform:rotate(360deg)}}';
+    document.head.appendChild(style);
+  }
+
+  document.body.appendChild(el);
+  return () => {
+    el.style.transition = 'opacity 0.3s ease';
+    el.style.opacity = '0';
+    setTimeout(() => el.remove(), 300);
+  };
+}
+
+/**
+ * Background memory learning — never throws, never blocks.
+ */
+async function attemptMemoryUpdate() {
+  _userMessagesSinceLastLearn++;
+  if (_userMessagesSinceLastLearn < MEMORY_LEARN_INTERVAL) return;
+  _userMessagesSinceLastLearn = 0;
+
+  if (!state.selectedProvider || !state.selectedModel) return;
+
+  // Need at least a few exchanges to learn anything meaningful
+  const userMessages = state.messages.filter(m => m.role === 'user');
+  if (userMessages.length < 4) return;
+
+  const hideIndicator = showMemoryIndicator();
+
+  try {
+    const existingMemory = (await window.electronAPI?.getMemory?.()) ?? '';
+
+    // Use the last 20 messages for extraction context
+    const recentMessages = state.messages.slice(-20);
+    const conversationText = recentMessages
+      .map(m => `${m.role === 'user' ? 'User' : 'AI'}: ${m.content.slice(0, 400)}`)
+      .join('\n');
+
+    const extractPrompt = [
+      'You are a memory extraction assistant. Read this conversation and extract NEW long-term facts about the USER.',
+      '',
+      'Rules:',
+      '- Only extract facts about the USER (not the AI), such as: preferences, projects, goals, tools they use,',
+      '  personal context, recurring topics, communication style, domain expertise, etc.',
+      '- Do NOT include anything already captured in the existing memory below.',
+      '- Do NOT include one-off questions or temporary context.',
+      '- If there is nothing new and genuinely useful to remember, respond with exactly: [NOTHING]',
+      '- Otherwise respond ONLY with concise bullet points (max 5), each starting with "- ".',
+      '- Keep each bullet under 20 words. Be specific, not generic.',
+      '',
+      `Existing memory:\n${existingMemory.trim() || '(empty)'}`,
+      '',
+      `Recent conversation:\n${conversationText}`,
+    ].join('\n');
+
+    const result = await fetchWithTools(
+      state.selectedProvider,
+      state.selectedModel,
+      [{ role: 'user', content: extractPrompt, attachments: [] }],
+      'You are a concise memory extraction assistant. Output only what is asked — bullet points or [NOTHING].',
+      [],
+    );
+
+    if (result.type !== 'text') return;
+    const text = result.text?.trim() ?? '';
+    if (!text || text === '[NOTHING]' || text.toUpperCase().includes('[NOTHING]')) return;
+
+    // Only accept lines that look like bullets
+    const bullets = text.split('\n').filter(l => l.trim().startsWith('- ')).join('\n');
+    if (!bullets) return;
+
+    const timestamp = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    const updated = (existingMemory.trim() ? existingMemory.trim() + '\n\n' : '') +
+      `--- Auto-learned ${timestamp} ---\n${bullets}`;
+
+    await window.electronAPI?.saveMemory?.(updated);
+    console.log('[Chat] Memory updated with new learnings.');
+
+  } catch (err) {
+    console.warn('[Chat] Memory update failed (non-fatal):', err.message);
+  } finally {
+    hideIndicator();
+  }
+}
+
 
 /* ══════════════════════════════════════════
    HELPERS
@@ -524,16 +655,12 @@ export function appendMessage(role, content, addToState = true, scroll = true, a
     editBtn.addEventListener('click', () => {
       if (state.isTyping) return;
 
-      // Expand row to full width for editing
       row.classList.add('is-editing');
-
-      // Hide actions while editing
       actions.style.opacity = '0';
       actions.style.pointerEvents = 'none';
 
       const originalContent = msg.content;
 
-      // Replace text with textarea
       const editArea = document.createElement('textarea');
       editArea.className = 'bubble-edit-textarea';
       editArea.value = originalContent;
@@ -550,7 +677,6 @@ export function appendMessage(role, content, addToState = true, scroll = true, a
         editArea.style.height = `${editArea.scrollHeight}px`;
       });
 
-      // Warning text
       const warning = document.createElement('div');
       warning.className = 'bubble-edit-warning';
       warning.innerHTML = `
@@ -561,7 +687,6 @@ export function appendMessage(role, content, addToState = true, scroll = true, a
       `;
       bubble.appendChild(warning);
 
-      // Edit action buttons
       const editActions = document.createElement('div');
       editActions.className = 'bubble-edit-actions';
       editActions.innerHTML = `
@@ -574,7 +699,6 @@ export function appendMessage(role, content, addToState = true, scroll = true, a
       const saveBtn = editActions.querySelector('.bubble-edit-save');
 
       cancelBtn.addEventListener('click', () => {
-        // Animate collapse before restoring
         bubble.style.transition = 'max-width 0.22s var(--ease-out-expo), width 0.22s var(--ease-out-expo), opacity 0.15s ease';
         bubble.style.opacity = '0.6';
         setTimeout(() => {
@@ -597,22 +721,18 @@ export function appendMessage(role, content, addToState = true, scroll = true, a
         const newText = editArea.value.trim();
         if (!newText || state.isTyping) return;
 
-        // Find this row's index in the DOM
         const rows = Array.from(chatMessages.querySelectorAll('.message-row'));
         const rowIdx = rows.indexOf(row);
         if (rowIdx === -1) return;
 
-        // Update state
         msg.content = newText;
         if (state.messages[rowIdx]) {
           state.messages[rowIdx] = { ...state.messages[rowIdx], content: newText };
         }
 
-        // Remove all subsequent rows + state entries
         rows.slice(rowIdx + 1).forEach(r => r.remove());
         state.messages = state.messages.slice(0, rowIdx + 1);
 
-        // Restore bubble text with new content
         textEl = document.createElement('div');
         textEl.className = 'bubble-text';
         appendTextWithLineBreaks(textEl, newText);
@@ -621,13 +741,11 @@ export function appendMessage(role, content, addToState = true, scroll = true, a
         editActions.remove();
         row.classList.remove('is-editing');
 
-        // Update copy button binding
         attachCopyEvent(copyBtn, newText);
 
         actions.style.opacity = '';
         actions.style.pointerEvents = '';
 
-        // Resend
         await doSendFromState();
       });
     });
@@ -638,7 +756,6 @@ export function appendMessage(role, content, addToState = true, scroll = true, a
       const rows = Array.from(chatMessages.querySelectorAll('.message-row'));
       const rowIdx = rows.indexOf(row);
       if (rowIdx === -1) return;
-      // Remove all rows after this user message
       rows.slice(rowIdx + 1).forEach(r => r.remove());
       state.messages = state.messages.slice(0, rowIdx + 1);
       await doSendFromState();
@@ -663,7 +780,6 @@ export function appendMessage(role, content, addToState = true, scroll = true, a
       const rows = Array.from(chatMessages.querySelectorAll('.message-row'));
       const rowIdx = rows.indexOf(row);
       if (rowIdx === -1) return;
-      // Remove this assistant row and everything after, resend from preceding user msg
       rows.slice(rowIdx).forEach(r => r.remove());
       state.messages = state.messages.slice(0, rowIdx);
       await doSendFromState();
@@ -836,6 +952,10 @@ export async function sendMessage({ text, attachments, sendBtnEl }) {
     await trackUsage(usage, state.currentChatId, usedProvider, usedModel);
     state.messages.push({ role: 'assistant', content: finalReply, attachments: [] });
     saveCurrentChat();
+
+    // ── Auto-learning memory (background, non-blocking) ──────────────
+    attemptMemoryUpdate().catch(() => {});
+
   } catch (err) {
     const msg = `Something went wrong: ${err.message}`;
     live.set(msg);
@@ -871,6 +991,7 @@ export function startNewChat(extraCleanup = () => { }) {
   state.messages = [];
   state.currentChatId = null;
   state.isTyping = false;
+  _userMessagesSinceLastLearn = 0;
   document.getElementById('typing-row')?.remove();
   chatMessages.innerHTML = '';
   restoreWelcome();
@@ -885,6 +1006,7 @@ export async function loadChat(chatId, { updateModelLabel, buildModelDropdown, n
     state.messages = [];
     state.currentChatId = chat.id;
     state.isTyping = false;
+    _userMessagesSinceLastLearn = 0;
     document.getElementById('typing-row')?.remove();
     chatMessages.innerHTML = '';
     resetComposer();
