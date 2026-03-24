@@ -128,6 +128,8 @@
               </div>
             </section>
 
+
+
             <section class="project-list-card">
               <div class="project-card-header">
                 <div>
@@ -138,6 +140,50 @@
 
               <div id="project-list" class="project-list"></div>
             </section>
+          </div>
+        </div>
+      </div>
+
+      <!-- Edit Project Modal -->
+      <div id="edit-project-backdrop">
+        <div id="edit-project-panel" role="dialog" aria-modal="true" aria-labelledby="edit-project-title">
+          <div class="settings-modal-header">
+            <div class="settings-modal-copy">
+              <h2 id="edit-project-title">Edit project</h2>
+              <p class="settings-modal-subtitle">Update the context and details for this saved project.</p>
+            </div>
+            <button class="settings-modal-close" id="edit-project-close" type="button" aria-label="Close edit project">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+                <path d="M18 6L6 18M6 6l12 12" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" />
+              </svg>
+            </button>
+          </div>
+          <div class="settings-modal-body edit-project-modal-body" style="padding: 24px;">
+            <label class="project-field">
+              <span class="project-field-label">Project name</span>
+              <input id="project-edit-name-input" type="text" placeholder="OpenWorld app" autocomplete="off" spellcheck="false" />
+            </label>
+
+            <div class="project-field" style="margin-top: 16px;">
+              <span class="project-field-label">Local directory</span>
+              <div class="project-path-row">
+                <input id="project-edit-path-input" type="text" placeholder="Choose a folder" readonly />
+                <button id="project-edit-path-btn" class="project-secondary-btn" type="button">Choose folder</button>
+              </div>
+            </div>
+
+            <label class="project-field" style="margin-top: 16px;">
+              <span class="project-field-label">Project info for the AI</span>
+              <textarea id="project-edit-context-input" rows="5" placeholder="What should the AI keep in mind about this project, codebase, team, or goals?"></textarea>
+            </label>
+
+            <div class="project-create-footer" style="margin-top: 24px;">
+              <div id="project-edit-status" class="project-status" aria-live="polite"></div>
+              <div style="display: flex; gap: 8px;">
+                <button id="project-edit-cancel-btn" class="project-secondary-btn" type="button">Cancel</button>
+                <button id="project-edit-save-btn" class="project-primary-btn" type="button">Save changes</button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -203,24 +249,37 @@
         </div>
       </div>
 
+      <!-- Global Confirm Modal -->
+      <div id="global-confirm-backdrop">
+        <div id="global-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="global-confirm-title">
+          <h3 id="global-confirm-title">Confirm</h3>
+          <p id="global-confirm-copy">Are you sure?</p>
+          <div class="global-confirm-actions">
+            <button id="global-confirm-cancel" class="project-secondary-btn" type="button">Cancel</button>
+            <button id="global-confirm-action" class="project-danger-btn" type="button">Confirm</button>
+          </div>
+        </div>
+      </div>
+
       <!-- Main content -->
       <main id="main">
         <section id="project-context-bar" hidden>
-          <div class="project-context-copy">
-            <div class="project-context-eyebrow">Project workspace</div>
-            <div class="project-context-head">
-              <div>
-                <h2 id="project-context-title">Project</h2>
-                <div id="project-context-path" class="project-context-path"></div>
-              </div>
-              <div class="project-context-actions">
-                <button id="project-open-folder-btn" class="project-secondary-btn" type="button">Open folder</button>
-                <button id="project-exit-btn" class="project-secondary-btn" type="button">Leave project</button>
-              </div>
+          <div class="project-context-compact">
+            <div class="project-compact-info">
+              <span id="project-context-title" class="project-compact-title"></span>
+              <span class="project-divider">/</span>
+              <span id="project-context-path" class="project-compact-path"></span>
+              <span id="project-context-info" style="display:none;"></span>
             </div>
-            <p id="project-context-info" class="project-context-info"></p>
+            <div class="project-compact-actions">
+              <button id="project-open-folder-btn" class="project-secondary-btn" type="button">Open</button>
+              <button id="project-exit-btn" class="project-secondary-btn" type="button">Leave</button>
+            </div>
           </div>
         </section>
+
+
+
 
         <!-- ── Right-rail message timeline navigator ── -->
         <div id="chat-timeline" class="chat-timeline" aria-hidden="true">

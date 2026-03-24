@@ -41,6 +41,22 @@ export function initProjectsModal({
   const createBtn = document.getElementById('project-create-btn');
   const statusEl = document.getElementById('project-create-status');
 
+  const editBackdrop = document.getElementById('edit-project-backdrop');
+  const editCloseBtn = document.getElementById('edit-project-close');
+  const editNameInput = document.getElementById('project-edit-name-input');
+  const editPathInput = document.getElementById('project-edit-path-input');
+  const editContextInput = document.getElementById('project-edit-context-input');
+  const editPathBtn = document.getElementById('project-edit-path-btn');
+  const editSaveBtn = document.getElementById('project-edit-save-btn');
+  const editCancelBtn = document.getElementById('project-edit-cancel-btn');
+  const editStatusEl = document.getElementById('project-edit-status');
+
+  const confirmBackdrop = document.getElementById('global-confirm-backdrop');
+  const confirmTitle = document.getElementById('global-confirm-title');
+  const confirmCopy = document.getElementById('global-confirm-copy');
+  const confirmCancel = document.getElementById('global-confirm-cancel');
+  const confirmAction = document.getElementById('global-confirm-action');
+
   if (!backdrop || !listEl) {
     return {
       open() {},
@@ -51,6 +67,28 @@ export function initProjectsModal({
   }
 
   let projects = [];
+  let editingProject = null;
+
+  function showConfirm(title, copy) {
+    return new Promise((resolve) => {
+      if (!confirmBackdrop) return resolve(window.confirm(`${title}\n\n${copy}`));
+      confirmTitle.textContent = title;
+      confirmCopy.textContent = copy;
+      confirmBackdrop.classList.add('open');
+
+      const cleanup = () => {
+        confirmCancel?.removeEventListener('click', onCancel);
+        confirmAction?.removeEventListener('click', onAction);
+        confirmBackdrop.classList.remove('open');
+      };
+
+      const onCancel = () => { cleanup(); resolve(false); };
+      const onAction = () => { cleanup(); resolve(true); };
+
+      confirmCancel?.addEventListener('click', onCancel);
+      confirmAction?.addEventListener('click', onAction);
+    });
+  }
 
   function setStatus(message = '', tone = '') {
     if (!statusEl) return;
@@ -103,8 +141,21 @@ export function initProjectsModal({
           <div class="project-item-context">${lastOpened ? `Last opened ${escapeHtml(lastOpened)}` : ''}</div>
         </div>
         <div class="project-item-actions">
-          <button class="project-open-btn" type="button">Open</button>
-          <button class="project-delete-btn" type="button">Remove</button>
+          <button class="project-icon-btn project-open-btn" type="button" title="Open project">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+          <button class="project-icon-btn project-edit-btn" type="button" title="Edit project">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+          <button class="project-icon-btn project-delete-btn" type="button" title="Remove project">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
         </div>
       `;
 
@@ -113,9 +164,19 @@ export function initProjectsModal({
         if (opened) close();
       });
 
+      item.querySelector('.project-edit-btn')?.addEventListener('click', () => {
+        editingProject = project;
+        if (editNameInput) editNameInput.value = project.name || '';
+        if (editPathInput) editPathInput.value = project.rootPath || '';
+        if (editContextInput) editContextInput.value = project.context || '';
+        if (editStatusEl) editStatusEl.textContent = '';
+        if (editBackdrop) editBackdrop.classList.add('open');
+      });
+
       item.querySelector('.project-delete-btn')?.addEventListener('click', async () => {
-        const confirmed = window.confirm(
-          `Remove "${project.name}" from Romelson and delete its saved project chats? Your local folder will not be touched.`,
+        const confirmed = await showConfirm(
+          'Remove project',
+          `Remove "${project.name}" from Romelson and delete its saved project chats? Your local folder will not be touched.`
         );
         if (!confirmed) return;
 
@@ -178,6 +239,39 @@ export function initProjectsModal({
     if (opened) close();
   }
 
+  async function handleEditSave() {
+    if (!editingProject) return;
+    const name = editNameInput?.value?.trim() ?? '';
+    const rootPath = editPathInput?.value?.trim() ?? '';
+    const context = editContextInput?.value?.trim() ?? '';
+
+    if (!name || !rootPath) {
+      if (editStatusEl) {
+        editStatusEl.textContent = 'Name and path are required.';
+        editStatusEl.className = 'project-status error';
+      }
+      return;
+    }
+
+    if (editStatusEl) {
+      editStatusEl.textContent = 'Saving...';
+      editStatusEl.className = 'project-status';
+    }
+
+    const result = await window.electronAPI?.updateProject?.(editingProject.id, { name, rootPath, context });
+    if (!result?.ok) {
+      if (editStatusEl) {
+        editStatusEl.textContent = result?.error || 'Could not update the project.';
+        editStatusEl.className = 'project-status error';
+      }
+      return;
+    }
+
+    if (editBackdrop) editBackdrop.classList.remove('open');
+    editingProject = null;
+    await refreshProjects();
+  }
+
   async function open() {
     backdrop.classList.add('open');
     syncModalOpenState();
@@ -202,6 +296,23 @@ export function initProjectsModal({
   });
   pathBtn?.addEventListener('click', chooseFolder);
   createBtn?.addEventListener('click', handleCreate);
+
+  const closeEdit = () => {
+    if (editBackdrop) editBackdrop.classList.remove('open');
+    editingProject = null;
+  };
+
+  editCancelBtn?.addEventListener('click', closeEdit);
+  editCloseBtn?.addEventListener('click', closeEdit);
+
+  editSaveBtn?.addEventListener('click', handleEditSave);
+  editPathBtn?.addEventListener('click', async () => {
+    const defaultPath = editPathInput?.value?.trim() || undefined;
+    const result = await window.electronAPI?.selectDirectory?.({ defaultPath });
+    if (result?.ok && result.path && editPathInput) {
+      editPathInput.value = result.path;
+    }
+  });
 
   document.addEventListener('keydown', event => {
     if (event.key === 'Escape' && isOpen()) close();

@@ -1,7 +1,9 @@
 /* Projects modal, project banner, and missing-folder recovery dialog */
 
 #projects-modal-backdrop,
-#project-missing-backdrop {
+#project-missing-backdrop,
+#global-confirm-backdrop,
+#edit-project-backdrop {
   position: fixed;
   inset: 0;
   display: flex;
@@ -16,13 +18,24 @@
   transition: opacity 0.25s var(--motion-decelerate);
 }
 
+#edit-project-backdrop {
+  z-index: 370;
+}
+
+#global-confirm-backdrop {
+  z-index: 380;
+}
+
 #projects-modal-backdrop.open,
-#project-missing-backdrop.open {
+#project-missing-backdrop.open,
+#global-confirm-backdrop.open,
+#edit-project-backdrop.open {
   opacity: 1;
   pointer-events: auto;
 }
 
-#projects-panel {
+#projects-panel,
+#edit-project-panel {
   width: min(980px, calc(100vw - 64px));
   max-height: min(740px, calc(100vh - 64px));
   overflow: hidden;
@@ -35,7 +48,9 @@
 }
 
 #projects-modal-backdrop.open #projects-panel,
-#project-missing-backdrop.open #project-missing-dialog {
+#project-missing-backdrop.open #project-missing-dialog,
+#global-confirm-backdrop.open #global-confirm-dialog,
+#edit-project-backdrop.open #edit-project-panel {
   transform: translateY(0) scale(1);
 }
 
@@ -53,7 +68,8 @@
 }
 
 .project-create-card,
-.project-list-card {
+.project-list-card,
+.project-edit-card {
   min-height: 0;
   border-radius: 22px;
   border: 1px solid var(--border-subtle);
@@ -331,6 +347,7 @@
 .project-item-context {
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -341,51 +358,50 @@
   gap: 8px;
 }
 
-.project-open-btn,
-.project-delete-btn {
-  border: none;
-  border-radius: 999px;
-  padding: 9px 12px;
-  font-family: var(--font-ui);
-  font-size: 11px;
-  font-weight: 600;
-  cursor: pointer;
-  transition:
-    background var(--transition-fast),
-    color var(--transition-fast),
-    transform var(--transition-fast);
-}
-
-.project-open-btn {
-  background: var(--accent);
-  color: #fff;
-}
-
-.project-delete-btn {
+.project-icon-btn {
   background: transparent;
   color: var(--text-muted);
-  border: 1px solid var(--border);
+  border: 1px solid transparent;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all var(--transition-fast);
 }
 
-.project-open-btn:hover,
-.project-delete-btn:hover {
+.project-icon-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.project-icon-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  border-color: var(--border-subtle);
   transform: translateY(-1px);
 }
 
-.project-delete-btn:hover {
+.project-icon-btn.project-open-btn:hover {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+.project-icon-btn.project-delete-btn:hover {
   color: #ef9b9b;
   border-color: rgba(239, 155, 155, 0.35);
 }
 
 #project-context-bar {
   width: min(92%, 960px);
-  margin: 20px auto 0;
-  padding: 18px 22px;
-  border-radius: 24px;
+  margin: 16px auto 0;
+  padding: 8px 12px 8px 18px;
+  border-radius: 999px;
   border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border-subtle));
-  background:
-    linear-gradient(135deg, color-mix(in srgb, var(--accent) 11%, var(--bg-secondary)), var(--bg-secondary));
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.09);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 8%, var(--bg-secondary)), var(--bg-secondary));
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.06);
   animation: fadeScaleIn 0.3s var(--motion-smooth);
 }
 
@@ -393,60 +409,51 @@
   display: none !important;
 }
 
-.project-context-copy {
+.project-context-compact {
   display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.project-context-eyebrow {
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--accent);
-}
-
-.project-context-head {
-  display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 16px;
 }
 
-.project-context-head h2 {
-  font-size: 18px;
-  font-weight: 600;
-  color: var(--text-primary);
+.project-compact-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
 }
 
-.project-context-path {
-  margin-top: 6px;
+.project-compact-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.project-divider {
+  color: var(--text-muted);
+  font-size: 12px;
+  opacity: 0.6;
+}
+
+.project-compact-path {
   color: var(--text-muted);
   font-size: 12px;
   font-family: var(--font-mono);
-  line-height: 1.55;
-  word-break: break-all;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.project-context-actions {
+.project-compact-actions {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   flex-shrink: 0;
 }
 
-.project-context-info {
-  color: var(--text-secondary);
-  font-size: 12px;
-  line-height: 1.65;
-}
-
-.project-context-info:empty {
-  display: none;
-}
-
-#project-missing-dialog {
+#project-missing-dialog,
+#global-confirm-dialog {
   width: min(480px, calc(100vw - 40px));
   background: var(--bg-secondary);
   border-radius: 24px;
@@ -478,18 +485,21 @@
   height: 24px;
 }
 
-#project-missing-dialog h3 {
+#project-missing-dialog h3,
+#global-confirm-dialog h3 {
   font-size: 18px;
   color: var(--text-primary);
 }
 
-#project-missing-copy {
+#project-missing-copy,
+#global-confirm-copy {
   color: var(--text-muted);
   font-size: 13px;
   line-height: 1.65;
 }
 
-.project-missing-actions {
+.project-missing-actions,
+.global-confirm-actions {
   display: flex;
   align-items: center;
   justify-content: center;

@@ -52,7 +52,7 @@ export const settingsModalClose    = document.getElementById('settings-modal-clo
 // Call after opening or closing any overlay.
 export const syncModalOpenState = () => {
   const hasOpen = Boolean(
-    document.querySelector('#settings-modal-backdrop.open, #library-modal-backdrop.open, #projects-modal-backdrop.open'),
+    document.querySelector('#settings-modal-backdrop.open, #library-modal-backdrop.open, #projects-modal-backdrop.open, #global-confirm-backdrop.open, #edit-project-backdrop.open'),
   );
   document.body.classList.toggle('modal-open', hasOpen);
 };
