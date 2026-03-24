@@ -6,5 +6,4 @@ export async function openSite(url) {
     if (/^https?:[^/]/i.test(target)) target = target.replace(/^https?:/i, 'https://');
     if (!/^https?:\/\//i.test(target)) target = `https://${target}`;
     await shell.openExternal(target);
-    console.log(`[AutomationEngine] openSite → ${target}`);
 }

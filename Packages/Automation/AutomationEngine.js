@@ -111,7 +111,6 @@ export async function runAction(action, connectorEngine = null) {
       } else {
         fs.writeFileSync(action.filePath, String(action.content ?? ''), 'utf-8');
       }
-      console.log(`[AutomationEngine] write_file (${action.append ? 'append' : 'overwrite'}) → ${action.filePath}`);
       return;
     }
 
@@ -120,7 +119,6 @@ export async function runAction(action, connectorEngine = null) {
       const destDir = path.dirname(action.destPath);
       if (!fs.existsSync(destDir)) fs.mkdirSync(destDir, { recursive: true });
       fs.renameSync(action.sourcePath, action.destPath);
-      console.log(`[AutomationEngine] move_file → ${action.sourcePath} → ${action.destPath}`);
       return;
     }
 
@@ -129,21 +127,18 @@ export async function runAction(action, connectorEngine = null) {
       const destDir = path.dirname(action.destPath);
       if (!fs.existsSync(destDir)) fs.mkdirSync(destDir, { recursive: true });
       fs.copyFileSync(action.sourcePath, action.destPath);
-      console.log(`[AutomationEngine] copy_file → ${action.sourcePath} → ${action.destPath}`);
       return;
     }
 
     case 'delete_file': {
       if (!action.filePath) throw new Error('delete_file: no file path provided');
       fs.unlinkSync(action.filePath);
-      console.log(`[AutomationEngine] delete_file → ${action.filePath}`);
       return;
     }
 
     case 'create_folder': {
       if (!action.path) throw new Error('create_folder: no path provided');
       fs.mkdirSync(action.path, { recursive: true });
-      console.log(`[AutomationEngine] create_folder → ${action.path}`);
       return;
     }
 
@@ -155,7 +150,6 @@ export async function runAction(action, connectorEngine = null) {
       } else {
         exec('xdg-screensaver lock 2>/dev/null || gnome-screensaver-command -l 2>/dev/null || loginctl lock-session');
       }
-      console.log('[AutomationEngine] lock_screen');
       return;
     }
 
@@ -182,7 +176,6 @@ export async function runAction(action, connectorEngine = null) {
 
       try {
         const res = await fetch(action.url, opts);
-        console.log(`[AutomationEngine] http_request → ${method} ${action.url} ${res.status}`);
         if (action.notify) {
           sendNotification(
             `🌐 ${method} ${res.ok ? '✅' : '❌'} ${res.status}`,
@@ -211,7 +204,6 @@ export async function runAction(action, connectorEngine = null) {
         action.cc  ?? '',
         action.bcc ?? '',
       );
-      console.log(`[AutomationEngine] gmail_send_email → ${action.to}`);
       return;
     }
 
@@ -375,17 +367,14 @@ export class AutomationEngine {
     this._load();
     this._runStartupAutomations();
     this._ticker = setInterval(() => this._checkScheduled(), 60_000);
-    console.log('[AutomationEngine] Started —', this.automations.length, 'automation(s)');
   }
 
   stop() {
     if (this._ticker) { clearInterval(this._ticker); this._ticker = null; }
-    console.log('[AutomationEngine] Stopped');
   }
 
   reload() {
     this._load();
-    console.log('[AutomationEngine] Reloaded —', this.automations.length, 'automation(s)');
   }
 
   getAll() {
@@ -425,7 +414,6 @@ export class AutomationEngine {
       auto.lastRun = null;
     }
     this._persist();
-    console.log('[AutomationEngine] All automation history cleared.');
   }
 
   _load() {
@@ -472,8 +460,6 @@ export class AutomationEngine {
   }
 
   async _execute(automation) {
-    console.log(`[AutomationEngine] Executing: "${automation.name}"`);
-
     const entry = {
       timestamp: new Date().toISOString(),
       status:    'success',

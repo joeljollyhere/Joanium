@@ -488,7 +488,6 @@ export class AgentsEngine {
     this._load();
     this._runStartupJobs();
     this._ticker = setInterval(() => this._checkScheduled(), 60_000);
-    console.log('[AgentsEngine] Started —', this.agents.length, 'agent(s)');
   }
 
   stop()       { if (this._ticker) { clearInterval(this._ticker); this._ticker = null; } }
@@ -602,7 +601,6 @@ export class AgentsEngine {
     const runKey  = `${agent.id}__${job.id}`;
     const agentId = agent.id;
     const jobId   = job.id;
-    console.log(`[AgentsEngine] Running "${job.name ?? job.id}" for "${agent.name}"`);
 
     this._running.set(runKey, {
       agentId,
@@ -661,13 +659,11 @@ export class AgentsEngine {
           ? `No actionable data from: ${sourceTypes.join(', ')}.`
           : 'Data source returned nothing to act on.';
         entry.summary = entry.skipReason;
-        console.log(`[AgentsEngine] "${job.name ?? job.id}" — nothing to report`);
       } else {
         entry.fullResponse = trimmed;
         entry.summary      = trimmed.slice(0, 400);
         await executeOutput(job.output ?? {}, trimmed, agent, job, this.connectorEngine);
         entry.acted = true;
-        console.log(`[AgentsEngine] "${job.name ?? job.id}" — acted ✓`);
       }
 
     } catch (err) {

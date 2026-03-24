@@ -9,5 +9,4 @@ export function sendNotification(title, body = '', clickUrl = '') {
     const n = new Notification({ title, body });
     if (clickUrl) n.on('click', () => shell.openExternal(clickUrl));
     n.show();
-    console.log(`[AutomationEngine] sendNotification → "${title}"`);
 }

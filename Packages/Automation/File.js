@@ -6,5 +6,4 @@ export function writeFile(filePath, content = '') {
     const dir = path.dirname(filePath);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(filePath, String(content), 'utf-8');
-    console.log(`[AutomationEngine] writeFile → ${filePath}`);
 }
