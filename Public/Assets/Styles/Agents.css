@@ -131,7 +131,12 @@
   margin-bottom: 4px;
 }
 
-.agents-empty-icon svg { width: 30px; height: 30px; }
+.agents-empty .agents-empty-icon svg {
+  width: 30px;
+  height: 30px;
+  display: block;
+  margin: 0;
+}
 
 .agents-empty h3 {
   font-size: 18px;
@@ -1095,7 +1100,7 @@
   color: var(--text-muted);
 }
 
-.agents-empty svg { opacity: 0.25; margin-bottom: 16px; }
+.agents-empty > svg { opacity: 0.25; margin-bottom: 16px; }
 .agents-empty h3  { font-size: 17px; font-weight: 600; color: var(--text-secondary); margin: 0 0 8px; }
 .agents-empty p   { font-size: 13.5px; margin: 0 0 24px; max-width: 360px; line-height: 1.6; }
 
