@@ -141,6 +141,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // File System & Terminal
   selectDirectory: (opts) => ipcRenderer.invoke('select-directory', opts),
+  findFileByName: (params) => ipcRenderer.invoke('find-file-by-name', params),
   runShellCommand: (params) => ipcRenderer.invoke('run-shell-command', params),
   assessCommandRisk: (params) => ipcRenderer.invoke('assess-command-risk', params),
   readLocalFile: (params) => ipcRenderer.invoke('read-local-file', params),

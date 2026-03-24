@@ -336,6 +336,29 @@ async function runProjectChecks({ workingDir, includeLint, includeTest, includeB
 }
 
 export function register() {
+  ipcMain.handle('find-file-by-name', async (_e, { rootPath, name, maxResults = 40 }) => {
+    if (!rootPath?.trim()) return { ok: false, error: 'No workspace path provided.' };
+    if (!name?.trim()) return { ok: false, error: 'No filename provided.' };
+
+    try {
+      const { root, files } = walkWorkspaceFiles(rootPath);
+      const needle = name.toLowerCase();
+      const limit = Math.min(Math.max(1, Number(maxResults) || 40), 200);
+      const matches = [];
+
+      for (const file of files) {
+        if (matches.length >= limit) break;
+        if (path.basename(file).toLowerCase().includes(needle)) {
+          matches.push({ path: path.relative(root, file) });
+        }
+      }
+
+      return { ok: true, root, matches };
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
+  });
+
   ipcMain.handle('select-directory', async (e, opts = {}) => {
     const window = BrowserWindow.fromWebContents(e.sender);
     const result = await dialog.showOpenDialog(window, {
