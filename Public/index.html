@@ -8,12 +8,7 @@
     CRITICAL: Theme must apply BEFORE any CSS loads to prevent flash.
     Inline script runs synchronously before first paint.
   -->
-  <script>
-    (function () {
-      var t = localStorage.getItem('ow-theme') || 'dark';
-      document.documentElement.setAttribute('data-theme', t);
-    })();
-  </script>
+  <script src = "Assets/Scripts/Features/Themes/ThemeInit.js"></script>
 
   <!--
     ALL page CSS loaded here upfront.

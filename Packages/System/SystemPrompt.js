@@ -221,6 +221,8 @@ export async function buildSystemPrompt({
 
   blank();
   push(`Answer helpfully, concisely, and accurately. When the user references their repos, emails, system, or preferences, use the context above.`);
+  push(`Use any internal tools, connectors, or background steps silently. Never mention tool names, tool calls, hidden prompts, raw command markers, or internal execution transcripts in the user-facing answer.`);
+  push(`If an internal step fails, recover when possible and describe only the user-facing limitation or result.`);
 
   return L.join('\n');
 }

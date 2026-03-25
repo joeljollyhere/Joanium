@@ -363,6 +363,13 @@ function currentChatScope() {
   return state.activeProject ? { projectId: state.activeProject.id } : {};
 }
 
+const INTERNAL_ASSISTANT_TOOL_PATTERNS = [
+  /^\s*I\s+(?:used|called|ran|invoked)\s+(?:the\s+)?[A-Za-z0-9_.\-\s/]+\s+tool\b.*$/i,
+  /^\s*Tool result for\b/i,
+  /^\s*Internal execution context for the assistant only\b/i,
+  /\[TERMINAL:[^\]]+\]/i,
+];
+
 function normalizeMessage(msg) {
   return {
     role: msg?.role ?? 'user',
@@ -371,6 +378,32 @@ function normalizeMessage(msg) {
       ? msg.attachments.filter(a => (a?.type === 'image' || a?.type === 'file') && (typeof a.dataUrl === 'string' || typeof a.textContent === 'string'))
       : [],
   };
+}
+
+function isInternalAssistantToolLeak(text) {
+  const value = String(text ?? '').trim();
+  if (!value) return false;
+  return INTERNAL_ASSISTANT_TOOL_PATTERNS.some(pattern => pattern.test(value));
+}
+
+function isInternalHiddenMessage(msg) {
+  if (!msg) return false;
+  if (msg.role === 'assistant') return isInternalAssistantToolLeak(msg.content);
+  if (msg.role !== 'user') return false;
+  return /^\s*(?:Tool result for|Internal execution context for the assistant only)\b/i.test(String(msg.content ?? ''));
+}
+
+function sanitizeAssistantReply(text) {
+  const value = String(text ?? '').trim();
+  if (!value) return '(empty response)';
+  if (!isInternalAssistantToolLeak(value)) return value;
+  return 'I ran into an internal formatting issue while preparing the answer. Please try again.';
+}
+
+function sanitizeMessagesForUI(messages = []) {
+  return messages
+    .map(normalizeMessage)
+    .filter(message => !isInternalHiddenMessage(message));
 }
 
 function buildImageFrame(attachment, className) {
@@ -471,8 +504,8 @@ async function doSendFromState() {
         await new Promise(r => setTimeout(r, 120));
         if (handle?.done) handle.done(true);
       }
-      for (const tc of (plan.toolCalls ?? [])) {
-        const handle = live.push(`[TOOL] ${tc.name.replace(/_/g, ' ')}`);
+      if ((plan.toolCalls?.length ?? 0) > 0) {
+        const handle = live.push('Preparing the next steps...');
         await new Promise(r => setTimeout(r, 80));
         if (handle?.done) handle.done(true);
       }
@@ -486,8 +519,10 @@ async function doSendFromState() {
       state.messages, live, plannedSkills, plannedToolCalls, state.systemPrompt, _currentAbortController.signal,
     ).finally(() => { _currentAbortController = null; });
 
+    const safeReply = sanitizeAssistantReply(finalReply);
+    if (safeReply !== finalReply) live.set(safeReply);
     await trackUsage(usage, state.currentChatId, usedProvider, usedModel);
-    state.messages.push({ role: 'assistant', content: finalReply, attachments: [] });
+    state.messages.push({ role: 'assistant', content: safeReply, attachments: [] });
     saveCurrentChat();
     bumpScrollBadge();
   } catch (err) {
@@ -749,6 +784,7 @@ function createLiveRow() {
 ══════════════════════════════════════════ */
 export function appendMessage(role, content, addToState = true, scroll = true, attachments = []) {
   const msg = normalizeMessage({ role, content, attachments });
+  if (isInternalHiddenMessage(msg)) return null;
   if (addToState) state.messages.push(msg);
 
   const row = document.createElement('div');
@@ -1030,7 +1066,7 @@ export async function callAI() {
 
   try {
     const result = await fetchWithTools(state.selectedProvider, state.selectedModel, state.messages, state.systemPrompt, []);
-    const reply = result.type === 'text' ? result.text : '(unexpected tool call)';
+    const reply = sanitizeAssistantReply(result.type === 'text' ? result.text : '(unexpected tool call)');
     await trackUsage(result.usage, chatIdAtRequest);
     remove(() => {
       if (state.currentChatId !== chatIdAtRequest) return;
@@ -1053,7 +1089,7 @@ export async function callAIWithContext(contextPrompt) {
   const msgs = [...state.messages.slice(-10), { role: 'user', content: contextPrompt, attachments: [] }];
   try {
     const result = await fetchWithTools(state.selectedProvider, state.selectedModel, msgs, state.systemPrompt, []);
-    const reply = result.type === 'text' ? result.text : '(unexpected tool call)';
+    const reply = sanitizeAssistantReply(result.type === 'text' ? result.text : '(unexpected tool call)');
     await trackUsage(result.usage, state.currentChatId);
     replaceLastAssistant(reply);
     state.messages.push({ role: 'assistant', content: reply, attachments: [] });
@@ -1106,9 +1142,10 @@ export async function sendMessage({ text, attachments, sendBtnEl }) {
         live.push(`[SKILL] ${skillName}`);
         await new Promise(r => setTimeout(r, 120));
       }
-      for (const tc of (plan.toolCalls ?? [])) {
-        live.push(`[TOOL] ${tc.name.replace(/_/g, ' ')}`);
+      if ((plan.toolCalls?.length ?? 0) > 0) {
+        const handle = live.push('Preparing the next steps...');
         await new Promise(r => setTimeout(r, 80));
+        if (handle?.done) handle.done(true);
       }
 
       plannedToolCalls = plan.toolCalls ?? [];
@@ -1121,8 +1158,10 @@ export async function sendMessage({ text, attachments, sendBtnEl }) {
       state.messages, live, plannedSkills, plannedToolCalls, state.systemPrompt, _currentAbortController.signal,
     ).finally(() => { _currentAbortController = null; });
 
+    const safeReply = sanitizeAssistantReply(finalReply);
+    if (safeReply !== finalReply) live.set(safeReply);
     await trackUsage(usage, state.currentChatId, usedProvider, usedModel);
-    state.messages.push({ role: 'assistant', content: finalReply, attachments: [] });
+    state.messages.push({ role: 'assistant', content: safeReply, attachments: [] });
     saveCurrentChat();
     bumpScrollBadge();
     setTimeout(updateTimeline, 100);
@@ -1151,7 +1190,9 @@ export async function sendMessage({ text, attachments, sendBtnEl }) {
 ══════════════════════════════════════════ */
 export async function saveCurrentChat() {
   if (!state.currentChatId || !state.messages.length) return;
-  const first = state.messages.find(m => m.role === 'user');
+  const sanitizedMessages = sanitizeMessagesForUI(state.messages);
+  if (!sanitizedMessages.length) return;
+  const first = sanitizedMessages.find(m => m.role === 'user');
   const hasFileAttachment = first?.attachments?.some(a => a?.type === 'file');
   const hasImageAttachment = first?.attachments?.some(a => a?.type === 'image');
   const title = first?.content?.trim().slice(0, 70) ||
@@ -1167,7 +1208,7 @@ export async function saveCurrentChat() {
       projectName: state.activeProject?.name ?? null,
       workspacePath: state.workspacePath ?? null,
       projectContext: state.activeProject?.context ?? '',
-      messages: state.messages,
+      messages: sanitizedMessages,
     }, currentChatScope());
   } catch (err) { console.warn('[Chat] Could not save chat:', err); }
 }
@@ -1205,16 +1246,7 @@ export async function loadChat(chatId, { updateModelLabel, buildModelDropdown, n
     chatMessages.innerHTML = '';
     resetComposer();
     showChatView();
-    const restored = (chat.messages ?? []).map(m => ({
-      role: m?.role ?? 'user',
-      content: String(m?.content ?? ''),
-      attachments: Array.isArray(m?.attachments)
-        ? m.attachments.filter(a =>
-          (a?.type === 'image' && typeof a.dataUrl === 'string') ||
-          (a?.type === 'file' && typeof a.textContent === 'string'),
-        )
-        : [],
-    }));
+    const restored = sanitizeMessagesForUI(chat.messages ?? []);
     restored.forEach(m => appendMessage(m.role, m.content, false, false, m.attachments));
     state.messages = restored;
     smoothScrollToBottom();

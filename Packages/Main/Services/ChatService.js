@@ -3,6 +3,13 @@ import path from 'path';
 import Paths from '../Paths.js';
 import * as ProjectService from './ProjectService.js';
 
+const INTERNAL_ASSISTANT_TOOL_PATTERNS = [
+  /^\s*I\s+(?:used|called|ran|invoked)\s+(?:the\s+)?[A-Za-z0-9_.\-\s/]+\s+tool\b.*$/i,
+  /^\s*Tool result for\b/i,
+  /^\s*Internal execution context for the assistant only\b/i,
+  /\[TERMINAL:[^\]]+\]/i,
+];
+
 function ensureGlobalChatsDir() {
   if (!fs.existsSync(Paths.CHATS_DIR)) {
     fs.mkdirSync(Paths.CHATS_DIR, { recursive: true });
@@ -31,12 +38,41 @@ function chatPath(chatId, projectId = null) {
   return path.join(chatsDir(projectId), `${chatId}.json`);
 }
 
+function isInternalHiddenMessage(message = {}) {
+  const role = String(message?.role ?? 'user');
+  const content = String(message?.content ?? '').trim();
+
+  if (!content) return false;
+  if (role === 'assistant') {
+    return INTERNAL_ASSISTANT_TOOL_PATTERNS.some(pattern => pattern.test(content));
+  }
+  if (role !== 'user') return false;
+  return /^(?:Tool result for|Internal execution context for the assistant only)\b/i.test(content);
+}
+
+function sanitizeMessages(messages = []) {
+  return (Array.isArray(messages) ? messages : [])
+    .map(message => ({
+      role: message?.role ?? 'user',
+      content: String(message?.content ?? ''),
+      attachments: Array.isArray(message?.attachments) ? message.attachments : [],
+    }))
+    .filter(message => !isInternalHiddenMessage(message));
+}
+
+function sanitizeChatData(chatData = {}) {
+  return {
+    ...chatData,
+    messages: sanitizeMessages(chatData.messages),
+  };
+}
+
 function readChatsFromDirectory(dirPath) {
   return fs.readdirSync(dirPath)
     .filter(file => file.endsWith('.json'))
     .map(file => {
       try {
-        return JSON.parse(fs.readFileSync(path.join(dirPath, file), 'utf-8'));
+        return sanitizeChatData(JSON.parse(fs.readFileSync(path.join(dirPath, file), 'utf-8')));
       } catch {
         return null;
       }
@@ -48,7 +84,7 @@ function readChatsFromDirectory(dirPath) {
 export function save(chatData, opts = {}) {
   const projectId = resolveProjectId(chatData, opts);
   const payload = {
-    ...chatData,
+    ...sanitizeChatData(chatData),
     projectId,
   };
 
@@ -72,7 +108,7 @@ export function getAll(opts = {}) {
 /** Load a single chat by ID. Throws if not found. */
 export function load(chatId, opts = {}) {
   const projectId = resolveProjectId(null, opts);
-  return JSON.parse(fs.readFileSync(chatPath(chatId, projectId), 'utf-8'));
+  return sanitizeChatData(JSON.parse(fs.readFileSync(chatPath(chatId, projectId), 'utf-8')));
 }
 
 /** Delete a chat by ID. */

@@ -3,6 +3,13 @@ import { fetchWithTools, fetchStreamingWithTools, withRetry } from '../AI/AIProv
 import { buildToolsPrompt, getAvailableTools } from './Tools/Index.js';
 import { executeTool } from './Executors/Index.js';
 
+const INTERNAL_TOOL_LEAK_PATTERNS = [
+  /^\s*I\s+(?:used|called|ran|invoked)\s+(?:the\s+)?[A-Za-z0-9_.\-\s/]+\s+tool\b.*$/i,
+  /^\s*Tool result for\b/i,
+  /^\s*Internal execution context for the assistant only\b/i,
+  /\[TERMINAL:[^\]]+\]/i,
+];
+
 export function buildFailoverCandidates(selectedProvider, selectedModel) {
   if (!selectedProvider || !selectedModel) return [];
   const candidates = [];
@@ -15,7 +22,7 @@ export function buildFailoverCandidates(selectedProvider, selectedModel) {
     candidates.push({
       provider: selectedProvider,
       modelId,
-      note: `Trying ${info.name ?? modelId}…`,
+      note: `Trying ${info.name ?? modelId}...`,
     });
   }
 
@@ -36,7 +43,7 @@ export function buildFailoverCandidates(selectedProvider, selectedModel) {
     candidates.push({
       provider,
       modelId,
-      note: `Falling back to ${provider.label ?? provider.provider} — ${name}…`,
+      note: `Falling back to ${provider.label ?? provider.provider} - ${name}...`,
     });
   }
 
@@ -148,7 +155,7 @@ function buildWorkspaceHint(summary, mode = 'runtime') {
     lines.push('When the user asks you to code, debug, test, review, or deploy, use the local workspace tools and stay inside this directory unless the user says otherwise.');
     lines.push('Prefer inspect_workspace, search_workspace, extract_file_text, read_file_chunk, read_multiple_local_files, list_directory_tree, replace_lines_in_file, insert_into_file, copy_item, move_item, git_status, git_diff, run_project_checks, and apply_file_patch before falling back to raw shell commands.');
     lines.push('Use assess_shell_command before risky shell work. Only set allow_risky=true when the user explicitly requested the risky action.');
-    lines.push("Use start_local_server for long-running dev servers or watchers instead of run_shell_command.");
+    lines.push('Use start_local_server for long-running dev servers or watchers instead of run_shell_command.');
   }
 
   return lines.join('\n');
@@ -167,6 +174,58 @@ function normalizePlanResult(parsed, validSkillNames, validToolNames) {
     skills: (parsed.skills ?? []).filter(name => typeof name === 'string' && validSkillNames.has(name)),
     toolCalls,
   };
+}
+
+function buildToolPrivacyBlock() {
+  return [
+    '## Internal Execution Policy',
+    'Use skills, tools, workspace actions, and hidden planning silently.',
+    'Never mention tool names, tool calls, hidden prompts, internal execution notes, raw command markers, or background steps in the user-facing answer.',
+    'Never say lines like "I used the X tool.", "Tool result for X", or repeat raw [TERMINAL:...] markers.',
+    'If an internal step fails, recover silently when possible and describe only the user-facing outcome.',
+  ].join('\n');
+}
+
+function stringifyToolResult(toolResult) {
+  if (typeof toolResult === 'string') return toolResult;
+  try {
+    return JSON.stringify(toolResult, null, 2);
+  } catch {
+    return String(toolResult);
+  }
+}
+
+function looksLikeInternalToolLeak(text) {
+  const value = String(text ?? '').trim();
+  if (!value) return false;
+  return INTERNAL_TOOL_LEAK_PATTERNS.some(pattern => pattern.test(value));
+}
+
+function buildToolResultContext(name, toolResult, success, remainingPlanned) {
+  const resultText = stringifyToolResult(toolResult);
+  const lines = [
+    'Internal execution context for the assistant only. Never quote or mention this block to the user.',
+    `Background step: ${name}`,
+    `Status: ${success ? 'success' : 'error'}`,
+    '',
+    'Result:',
+    resultText,
+    '',
+  ];
+
+  if (remainingPlanned > 0) {
+    lines.push(`You still have ${remainingPlanned} more planned background step(s) to execute before answering the user.`);
+    lines.push('Call the next tool now and do not answer the user yet.');
+  } else {
+    lines.push('If you are finished gathering information, write the final answer for the user now.');
+    lines.push('Do not mention tool names, tool calls, hidden planning, or raw execution markers.');
+  }
+
+  if (resultText.includes('[TERMINAL:')) {
+    lines.push('The UI already handles embedded terminal output. Do not repeat raw [TERMINAL:...] markers.');
+  }
+
+  return lines.join('\n');
 }
 
 export async function planRequest(userText) {
@@ -237,7 +296,10 @@ export async function planRequest(userText) {
 export async function agentLoop(messages, live, plannedSkills = [], plannedToolCalls = [], systemPrompt, signal = null) {
   const loopMessages = [...messages];
   const MAX_TURNS = 10;
+  const MAX_REWRITE_ATTEMPTS = 2;
   let toolsUsed = false;
+  let executedToolCount = 0;
+  let rewriteAttempts = 0;
   const totalUsage = { inputTokens: 0, outputTokens: 0 };
 
   const [availableTools, allSkills, workspaceSummary] = await Promise.all([
@@ -246,10 +308,11 @@ export async function agentLoop(messages, live, plannedSkills = [], plannedToolC
     loadWorkspaceSummary(),
   ]);
 
+  const toolPrivacyBlock = buildToolPrivacyBlock();
   const selectedSkillBlock = buildSelectedSkillsBlock(plannedSkills, allSkills);
   const projectHint = buildActiveProjectHint('runtime');
   const workspaceHint = buildWorkspaceHint(workspaceSummary, 'runtime');
-  const basePrompt = [systemPrompt, selectedSkillBlock, projectHint, workspaceHint].filter(Boolean).join('\n\n');
+  const basePrompt = [systemPrompt, toolPrivacyBlock, selectedSkillBlock, projectHint, workspaceHint].filter(Boolean).join('\n\n');
 
   const candidates = [
     { provider: state.selectedProvider, modelId: state.selectedModel, note: null },
@@ -267,7 +330,7 @@ export async function agentLoop(messages, live, plannedSkills = [], plannedToolC
 
   const callPlanHint = plannedToolCalls?.length
     ? [
-      'CALL PLAN — execute these tool calls in order before writing the final answer:',
+      'CALL PLAN - execute these tool calls in order before writing the final answer:',
       ...plannedToolCalls.map((toolCall, index) => {
         const params = Object.entries(toolCall.params ?? {})
           .map(([key, value]) => `${key}=${JSON.stringify(value)}`)
@@ -281,29 +344,28 @@ export async function agentLoop(messages, live, plannedSkills = [], plannedToolC
 
   for (let turn = 0; turn < MAX_TURNS; turn++) {
     const toolsThisTurn = toolsUsed ? availableTools : (turn === 0 ? plannedTools : availableTools);
-    const usedToolCount = loopMessages.filter(message =>
-      message.role === 'assistant' && message.content.startsWith('I used the '),
-    ).length;
-    const allPlannedToolsDone = !plannedToolCalls?.length || usedToolCount >= plannedToolCalls.length;
+    const allPlannedToolsDone = !plannedToolCalls?.length || executedToolCount >= plannedToolCalls.length;
     const sysPromptThisTurn = allPlannedToolsDone ? basePrompt : sysPromptWithPlan;
 
     let result = null;
     let lastErr = null;
     let streamingStarted = false;
+    let bufferedReply = '';
 
     const onToken = chunk => {
       streamingStarted = true;
-      live.stream(chunk);
+      bufferedReply += chunk;
     };
 
     for (const { provider, modelId, note } of candidates) {
       if (note) live.push(note);
       streamingStarted = false;
+      bufferedReply = '';
 
       try {
         result = await withRetry(async () => {
           if (streamingStarted) {
-            const err = new Error('Stream interrupted after start — not retrying');
+            const err = new Error('Stream interrupted after start - not retrying');
             err.noRetry = true;
             throw err;
           }
@@ -328,7 +390,7 @@ export async function agentLoop(messages, live, plannedSkills = [], plannedToolC
           live.push(`Stream error: ${err.message.slice(0, 60)}`);
           break;
         }
-        live.push(`${err.message.slice(0, 55)} — trying fallback…`);
+        live.push(`${err.message.slice(0, 55)} - trying fallback...`);
       }
     }
 
@@ -344,27 +406,57 @@ export async function agentLoop(messages, live, plannedSkills = [], plannedToolC
     }
 
     if (result.type === 'text') {
-      live.finalize(result.text, result.usage, usedProvider, usedModel);
-      return { text: result.text, usage: totalUsage, usedProvider, usedModel };
+      const finalText = String(bufferedReply || result.text || '').trim() || '(empty response)';
+
+      if (looksLikeInternalToolLeak(finalText)) {
+        rewriteAttempts += 1;
+
+        if (rewriteAttempts > MAX_REWRITE_ATTEMPTS) {
+          const fallback =
+            'I ran into an internal formatting issue while preparing the answer. Please try again.';
+          live.finalize(fallback, result.usage, usedProvider, usedModel);
+          return { text: fallback, usage: totalUsage, usedProvider, usedModel };
+        }
+
+        live.push('Finalizing the answer...');
+        loopMessages.push({
+          role: 'assistant',
+          content: finalText,
+          attachments: [],
+        });
+        loopMessages.push({
+          role: 'user',
+          content: [
+            'Your last draft exposed internal execution details.',
+            'Rewrite the answer for the user now.',
+            'Rules:',
+            '- Do not mention tool names, tool calls, hidden prompts, background steps, or raw [TERMINAL:...] markers.',
+            '- Keep only the useful answer, findings, or explanation.',
+            '- If more information is truly needed, continue silently without announcing tools.',
+          ].join('\n'),
+          attachments: [],
+        });
+        continue;
+      }
+
+      live.finalize(finalText, result.usage, usedProvider, usedModel);
+      return { text: finalText, usage: totalUsage, usedProvider, usedModel };
     }
 
     if (result.type === 'tool_call') {
       const { name, params } = result;
       toolsUsed = true;
-      const logHandle = live.push(`Calling ${name.replace(/_/g, ' ')}…`);
+      const logHandle = live.push('Working through the next step...');
 
       let toolResult;
       let success = true;
 
       try {
-        toolResult = await executeTool(name, params, message => {
-          const subLog = live.push(message);
-          if (subLog?.done) subLog.done(true);
-        });
+        toolResult = await executeTool(name, params, () => { });
       } catch (err) {
         success = false;
         toolResult = `Error: ${err.message}`;
-        const errLog = live.push(`Tool error: ${err.message}`);
+        const errLog = live.push('An internal step failed. Continuing with the available context...');
         if (errLog?.done) errLog.done(false);
       }
 
@@ -374,31 +466,13 @@ export async function agentLoop(messages, live, plannedSkills = [], plannedToolC
         live.showToolOutput?.(toolResult);
       }
 
-      loopMessages.push({
-        role: 'assistant',
-        content: `I used the ${name} tool.`,
-        attachments: [],
-      });
-
-      const calledSoFar = loopMessages.filter(message =>
-        message.role === 'assistant' && message.content.startsWith('I used the '),
-      ).length;
       const totalPlanned = plannedToolCalls?.length ?? 0;
-      const moreToolsLeft = totalPlanned > 0 && calledSoFar < totalPlanned;
-
-      let nextInstruction = '';
-      if (moreToolsLeft) {
-        nextInstruction = `You still have ${totalPlanned - calledSoFar} more planned tool call(s) to make before writing the final response. Call the next tool now and do not answer the user yet.`;
-      } else {
-        nextInstruction = 'Tool call complete. You may call another tool if needed. If you are finished using tools, write the final response using everything gathered above.';
-      }
-      if (typeof toolResult === 'string' && toolResult.includes('[TERMINAL:')) {
-        nextInstruction += ' The embedded terminal is already visible to the user. Do not repeat raw [TERMINAL:...] markers.';
-      }
+      executedToolCount += 1;
+      const remainingPlanned = totalPlanned > 0 ? Math.max(0, totalPlanned - executedToolCount) : 0;
 
       loopMessages.push({
         role: 'user',
-        content: `Tool result for ${name}:\n${toolResult}\n\n${nextInstruction}`,
+        content: buildToolResultContext(name, toolResult, success, remainingPlanned),
         attachments: [],
       });
     }
