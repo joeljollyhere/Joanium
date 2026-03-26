@@ -1,0 +1,88 @@
+export const CONNECTORS = [
+  {
+    id: 'gmail',
+    name: 'Gmail',
+    icon: '📧',
+    description: 'Read emails, get AI summaries in chat, and send emails via automations.',
+    helpUrl: 'https://console.cloud.google.com/apis/credentials',
+    helpText: 'Create OAuth credentials in Google Cloud →',
+    oauthFlow: true,
+    capabilities: [
+      'Ask "read my unread emails" in chat',
+      'AI-powered email summaries',
+      'Send emails via automations',
+      'Search inbox via automations',
+    ],
+    fields: [
+      {
+        key: 'clientId',
+        label: 'Google Client ID',
+        placeholder: 'xxxxxxxxxxxx.apps.googleusercontent.com',
+        type: 'text',
+        hint: 'Google Cloud Console → APIs & Services → Credentials → Create OAuth 2.0 Client ID (Desktop app type)',
+      },
+      {
+        key: 'clientSecret',
+        label: 'Google Client Secret',
+        placeholder: 'GOCSPX-…',
+        type: 'password',
+        hint: 'Found next to your Client ID. Keep it private.',
+      },
+    ],
+    automations: [
+      { name: 'Daily Email Brief', description: 'Every morning — get a summary of unread emails' },
+      { name: 'New Email Notification', description: 'Every hour — notify if there are unread messages' },
+      { name: 'Send a Scheduled Email', description: 'On startup or daily — auto-send a preset email' },
+    ],
+  },
+  {
+    id: 'github',
+    name: 'GitHub',
+    icon: '🐙',
+    description: 'Browse repos, load code into chat, track issues & PRs, and monitor notifications.',
+    helpUrl: 'https://github.com/settings/tokens/new?scopes=repo,read:user,notifications',
+    helpText: 'Create a Personal Access Token →',
+    oauthFlow: false,
+    capabilities: [
+      'Ask "load file X from owner/repo" in chat',
+      'List your repos or issues in chat',
+      'AI knows your repos by default (via system prompt)',
+      'Track PRs & issues via automations',
+    ],
+    fields: [
+      {
+        key: 'token',
+        label: 'Personal Access Token',
+        placeholder: 'ghp_…',
+        type: 'password',
+        hint: 'Create at github.com/settings/tokens — needs: repo, read:user, notifications scopes',
+      },
+    ],
+    automations: [
+      { name: 'Daily PR Summary', description: 'Every morning — notify about open pull requests' },
+      { name: 'Issue Tracker', description: 'Daily — notify about open issues in a repo' },
+      { name: 'GitHub Notifications', description: 'Hourly — notify if there are unread notifications' },
+      { name: 'Open Repo on Startup', description: 'On startup — open a GitHub repo in the browser' },
+    ],
+  },
+];
+
+export const FREE_CONNECTORS = [
+  { id: 'open_meteo', name: 'Open-Meteo', icon: '🌤️', description: 'Real-time weather for any city — temperature, humidity, wind, and 3-day forecast.', noKey: true, docsUrl: 'https://open-meteo.com', tools: ['get_weather'], toolHint: 'Ask: "What\'s the weather in Tokyo?" or "Will it rain in Mumbai tomorrow?"' },
+  { id: 'coingecko', name: 'CoinGecko', icon: '🦎', description: 'Live crypto prices, market caps, 24h changes, and trending coins. 10,000+ tokens.', noKey: true, docsUrl: 'https://coingecko.com', tools: ['get_crypto_price', 'get_crypto_trending'], toolHint: 'Ask: "What\'s the price of Ethereum?" or "What coins are trending right now?"' },
+  { id: 'exchange_rate', name: 'Exchange Rates', icon: '💱', description: 'Real-time currency exchange rates for 160+ currencies. Powered by open.er-api.com.', noKey: true, docsUrl: 'https://open.er-api.com', tools: ['get_exchange_rate'], toolHint: 'Ask: "Convert 100 USD to INR" or "What\'s the EUR/GBP rate?"' },
+  { id: 'treasury', name: 'US Treasury', icon: '🏛️', description: 'Official US government fiscal data — national debt, treasury rates, and daily cash balance.', noKey: true, docsUrl: 'https://fiscaldata.treasury.gov', tools: ['get_treasury_data'], toolHint: 'Ask: "What is the current US national debt?" or "Show US treasury interest rates"' },
+  { id: 'fred', name: 'Federal Reserve (FRED)', icon: '📊', description: 'Economic indicators from the St. Louis Fed — GDP, unemployment, CPI, interest rates, and hundreds more.', noKey: false, optionalKey: true, keyLabel: 'FRED API Key', keyPlaceholder: 'Get your free key at fred.stlouisfed.org', keyHint: 'Free key at fred.stlouisfed.org/docs/api/api_key.html — unlocks full access to 800,000+ series.', docsUrl: 'https://fred.stlouisfed.org/docs/api/api_key.html', tools: ['get_fred_data'], toolHint: 'Ask: "Show me US GDP" or "What\'s the current unemployment rate?" or "What\'s the inflation rate?"' },
+  { id: 'openweathermap', name: 'OpenWeatherMap', icon: '🌦️', description: 'Detailed weather with hourly forecasts, air quality, and historical data. Free tier included.', noKey: false, optionalKey: false, keyLabel: 'OpenWeatherMap API Key', keyPlaceholder: 'Get your free key at openweathermap.org/api', keyHint: 'Register at openweathermap.org/api — free tier allows 1,000 calls/day.', docsUrl: 'https://openweathermap.org/api', tools: ['get_weather'], toolHint: 'Works alongside Open-Meteo for richer weather data when a key is provided.' },
+  { id: 'unsplash', name: 'Unsplash', icon: '📷', description: 'Search millions of high-quality free photos by topic. Get image URLs and photographer credits.', noKey: false, optionalKey: false, keyLabel: 'Unsplash Access Key', keyPlaceholder: 'Get your free key at unsplash.com/developers', keyHint: 'Register at unsplash.com/oauth/applications — free tier: 50 requests/hour.', docsUrl: 'https://unsplash.com/developers', tools: ['search_photos'], toolHint: 'Ask: "Find me photos of minimal workspace setups" or "Search for sunset mountain photos"' },
+  { id: 'wikipedia', name: 'Wikipedia', icon: '📚', description: 'Search any topic on Wikipedia — get summaries, descriptions, and direct links.', noKey: true, docsUrl: 'https://en.wikipedia.org', tools: ['search_wikipedia'], toolHint: 'Ask: "Tell me about quantum computing" or "Search Wikipedia for the Roman Empire"' },
+  { id: 'ipgeo', name: 'IP Geolocation', icon: '🌍', description: 'Look up geolocation, ISP, and timezone info for any IP address — or your own.', noKey: true, docsUrl: 'https://ip-api.com', tools: ['get_ip_info'], toolHint: 'Ask: "What\'s my IP location?" or "Where is 8.8.8.8 located?"' },
+  { id: 'funfacts', name: 'Fun Facts & Trivia', icon: '🎲', description: 'Random fun facts, number trivia, math facts, and historical date facts.', noKey: true, docsUrl: 'https://uselessfacts.jsph.pl', tools: ['get_random_fact', 'get_number_fact'], toolHint: 'Ask: "Give me a random fact" or "Tell me something about the number 42"' },
+  { id: 'jokeapi', name: 'Jokes', icon: '😂', description: 'Random jokes — programming, puns, misc, and more. Family-friendly filter included.', noKey: true, docsUrl: 'https://v2.jokeapi.dev', tools: ['get_joke'], toolHint: 'Ask: "Tell me a joke" or "Give me a programming joke"' },
+  { id: 'quotes', name: 'Quotes', icon: '💬', description: 'Inspirational and thought-provoking quotes from famous authors, leaders, and thinkers.', noKey: true, docsUrl: 'https://zenquotes.io', tools: ['get_quote'], toolHint: 'Ask: "Give me an inspirational quote" or "Quote about wisdom"' },
+  { id: 'restcountries', name: 'Country Info', icon: '🌐', description: 'Detailed country data — capital, population, languages, currencies, timezones, borders, and more.', noKey: true, docsUrl: 'https://restcountries.com', tools: ['get_country_info'], toolHint: 'Ask: "Tell me about Japan" or "What are the languages spoken in India?"' },
+  { id: 'nasa', name: 'NASA / Astronomy', icon: '🔭', description: 'NASA Astronomy Picture of the Day and real-time ISS tracking with crew info.', noKey: false, optionalKey: true, keyLabel: 'NASA API Key', keyPlaceholder: 'Get your free key at api.nasa.gov', keyHint: 'Register at api.nasa.gov — free key with 1,000 req/hr. Works without a key using DEMO_KEY (30 req/hr).', docsUrl: 'https://api.nasa.gov', tools: ['get_apod', 'get_iss_location'], toolHint: 'Ask: "Show me NASA\'s picture of the day" or "Where is the ISS right now?"' },
+  { id: 'hackernews', name: 'Hacker News', icon: '🔶', description: 'Top stories from Hacker News (Y Combinator) — the leading tech and startup news aggregator.', noKey: true, docsUrl: 'https://news.ycombinator.com', tools: ['get_hacker_news'], toolHint: 'Ask: "What\'s on Hacker News?" or "Show me the top tech stories"' },
+  { id: 'cleanuri', name: 'URL Shortener', icon: '🔗', description: 'Shorten any long URL into a compact, shareable link.', noKey: true, docsUrl: 'https://cleanuri.com', tools: ['shorten_url'], toolHint: 'Ask: "Shorten this URL: https://example.com/very/long/path"' },
+  { id: 'local_system', name: 'Local System', icon: '💻', description: 'Grant the AI permission to access your local file system, run terminal commands, and create/edit local code files.', noKey: true, docsUrl: '#', tools: ['run_shell_command', 'read_local_file', 'list_directory', 'write_file', 'create_folder', 'open_folder', 'start_local_server'], toolHint: 'Lets you build tools and manage files directly on your system.' },
+];
