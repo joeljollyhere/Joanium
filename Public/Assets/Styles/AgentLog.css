@@ -84,6 +84,37 @@
   display: flex;
 }
 
+.agent-thinking-trace {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  background: color-mix(in srgb, var(--bg-tertiary) 92%, transparent);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  max-width: min(100%, 760px);
+}
+
+.agent-thinking-trace-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-family: var(--font-ui);
+}
+
+.agent-thinking-trace-content {
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 220px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
 .agent-thinking-shell--complete .agent-thinking-dot {
   background: #10b981;
   animation: none;

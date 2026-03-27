@@ -1448,6 +1448,33 @@
       "inputTokens": 40466,
       "outputTokens": 1091,
       "chatId": "2026-03-27_19-33-04"
+    },
+    {
+      "timestamp": "2026-03-27T14:18:36.981Z",
+      "provider": "nvidia",
+      "model": "moonshotai/kimi-k2-thinking",
+      "modelName": "Kimi K2 Thinking",
+      "inputTokens": 135261,
+      "outputTokens": 3103,
+      "chatId": "2026-03-27_19-38-05"
+    },
+    {
+      "timestamp": "2026-03-27T15:15:15.942Z",
+      "provider": "nvidia",
+      "model": "moonshotai/kimi-k2-thinking",
+      "modelName": "Kimi K2 Thinking",
+      "inputTokens": 9498,
+      "outputTokens": 4645,
+      "chatId": "2026-03-27_20-19-18"
+    },
+    {
+      "timestamp": "2026-03-27T15:47:43.398Z",
+      "provider": "nvidia",
+      "model": "moonshotai/kimi-k2-thinking",
+      "modelName": "Kimi K2 Thinking",
+      "inputTokens": 177839,
+      "outputTokens": 2284,
+      "chatId": "2026-03-27_21-11-22"
     }
   ]
 }

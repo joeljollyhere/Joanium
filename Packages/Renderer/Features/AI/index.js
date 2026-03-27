@@ -197,6 +197,82 @@ async function* parseSSE(response) {
   }
 }
 
+function flattenChunkText(value) {
+  if (!value) return '';
+  if (typeof value === 'string') return value;
+  if (Array.isArray(value)) return value.map(flattenChunkText).filter(Boolean).join('');
+  if (typeof value !== 'object') return '';
+
+  if (typeof value.text === 'string') return value.text;
+  if (typeof value.content === 'string') return value.content;
+  if (Array.isArray(value.content)) return flattenChunkText(value.content);
+  if (Array.isArray(value.parts)) return flattenChunkText(value.parts);
+  if (Array.isArray(value.details)) return flattenChunkText(value.details);
+  if (Array.isArray(value.summary)) return flattenChunkText(value.summary);
+
+  return '';
+}
+
+function extractOpenAITextChunk(delta) {
+  if (!delta) return '';
+  if (typeof delta.content === 'string') return delta.content;
+
+  if (Array.isArray(delta.content)) {
+    return delta.content
+      .map(part => {
+        if (part?.type === 'text') return flattenChunkText(part);
+        return '';
+      })
+      .filter(Boolean)
+      .join('');
+  }
+
+  return '';
+}
+
+function extractOpenAIReasoningChunk(delta) {
+  if (!delta) return '';
+
+  const directReasoning = [
+    delta.reasoning,
+    delta.reasoning_content,
+    delta.reasoning_details,
+    delta.reasoning_summary,
+    delta.thinking,
+    delta.thinking_content,
+    delta.summary,
+  ]
+    .map(flattenChunkText)
+    .find(Boolean);
+
+  if (directReasoning) return directReasoning;
+
+  if (Array.isArray(delta.content)) {
+    return delta.content
+      .map(part => (/reasoning|thinking|summary/.test(String(part?.type ?? '')) ? flattenChunkText(part) : ''))
+      .filter(Boolean)
+      .join('');
+  }
+
+  return '';
+}
+
+function shouldRequestReasoning(provider, modelId) {
+  if (provider?.provider !== 'openrouter') return false;
+
+  const modelInfo = provider.models?.[modelId] ?? {};
+  const haystack = [
+    modelId,
+    modelInfo.name,
+    modelInfo.description,
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+
+  return /thinking|reasoning|reasoner|o1|o3|o4|r1|k2|deepseek/.test(haystack);
+}
+
 /* ══════════════════════════════════════════
    STREAMING FETCH — WITH NATIVE TOOL CALLING
    signal param allows external AbortController
@@ -209,6 +285,7 @@ export async function fetchStreamingWithTools(
   sysPrompt = '',
   tools = [],
   onToken = null,
+  onReasoning = null,
   signal = null,
 ) {
   const { provider: providerId, endpoint, api, auth_header, auth_prefix = '' } = provider;
@@ -271,6 +348,8 @@ export async function fetchStreamingWithTools(
           if (d?.type === 'text_delta' && d.text) {
             fullText += d.text;
             onToken?.(d.text);
+          } else if (d?.type === 'thinking_delta' && d.thinking) {
+            onReasoning?.(d.thinking);
           } else if (d?.type === 'input_json_delta') {
             toolInputJson += d.partial_json ?? '';
           }
@@ -330,8 +409,12 @@ export async function fetchStreamingWithTools(
 
       const part = ev.candidates?.[0]?.content?.parts?.[0];
       if (part?.text) {
-        fullText += part.text;
-        onToken?.(part.text);
+        if (part.thought) {
+          onReasoning?.(part.text);
+        } else {
+          fullText += part.text;
+          onToken?.(part.text);
+        }
       } else if (part?.functionCall && !fnCall) {
         fnCall = part.functionCall;
       }
@@ -369,6 +452,9 @@ export async function fetchStreamingWithTools(
   };
   if (providerId === 'openai') {
     body.stream_options = { include_usage: true };
+  }
+  if (shouldRequestReasoning(provider, modelId)) {
+    body.include_reasoning = true;
   }
   if (tools.length) {
     body.tools = toOpenAITools(tools);
@@ -411,9 +497,15 @@ export async function fetchStreamingWithTools(
     const delta = ev.choices?.[0]?.delta;
     if (!delta) continue;
 
-    if (delta.content) {
-      fullText += delta.content;
-      onToken?.(delta.content);
+    const reasoningChunk = extractOpenAIReasoningChunk(delta);
+    if (reasoningChunk) {
+      onReasoning?.(reasoningChunk);
+    }
+
+    const textChunk = extractOpenAITextChunk(delta);
+    if (textChunk) {
+      fullText += textChunk;
+      onToken?.(textChunk);
     }
 
     const tc = delta.tool_calls?.[0];

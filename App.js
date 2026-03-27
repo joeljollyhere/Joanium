@@ -37,13 +37,22 @@ import * as AgentsIPC    from './Packages/Main/IPC/AgentsIPC.js';
 import * as TerminalIPC   from './Packages/Main/IPC/TerminalIPC.js';
 import * as MCPIPC        from './Packages/Main/IPC/MCPIPC.js';
 import * as BrowserPreviewIPC from './Packages/Main/IPC/BrowserPreviewIPC.js';
-import { getBrowserPreviewService } from './Packages/Main/Services/BrowserPreviewService.js';
+import {
+  BUILTIN_BROWSER_USER_AGENT,
+  getBrowserPreviewService,
+} from './Packages/Main/Services/BrowserPreviewService.js';
 
 /* ══════════════════════════════════════════
    ENGINES  (module-level refs, instantiated inside whenReady)
 ══════════════════════════════════════════ */
 let automationEngine = null;
 let agentsEngine     = null;
+
+// Keep the in-app browser closer to a regular desktop Chrome profile for sites that
+// are picky about Electron defaults or break under HTTP/2.
+app.commandLine.appendSwitch('disable-http2');
+app.commandLine.appendSwitch('lang', 'en-US');
+app.userAgentFallback = BUILTIN_BROWSER_USER_AGENT;
 
 /* ══════════════════════════════════════════
    APP LIFECYCLE

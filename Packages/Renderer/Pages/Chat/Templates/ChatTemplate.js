@@ -101,7 +101,14 @@ export function getChatHTML() {
           <span class="browser-preview-eyebrow">Live Browser</span>
           <div class="browser-preview-title-row">
             <h2 id="browser-preview-title" class="browser-preview-title">Built-in Browser</h2>
-            <span id="browser-preview-status-dot" class="browser-preview-status-dot is-idle" aria-hidden="true"></span>
+            <div class="browser-preview-activity" aria-hidden="true">
+              <span class="browser-preview-activity-lights">
+                <span></span>
+                <span></span>
+                <span></span>
+              </span>
+              <span id="browser-preview-status-dot" class="browser-preview-status-dot is-idle" aria-hidden="true"></span>
+            </div>
           </div>
           <p id="browser-preview-url" class="browser-preview-url">AI browser activity will appear here once Evelina starts navigating.</p>
         </div>

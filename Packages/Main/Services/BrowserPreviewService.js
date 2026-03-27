@@ -1,6 +1,155 @@
 import { BrowserView } from 'electron';
 import { EventEmitter } from 'events';
 
+export const BUILTIN_BROWSER_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36';
+
+const BUILTIN_BROWSER_LANGUAGE = 'en-IN,en-US;q=0.9,en;q=0.8';
+const CHROME_CLIENT_HINTS = '"Not(A:Brand";v="99", "Google Chrome";v="134", "Chromium";v="134"';
+const NAVIGATION_ACCEPT = 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8';
+
+function getAcceptHeader(resourceType = '') {
+  switch (resourceType) {
+    case 'mainFrame':
+    case 'subFrame':
+      return NAVIGATION_ACCEPT;
+    case 'image':
+      return 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8';
+    case 'stylesheet':
+      return 'text/css,*/*;q=0.1';
+    case 'script':
+      return '*/*';
+    case 'xhr':
+    case 'fetch':
+      return 'application/json, text/plain, */*';
+    case 'font':
+      return 'font/woff2,font/woff,font/ttf,*/*;q=0.8';
+    default:
+      return '*/*';
+  }
+}
+
+function getFetchDestination(resourceType = '') {
+  switch (resourceType) {
+    case 'mainFrame':
+      return 'document';
+    case 'subFrame':
+      return 'iframe';
+    case 'image':
+      return 'image';
+    case 'stylesheet':
+      return 'style';
+    case 'script':
+      return 'script';
+    case 'font':
+      return 'font';
+    default:
+      return 'empty';
+  }
+}
+
+function getFetchMode(resourceType = '') {
+  switch (resourceType) {
+    case 'mainFrame':
+    case 'subFrame':
+      return 'navigate';
+    case 'xhr':
+    case 'fetch':
+      return 'cors';
+    default:
+      return 'no-cors';
+  }
+}
+
+function getRegistrableDomain(hostname = '') {
+  const parts = String(hostname).split('.').filter(Boolean);
+  if (parts.length <= 2) return parts.join('.');
+
+  const tld = parts[parts.length - 1];
+  const sld = parts[parts.length - 2];
+  const thirdLevel = parts[parts.length - 3];
+  const usesCompoundSuffix = tld.length === 2 && ['co', 'com', 'net', 'org', 'gov', 'edu', 'ac'].includes(sld);
+
+  return usesCompoundSuffix
+    ? `${thirdLevel}.${sld}.${tld}`
+    : `${sld}.${tld}`;
+}
+
+function getFetchSite(url = '', initiator = '') {
+  try {
+    if (!initiator || initiator === 'null') return 'none';
+
+    const target = new URL(url);
+    const source = new URL(initiator);
+
+    if (target.origin === source.origin) return 'same-origin';
+    if (getRegistrableDomain(target.hostname) === getRegistrableDomain(source.hostname)) return 'same-site';
+    return 'cross-site';
+  } catch {
+    return initiator ? 'cross-site' : 'none';
+  }
+}
+
+function buildExtraHeaders(url, referrer = '') {
+  const fetchSite = referrer ? getFetchSite(url, referrer) : 'none';
+  const lines = [
+    `Accept: ${NAVIGATION_ACCEPT}`,
+    `Accept-Language: ${BUILTIN_BROWSER_LANGUAGE}`,
+    'Cache-Control: max-age=0',
+    'Pragma: no-cache',
+    'Upgrade-Insecure-Requests: 1',
+    `Sec-CH-UA: ${CHROME_CLIENT_HINTS}`,
+    'Sec-CH-UA-Mobile: ?0',
+    'Sec-CH-UA-Platform: "Windows"',
+    'Sec-Fetch-Dest: document',
+    'Sec-Fetch-Mode: navigate',
+    `Sec-Fetch-Site: ${fetchSite}`,
+    'Sec-Fetch-User: ?1',
+  ];
+
+  return `${lines.join('\n')}\n`;
+}
+
+function buildRequestHeaders(details) {
+  const headers = { ...(details.requestHeaders ?? {}) };
+  const resourceType = details.resourceType ?? '';
+  const isNavigationRequest = resourceType === 'mainFrame' || resourceType === 'subFrame';
+  const referrer = headers.Referer || headers.referer || details.referrer || details.initiator || '';
+  const acceptHeader = headers.Accept || headers.accept || getAcceptHeader(resourceType);
+  const languageHeader = headers['Accept-Language'] || headers['accept-language'] || BUILTIN_BROWSER_LANGUAGE;
+
+  headers['User-Agent'] = BUILTIN_BROWSER_USER_AGENT;
+  headers['Accept-Language'] = languageHeader;
+  headers.Accept = acceptHeader;
+  headers['Sec-CH-UA'] = headers['Sec-CH-UA'] || CHROME_CLIENT_HINTS;
+  headers['Sec-CH-UA-Mobile'] = headers['Sec-CH-UA-Mobile'] || '?0';
+  headers['Sec-CH-UA-Platform'] = headers['Sec-CH-UA-Platform'] || '"Windows"';
+  headers['Sec-Fetch-Dest'] = headers['Sec-Fetch-Dest'] || getFetchDestination(resourceType);
+  headers['Sec-Fetch-Mode'] = headers['Sec-Fetch-Mode'] || getFetchMode(resourceType);
+  headers['Sec-Fetch-Site'] = headers['Sec-Fetch-Site'] || getFetchSite(details.url, referrer);
+
+  delete headers.accept;
+  delete headers['accept-language'];
+  delete headers.referer;
+
+  if (referrer && !headers.Referer && !headers.referer) {
+    headers.Referer = referrer;
+  }
+
+  if (isNavigationRequest) {
+    headers['Cache-Control'] = headers['Cache-Control'] || 'max-age=0';
+    headers.Pragma = headers.Pragma || 'no-cache';
+    headers['Upgrade-Insecure-Requests'] = headers['Upgrade-Insecure-Requests'] || '1';
+    headers['Sec-Fetch-User'] = headers['Sec-Fetch-User'] || '?1';
+  }
+
+  return headers;
+}
+
+function isHttp2ProtocolError(error) {
+  const message = String(error?.message ?? '');
+  return message.includes('ERR_HTTP2_PROTOCOL_ERROR') || message.includes('(-337)');
+}
+
 export class BrowserPreviewService extends EventEmitter {
   constructor() {
     super();
@@ -13,6 +162,7 @@ export class BrowserPreviewService extends EventEmitter {
     this._url = '';
     this._status = 'Ready';
     this._loading = false;
+    this._sessionConfigured = false;
   }
 
   attachToWindow(win) {
@@ -56,11 +206,37 @@ export class BrowserPreviewService extends EventEmitter {
         },
       });
 
+      this._configureSession(this._view.webContents.session);
+      this._view.webContents.setUserAgent(BUILTIN_BROWSER_USER_AGENT);
       this._wireViewEvents(this._view);
     }
 
     this.show();
     return this._view.webContents;
+  }
+
+  async loadURL(url, { referrer = '' } = {}) {
+    const webContents = await this.ensureWebContents();
+    const loadOptions = {
+      userAgent: BUILTIN_BROWSER_USER_AGENT,
+      extraHeaders: buildExtraHeaders(url, referrer),
+    };
+
+    if (referrer) {
+      loadOptions.httpReferrer = referrer;
+    }
+
+    try {
+      await webContents.loadURL(url, loadOptions);
+    } catch (error) {
+      if (!isHttp2ProtocolError(error)) throw error;
+
+      this.setStatus('Retrying with browser compatibility mode...');
+      await webContents.session.clearCache().catch(() => { });
+      await webContents.loadURL(url, loadOptions);
+    }
+
+    return webContents;
   }
 
   show() {
@@ -128,7 +304,7 @@ export class BrowserPreviewService extends EventEmitter {
     webContents.setWindowOpenHandler(({ url }) => {
       if (url) {
         this.setStatus(`Opening ${url}`);
-        void webContents.loadURL(url).catch(() => { });
+        void this.loadURL(url, { referrer: webContents.getURL() || '' }).catch(() => { });
       }
       return { action: 'deny' };
     });
@@ -189,6 +365,16 @@ export class BrowserPreviewService extends EventEmitter {
       this._loading = false;
       this._emitState();
     });
+  }
+
+  _configureSession(session) {
+    if (!session || this._sessionConfigured) return;
+
+    session.webRequest.onBeforeSendHeaders((details, callback) => {
+      callback({ requestHeaders: buildRequestHeaders(details) });
+    });
+
+    this._sessionConfigured = true;
   }
 
   _attachIfNeeded() {

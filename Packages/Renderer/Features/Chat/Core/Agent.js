@@ -595,6 +595,11 @@ export async function agentLoop(messages, live, plannedSkills = [], plannedToolC
       bufferedReply += chunk;
     };
 
+    const onReasoning = chunk => {
+      if (!chunk) return;
+      live.streamThinking?.(chunk);
+    };
+
     for (const [candidateIndex, { provider, modelId, note }] of candidates.entries()) {
       if (note) live.push(note);
       const modelName = getModelDisplayName(provider, modelId);
@@ -611,6 +616,7 @@ export async function agentLoop(messages, live, plannedSkills = [], plannedToolC
             sysPromptThisTurn,
             toolsThisTurn,
             onToken,
+            onReasoning,
             signal,
           );
 

@@ -33,6 +33,11 @@ function getStatusTone(state) {
   return 'idle';
 }
 
+function isReadingState(state) {
+  const status = String(state.status ?? '').toLowerCase();
+  return /scanning|reading|finding|listing|checking|inspecting|analyzing|capturing|snapshot/.test(status);
+}
+
 function setStatusTone(element, tone) {
   if (!element) return;
   element.classList.remove('is-idle', 'is-loading', 'is-live', 'is-paused', 'is-error');
@@ -65,6 +70,7 @@ export function createBrowserPreviewFeature() {
     browserPreviewPanel.classList.toggle('has-page', currentState.hasPage);
     browserPreviewPanel.classList.toggle('is-live', currentState.visible && currentState.hasPage);
     browserPreviewPanel.classList.toggle('is-loading', currentState.loading);
+    browserPreviewPanel.classList.toggle('is-reading', shouldShowPreview && isReadingState(currentState));
     browserPreviewPanel.classList.toggle('is-empty', !currentState.hasPage);
 
     if (browserPreviewTitle) {
@@ -191,6 +197,7 @@ export function createBrowserPreviewFeature() {
       window.electronAPI?.offBrowserPreviewState?.(handlePreviewState);
       browserPreviewPanel.hidden = true;
       browserPreviewPanel.classList.remove('is-active');
+      browserPreviewPanel.classList.remove('is-reading');
       chatWorkspace?.classList.remove('has-browser-preview');
       void window.electronAPI?.browserPreviewSetBounds?.(null);
       void window.electronAPI?.browserPreviewSetVisible?.(false);

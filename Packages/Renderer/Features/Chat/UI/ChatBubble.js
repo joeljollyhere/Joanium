@@ -179,7 +179,7 @@ export function createLiveRow(doSendFromStateFn) {
   row.className = 'message-row assistant';
   row.innerHTML = `
     ${assistantIcon()}
-    <div class="content-wrapper" style="flex:1;min-width:0;">
+    <div class="content-wrapper">
       <div class="content">
         <div class="agent-thinking-shell agent-thinking-shell--working">
           <button type="button" class="agent-thinking-toggle" aria-expanded="false">
@@ -194,6 +194,10 @@ export function createLiveRow(doSendFromStateFn) {
             </span>
           </button>
           <div class="agent-thinking-body" hidden>
+            <div class="agent-thinking-trace" hidden>
+              <div class="agent-thinking-trace-label">Model thinking</div>
+              <div class="agent-thinking-trace-content"></div>
+            </div>
             <div class="agent-log"></div>
             <div class="agent-tool-output"></div>
           </div>
@@ -216,10 +220,14 @@ export function createLiveRow(doSendFromStateFn) {
   const thinkingShellEl = row.querySelector('.agent-thinking-shell');
   const thinkingToggleEl = row.querySelector('.agent-thinking-toggle');
   const thinkingBodyEl = row.querySelector('.agent-thinking-body');
+  const thinkingTraceEl = row.querySelector('.agent-thinking-trace');
+  const thinkingTraceContentEl = row.querySelector('.agent-thinking-trace-content');
 
   let _streamActive = false;
   let _accumulated = '';
+  let _reasoning = '';
   let _lastRenderAt = 0;
+  let _lastReasoningRenderAt = 0;
   let _cursorEl = null;
   let _thinkingState = 'working';
 
@@ -243,6 +251,20 @@ export function createLiveRow(doSendFromStateFn) {
     const isOpen = thinkingToggleEl.getAttribute('aria-expanded') === 'true';
     setThinkingOpen(!isOpen);
   });
+
+  function renderReasoning(force = false) {
+    if (!thinkingTraceEl || !thinkingTraceContentEl) return;
+
+    const text = _reasoning.trim();
+    thinkingTraceEl.hidden = !text;
+    if (!text) return;
+
+    const now = Date.now();
+    if (!force && now - _lastReasoningRenderAt < RENDER_THROTTLE_MS) return;
+
+    _lastReasoningRenderAt = now;
+    thinkingTraceContentEl.textContent = text;
+  }
 
   return {
     row,
@@ -276,6 +298,15 @@ export function createLiveRow(doSendFromStateFn) {
       block.className = 'agent-tool-output-block';
       block.innerHTML = renderMarkdown(markdown);
       toolOutputEl.appendChild(block);
+      smoothScrollToBottom();
+    },
+
+    streamThinking(chunk) {
+      const text = String(chunk ?? '');
+      if (!text) return;
+      _reasoning += text;
+      setThinkingOpen(true);
+      renderReasoning();
       smoothScrollToBottom();
     },
 
@@ -382,6 +413,7 @@ export function createLiveRow(doSendFromStateFn) {
 
     finalize(markdown, usage, provider, modelId) {
       _accumulated = markdown;
+      renderReasoning(true);
       _cursorEl?.remove();
       _cursorEl = null;
       replyEl.classList.remove('is-streaming');
@@ -412,6 +444,7 @@ export function createLiveRow(doSendFromStateFn) {
 
     set(markdown) {
       _accumulated = markdown;
+      renderReasoning(true);
       _cursorEl?.remove();
       _cursorEl = null;
       replyEl.classList.remove('is-streaming');
@@ -424,6 +457,7 @@ export function createLiveRow(doSendFromStateFn) {
 
     /** Called when the user clicks stop mid-stream */
     setAborted() {
+      renderReasoning(true);
       _cursorEl?.remove();
       _cursorEl = null;
       replyEl.classList.remove('is-streaming');
@@ -722,7 +756,7 @@ export function appendMessage(role, content, addToState = true, scroll = true, a
   } else {
     row.innerHTML = `
       ${assistantIcon()}
-      <div class="content-wrapper" style="flex:1;min-width:0;">
+      <div class="content-wrapper">
         <div class="content"></div>
         <div class="message-actions assistant-actions">
           <button class="action-btn copy-msg-btn" title="Copy Message">${copyIcon()}</button>

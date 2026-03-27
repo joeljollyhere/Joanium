@@ -728,9 +728,8 @@ export class BrowserMCPServer {
 
   async _navigate(url) {
     const target = normalizeUrl(url);
-    const webContents = await this._getWebContents();
     this._preview.setStatus(`Navigating to ${target}`);
-    await webContents.loadURL(target);
+    const webContents = await this._preview.loadURL(target);
     const title = webContents.getTitle() || '(untitled page)';
     this._preview.setStatus(`Opened ${title}`);
     return `Opened ${target}\nTitle: ${title}`;

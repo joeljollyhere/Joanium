@@ -10,9 +10,9 @@
    Active only when user has sent 2+ messages.
 ══════════════════════════════════════════ */
 .chat-timeline {
-  position: fixed;
-  right: 14px;
-  top: calc(var(--titlebar-h) + 20px);
+  position: absolute;
+  right: 10px;
+  top: 20px;
   bottom: 136px;
   width: 22px;
   z-index: 15;
@@ -134,9 +134,9 @@
    SCROLL TO BOTTOM BUTTON
 ══════════════════════════════════════════ */
 .scroll-to-bottom-btn {
-  position: fixed;
+  position: absolute;
   bottom: 200px;
-  left: calc(var(--sidebar-w) + (100vw - var(--sidebar-w)) / 2);
+  left: 50%;
   transform: translateX(-50%) translateY(10px);
   width: 36px;
   height: 36px;
