@@ -1412,6 +1412,33 @@
       "inputTokens": 10384,
       "outputTokens": 99,
       "chatId": "2026-03-27_15-32-31"
+    },
+    {
+      "timestamp": "2026-03-27T10:59:25.968Z",
+      "provider": "mistral",
+      "model": "mistral-large-latest",
+      "modelName": "Mistral Large",
+      "inputTokens": 43316,
+      "outputTokens": 360,
+      "chatId": "2026-03-27_16-28-11"
+    },
+    {
+      "timestamp": "2026-03-27T11:46:16.440Z",
+      "provider": "mistral",
+      "model": "mistral-large-latest",
+      "modelName": "Mistral Large",
+      "inputTokens": 37521,
+      "outputTokens": 62,
+      "chatId": "2026-03-27_17-14-58"
+    },
+    {
+      "timestamp": "2026-03-27T12:23:56.201Z",
+      "provider": "mistral",
+      "model": "mistral-large-latest",
+      "modelName": "Mistral Large",
+      "inputTokens": 25440,
+      "outputTokens": 44,
+      "chatId": "2026-03-27_17-50-30"
     }
   ]
 }

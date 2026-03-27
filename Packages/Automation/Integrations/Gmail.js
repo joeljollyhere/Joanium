@@ -124,7 +124,7 @@ async function getFreshCreds(creds) {
     throw new Error('Gmail token expired and no refresh token available. Please reconnect Gmail in Settings → Connectors.');
   }
 
-  console.log('[Gmail] Access token expired — refreshing…');
+  console.log('[Gmail] Access token expired - refreshing...');
 
   const res = await fetch(TOKEN_URL, {
     method:  'POST',

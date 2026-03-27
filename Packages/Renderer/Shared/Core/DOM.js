@@ -16,6 +16,13 @@ export let projectContextPath   = null;
 export let projectContextInfo   = null;
 export let projectOpenFolderBtn = null;
 export let projectExitBtn       = null;
+export let browserPreviewPanel     = null;
+export let browserPreviewMount     = null;
+export let browserPreviewTitle     = null;
+export let browserPreviewUrl       = null;
+export let browserPreviewStatus    = null;
+export let browserPreviewStatusDot = null;
+export let browserPreviewToggleBtn = null;
 
 // ── Sidebar ───────────────────────────────────
 export let sidebarBtns  = [];
@@ -70,6 +77,13 @@ export function initDOM() {
   projectContextInfo   = document.getElementById('project-context-info');
   projectOpenFolderBtn = document.getElementById('project-open-folder-btn');
   projectExitBtn       = document.getElementById('project-exit-btn');
+  browserPreviewPanel     = document.getElementById('browser-preview-panel');
+  browserPreviewMount     = document.getElementById('browser-preview-mount');
+  browserPreviewTitle     = document.getElementById('browser-preview-title');
+  browserPreviewUrl       = document.getElementById('browser-preview-url');
+  browserPreviewStatus    = document.getElementById('browser-preview-status');
+  browserPreviewStatusDot = document.getElementById('browser-preview-status-dot');
+  browserPreviewToggleBtn = document.getElementById('browser-preview-toggle-btn');
 
   sidebarBtns  = Array.from(document.querySelectorAll('.sidebar-btn[data-view]'));
   themeBtn     = document.getElementById('theme-toggle-btn');

@@ -6,22 +6,49 @@ import Paths from '../Core/Paths.js';
 
 /* ── Singleton registry ── */
 const registry = new MCPRegistry();
+const BUILTIN_SERVER_IDS = new Set(['builtin_browser']);
+const BUILTIN_SERVERS = [
+  {
+    id: 'builtin_browser',
+    name: 'Built-in Browser',
+    transport: 'builtin',
+    builtinType: 'browser',
+    enabled: true,
+    builtin: true,
+    locked: true,
+    description: 'Ready out of the box. Gives chat a built-in browser MCP for live website control.',
+  },
+];
+
+function mergeBuiltinServers(configs = []) {
+  const byId = new Map(configs.map(cfg => [cfg.id, cfg]));
+  const merged = BUILTIN_SERVERS.map(server => ({
+    ...server,
+    ...(byId.get(server.id) ?? {}),
+    builtin: true,
+    locked: true,
+  }));
+
+  const customServers = configs.filter(cfg => !BUILTIN_SERVER_IDS.has(cfg.id));
+  return [...merged, ...customServers];
+}
 
 /* ── Persist server configs to Data/MCPServers.json ── */
 function loadServerConfigs() {
   try {
     if (fs.existsSync(Paths.MCP_FILE)) {
       const data = JSON.parse(fs.readFileSync(Paths.MCP_FILE, 'utf-8'));
-      return Array.isArray(data.servers) ? data.servers : [];
+      return mergeBuiltinServers(Array.isArray(data.servers) ? data.servers : []);
     }
   } catch { /* fall through */ }
-  return [];
+  return mergeBuiltinServers([]);
 }
 
 function saveServerConfigs(configs) {
   const dir = path.dirname(Paths.MCP_FILE);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  fs.writeFileSync(Paths.MCP_FILE, JSON.stringify({ servers: configs }, null, 2), 'utf-8');
+  const persisted = configs.filter(cfg => !BUILTIN_SERVER_IDS.has(cfg.id));
+  fs.writeFileSync(Paths.MCP_FILE, JSON.stringify({ servers: persisted }, null, 2), 'utf-8');
 }
 
 /* ── Auto-connect persisted servers on startup ── */
@@ -54,6 +81,10 @@ export function register() {
 
   /* Add or update a server config (does not connect) */
   ipcMain.handle('mcp-save-server', (_e, serverConfig) => {
+    if (BUILTIN_SERVER_IDS.has(serverConfig.id)) {
+      return { ok: false, error: 'Built-in MCP servers cannot be edited from this form.' };
+    }
+
     const configs = loadServerConfigs();
     const idx = configs.findIndex(c => c.id === serverConfig.id);
     if (idx >= 0) configs[idx] = { ...configs[idx], ...serverConfig };
@@ -64,6 +95,10 @@ export function register() {
 
   /* Remove a server config + disconnect */
   ipcMain.handle('mcp-remove-server', async (_e, serverId) => {
+    if (BUILTIN_SERVER_IDS.has(serverId)) {
+      return { ok: false, error: 'The built-in browser MCP cannot be removed.' };
+    }
+
     await registry.disconnect(serverId);
     const configs = loadServerConfigs().filter(c => c.id !== serverId);
     saveServerConfigs(configs);

@@ -1,5 +1,5 @@
 import { state } from '../../../Shared/Core/State.js';
-import { fetchWithTools, fetchStreamingWithTools, withRetry } from '../../AI/index.js';
+import { fetchWithTools, fetchStreamingWithTools } from '../../AI/index.js';
 import { buildToolsPrompt, getAvailableTools } from '../Capabilities/Registry/Tools.js';
 import { executeTool } from '../Capabilities/Registry/Executors.js';
 
@@ -9,6 +9,94 @@ const INTERNAL_TOOL_LEAK_PATTERNS = [
   /^\s*Internal execution context for the assistant only\b/i,
   /\[TERMINAL:[^\]]+\]/i,
 ];
+
+const BROWSER_TOOL_HINTS = [
+  'browser',
+  'playwright',
+  'web page',
+  'website',
+  'navigate',
+  'goto',
+  'go_to',
+  'click',
+  'fill',
+  'type',
+  'select',
+  'press',
+  'locator',
+  'screenshot',
+  'snapshot',
+  'tab',
+];
+
+const HIGH_RISK_BROWSER_TERMS = [
+  'checkout',
+  'payment',
+  'pay ',
+  'paynow',
+  'purchase',
+  'buy now',
+  'buy_ticket',
+  'book now',
+  'booking confirmation',
+  'confirm booking',
+  'reserve now',
+  'place order',
+  'complete order',
+  'submit order',
+  'finalize',
+];
+
+const BROWSER_CONFIRMATION_SENTINEL = 'Potentially irreversible website action pending.';
+const RATE_LIMIT_BACKOFF_MS = [5000, 10000, 15000];
+
+function isRateLimitError(err) {
+  const message = String(err?.message ?? '').toLowerCase();
+  return (
+    message.includes('429') ||
+    message.includes('rate limit') ||
+    message.includes('too many requests')
+  );
+}
+
+function createAbortError() {
+  const err = new Error('Aborted');
+  err.name = 'AbortError';
+  return err;
+}
+
+async function waitWithAbort(delayMs, signal = null) {
+  if (!delayMs) return;
+  if (!signal) {
+    await new Promise(resolve => setTimeout(resolve, delayMs));
+    return;
+  }
+
+  if (signal.aborted) throw createAbortError();
+
+  await new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      cleanup();
+      resolve();
+    }, delayMs);
+
+    const onAbort = () => {
+      cleanup();
+      reject(createAbortError());
+    };
+
+    const cleanup = () => {
+      clearTimeout(timer);
+      signal.removeEventListener('abort', onAbort);
+    };
+
+    signal.addEventListener('abort', onAbort, { once: true });
+  });
+}
+
+function getModelDisplayName(provider, modelId) {
+  return provider?.models?.[modelId]?.name ?? modelId ?? 'model';
+}
 
 export function buildFailoverCandidates(selectedProvider, selectedModel) {
   if (!selectedProvider || !selectedModel) return [];
@@ -188,6 +276,132 @@ function buildToolPrivacyBlock() {
   ].join('\n');
 }
 
+function stringifyForAnalysis(value) {
+  if (typeof value === 'string') return value;
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value ?? '');
+  }
+}
+
+function looksLikeBrowserAutomationTool(tool = {}) {
+  if (tool.source !== 'mcp') return false;
+
+  const haystack = [
+    tool.name,
+    tool.description,
+    ...Object.keys(tool.parameters ?? {}),
+    ...Object.values(tool.parameters ?? {}).map(param => param?.description ?? ''),
+  ].join(' ').toLowerCase();
+
+  return BROWSER_TOOL_HINTS.some(hint => haystack.includes(hint));
+}
+
+function getBrowserAutomationTools(tools = []) {
+  return tools.filter(looksLikeBrowserAutomationTool);
+}
+
+function buildBrowserPlanningHint(browserTools = []) {
+  if (!browserTools.length) return '';
+
+  return [
+    'Browser-control MCP tools are connected right now.',
+    'If the user needs live website work such as browsing, navigation, ticket lookup, reservations, form filling, or account actions, plan those browser tools before guessing from static knowledge.',
+    'Do not plan a final purchase, booking confirmation, reservation submit, or payment action unless the user has explicitly confirmed that exact irreversible step in the current conversation.',
+  ].join('\n');
+}
+
+function buildBrowserAutomationBlock(browserTools = []) {
+  if (!browserTools.length) return '';
+
+  const listedTools = browserTools
+    .slice(0, 12)
+    .map(tool => `- ${tool.name}: ${tool.description || 'MCP browser tool'}`)
+    .join('\n');
+
+  return [
+    '## Browser Automation',
+    'Connected MCP browser tools are available for live website work.',
+    'Use them when the user needs real-time browsing, ticket availability checks, reservations, form filling, or other website navigation.',
+    'Prefer the official site or a site the user explicitly names.',
+    'Verify live details such as dates, prices, availability, passenger details, and policies from the page before answering.',
+    'Stop and ask for explicit confirmation before any irreversible website action such as a final booking, reservation, checkout, purchase, or payment submission.',
+    'If login, CAPTCHA, OTP, 2FA, or payment details are required, ask the user for that step clearly and continue after they reply.',
+    listedTools ? `Browser-capable tools currently available:\n${listedTools}` : '',
+  ].filter(Boolean).join('\n');
+}
+
+function buildBrowserConfirmationPrompt() {
+  return [
+    BROWSER_CONFIRMATION_SENTINEL,
+    'Reply with "confirm" if you want me to continue with that website action, or tell me what to change first.',
+  ].join(' ');
+}
+
+function isBrowserConfirmationPromptText(text) {
+  return String(text ?? '').includes(BROWSER_CONFIRMATION_SENTINEL);
+}
+
+function looksLikeBrowserConfirmationReply(text) {
+  const normalized = String(text ?? '').trim().toLowerCase();
+  if (!normalized) return false;
+
+  return [
+    'confirm',
+    'confirmed',
+    'yes',
+    'yes confirm',
+    'yes continue',
+    'continue',
+    'go ahead',
+    'go ahead and continue',
+    'proceed',
+    'do it',
+    'book it',
+    'submit it',
+    'complete it',
+  ].some(phrase => normalized === phrase || normalized.includes(phrase));
+}
+
+function hasPendingBrowserApproval(messages = []) {
+  let lastUserIndex = -1;
+
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    if (messages[index]?.role === 'user') {
+      lastUserIndex = index;
+      break;
+    }
+  }
+
+  if (lastUserIndex < 1) return false;
+  if (!looksLikeBrowserConfirmationReply(messages[lastUserIndex]?.content)) return false;
+
+  for (let index = lastUserIndex - 1; index >= 0; index -= 1) {
+    if (messages[index]?.role === 'assistant') {
+      return isBrowserConfirmationPromptText(messages[index]?.content);
+    }
+  }
+
+  return false;
+}
+
+function isPotentiallyIrreversibleBrowserAction(tool, params) {
+  if (!looksLikeBrowserAutomationTool(tool)) return false;
+
+  const haystack = [
+    tool.name,
+    tool.description,
+    stringifyForAnalysis(params),
+  ].join(' ').toLowerCase();
+
+  if (HIGH_RISK_BROWSER_TERMS.some(term => haystack.includes(term))) return true;
+
+  const hasSubmitWord = /\b(submit|confirm|complete|reserve|book)\b/.test(haystack);
+  const hasCommerceWord = /\b(ticket|booking|reservation|checkout|order|payment|purchase)\b/.test(haystack);
+  return hasSubmitWord && hasCommerceWord;
+}
+
 function stringifyToolResult(toolResult) {
   if (typeof toolResult === 'string') return toolResult;
   try {
@@ -255,6 +469,8 @@ export async function planRequest(userText) {
     getAvailableTools(),
     loadWorkspaceSummary(),
   ]);
+  const browserTools = getBrowserAutomationTools(availableTools);
+  const browserPlanningHint = buildBrowserPlanningHint(browserTools);
 
   const planPrompt = [
     'You are a planning assistant for an AI agent.',
@@ -266,6 +482,7 @@ export async function planRequest(userText) {
     `User request: "${userText}"`,
     state.activeProject ? `\n${buildActiveProjectHint('planning')}` : '',
     workspaceSummary ? `\n${buildWorkspaceHint(workspaceSummary, 'planning')}` : '',
+    browserPlanningHint ? `\n${browserPlanningHint}` : '',
     '',
     'Available skills:',
     buildSkillsCatalogue(skills),
@@ -327,10 +544,13 @@ export async function agentLoop(messages, live, plannedSkills = [], plannedToolC
   ]);
 
   const toolPrivacyBlock = buildToolPrivacyBlock();
+  const browserAutomationBlock = buildBrowserAutomationBlock(getBrowserAutomationTools(availableTools));
   const selectedSkillBlock = buildSelectedSkillsBlock(plannedSkills, allSkills);
   const projectHint = buildActiveProjectHint('runtime');
   const workspaceHint = buildWorkspaceHint(workspaceSummary, 'runtime');
-  const basePrompt = [systemPrompt, toolPrivacyBlock, selectedSkillBlock, projectHint, workspaceHint].filter(Boolean).join('\n\n');
+  const basePrompt = [systemPrompt, toolPrivacyBlock, browserAutomationBlock, selectedSkillBlock, projectHint, workspaceHint].filter(Boolean).join('\n\n');
+  const toolMetaByName = new Map(availableTools.map(tool => [tool.name, tool]));
+  let browserApprovalAvailable = hasPendingBrowserApproval(loopMessages);
 
   const candidates = [
     { provider: state.selectedProvider, modelId: state.selectedModel, note: null },
@@ -375,19 +595,16 @@ export async function agentLoop(messages, live, plannedSkills = [], plannedToolC
       bufferedReply += chunk;
     };
 
-    for (const { provider, modelId, note } of candidates) {
+    for (const [candidateIndex, { provider, modelId, note }] of candidates.entries()) {
       if (note) live.push(note);
-      streamingStarted = false;
-      bufferedReply = '';
+      const modelName = getModelDisplayName(provider, modelId);
 
-      try {
-        result = await withRetry(async () => {
-          if (streamingStarted) {
-            const err = new Error('Stream interrupted after start - not retrying');
-            err.noRetry = true;
-            throw err;
-          }
-          return fetchStreamingWithTools(
+      for (let attempt = 0; attempt <= RATE_LIMIT_BACKOFF_MS.length; attempt += 1) {
+        streamingStarted = false;
+        bufferedReply = '';
+
+        try {
+          result = await fetchStreamingWithTools(
             provider,
             modelId,
             loopMessages,
@@ -396,20 +613,47 @@ export async function agentLoop(messages, live, plannedSkills = [], plannedToolC
             onToken,
             signal,
           );
-        }, 3, 600);
 
-        usedProvider = provider;
-        usedModel = modelId;
-        break;
-      } catch (err) {
-        lastErr = err;
-        if (err.name === 'AbortError') throw err;
-        if (streamingStarted) {
-          live.push(`Stream error: ${err.message.slice(0, 60)}`);
+          usedProvider = provider;
+          usedModel = modelId;
+          break;
+        } catch (err) {
+          lastErr = err;
+          if (err.name === 'AbortError') throw err;
+
+          if (streamingStarted) {
+            live.push(`Stream error: ${err.message.slice(0, 60)}`);
+            break;
+          }
+
+          const hasMoreCandidates = candidateIndex < candidates.length - 1;
+          const rateLimited = isRateLimitError(err);
+
+          if (rateLimited && attempt < RATE_LIMIT_BACKOFF_MS.length) {
+            const delayMs = RATE_LIMIT_BACKOFF_MS[attempt];
+            live.push(`HTTP 429 on ${modelName} - waiting ${Math.round(delayMs / 1000)}s before retrying...`);
+            await waitWithAbort(delayMs, signal);
+            continue;
+          }
+
+          if (rateLimited) {
+            live.push(
+              hasMoreCandidates
+                ? `HTTP 429 kept happening on ${modelName} - trying the next model...`
+                : `HTTP 429 kept happening on ${modelName} after multiple retries.`,
+            );
+          } else {
+            live.push(
+              hasMoreCandidates
+                ? `${err.message.slice(0, 55)} - trying fallback...`
+                : `${err.message.slice(0, 55)}`,
+            );
+          }
           break;
         }
-        live.push(`${err.message.slice(0, 55)} - trying fallback...`);
       }
+
+      if (result) break;
     }
 
     if (!result) {
@@ -465,11 +709,22 @@ export async function agentLoop(messages, live, plannedSkills = [], plannedToolC
       const { name, params } = result;
       toolsUsed = true;
       const logHandle = live.push(buildToolLogLabel(name));
+      const toolMeta = toolMetaByName.get(name) ?? null;
 
       let toolResult;
       let success = true;
 
       try {
+        if (isPotentiallyIrreversibleBrowserAction(toolMeta, params)) {
+          if (browserApprovalAvailable) {
+            browserApprovalAvailable = false;
+          } else {
+            const confirmationPrompt = buildBrowserConfirmationPrompt();
+            live.finalize(confirmationPrompt, result.usage, usedProvider, usedModel);
+            return { text: confirmationPrompt, usage: totalUsage, usedProvider, usedModel };
+          }
+        }
+
         toolResult = await executeTool(name, params, () => { });
       } catch (err) {
         success = false;

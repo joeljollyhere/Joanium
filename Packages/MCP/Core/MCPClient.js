@@ -1,6 +1,7 @@
 import { EventEmitter } from 'events';
 import { spawn } from 'child_process';
 import { createInterface } from 'readline';
+import { getBuiltinBrowserServer } from '../Builtin/BrowserMCPServer.js';
 
 const PROTOCOL_VERSION = '2024-11-05';
 const CLIENT_INFO = { name: 'Evelina', version: '0.1.0' };
@@ -142,6 +143,43 @@ export class HttpMCPSession extends MCPSession {
   }
 }
 
+export class BuiltinMCPSession extends MCPSession {
+  constructor({ builtinType }) {
+    super();
+
+    if (builtinType === 'browser') {
+      this._server = getBuiltinBrowserServer();
+    } else {
+      throw new Error(`Unknown built-in MCP server: "${builtinType}"`);
+    }
+  }
+
+  _send(_msg) {
+    // Built-in sessions do not use JSON-RPC transport frames.
+  }
+
+  async initialize() {
+    return {
+      protocolVersion: PROTOCOL_VERSION,
+      capabilities: { tools: {}, resources: {} },
+      clientInfo: CLIENT_INFO,
+    };
+  }
+
+  async listTools() {
+    return this._server.listTools();
+  }
+
+  async callTool(name, args = {}) {
+    const text = await this._server.callTool(name, args);
+    return { content: [{ type: 'text', text }] };
+  }
+
+  async close() {
+    await this._server.close();
+  }
+}
+
 /* ══════════════════════════════════════════
    MCP SERVER REGISTRY
    Manages a pool of named MCP sessions.
@@ -154,13 +192,15 @@ export class MCPRegistry {
 
   /** Connect a server and discover its tools. */
   async connect(serverConfig) {
-    const { id, name, transport, url, command, args, env } = serverConfig;
+    const { id, name, transport, url, command, args, env, builtinType } = serverConfig;
 
     let session;
     if (transport === 'http') {
       session = new HttpMCPSession({ url });
     } else if (transport === 'stdio') {
       session = new StdioMCPSession({ command, args: args ?? [], env: env ?? {} });
+    } else if (transport === 'builtin') {
+      session = new BuiltinMCPSession({ builtinType });
     } else {
       throw new Error(`Unknown MCP transport: "${transport}"`);
     }

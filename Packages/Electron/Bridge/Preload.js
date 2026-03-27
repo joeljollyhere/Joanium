@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron';
 
 const ptyDataListeners = new Set();
 const ptyExitListeners = new Set();
+const browserPreviewListeners = new Set();
 
 ipcRenderer.on('pty-data', (_e, pid, data) => {
   for (const callback of ptyDataListeners) {
@@ -14,6 +15,13 @@ ipcRenderer.on('pty-exit', (_e, pid, exitCode) => {
   for (const callback of ptyExitListeners) {
     try { callback(pid, exitCode); }
     catch (err) { console.warn('[Preload] PTY exit listener failed:', err); }
+  }
+});
+
+ipcRenderer.on('browser-preview-state', (_e, payload) => {
+  for (const callback of browserPreviewListeners) {
+    try { callback(payload); }
+    catch (err) { console.warn('[Preload] Browser preview listener failed:', err); }
   }
 });
 
@@ -132,6 +140,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   mcpDisconnectServer: (serverId) => ipcRenderer.invoke('mcp-disconnect-server', serverId),
   mcpGetTools: () => ipcRenderer.invoke('mcp-get-tools'),
   mcpCallTool: (payload) => ipcRenderer.invoke('mcp-call-tool', payload),
+
+  // Browser preview
+  browserPreviewGetState: () => ipcRenderer.invoke('browser-preview-get-state'),
+  browserPreviewSetVisible: (visible) => ipcRenderer.invoke('browser-preview-set-visible', visible),
+  browserPreviewSetBounds: (bounds) => ipcRenderer.invoke('browser-preview-set-bounds', bounds),
+  onBrowserPreviewState: (callback) => {
+    if (typeof callback === 'function') browserPreviewListeners.add(callback);
+  },
+  offBrowserPreviewState: (callback) => browserPreviewListeners.delete(callback),
 
   // Events
   launchEvents: () => ipcRenderer.invoke('launch-events'),

@@ -1,5 +1,6 @@
 import { state }              from '../Core/State.js';
 import { loadConnectorsPanel } from '../../Features/Connectors/index.js';
+import { loadMCPPanel }        from '../../Features/MCP/index.js';
 
 // PROVIDER META
 const PROVIDER_META = {
@@ -53,6 +54,8 @@ function buildHTML() {
                       data-settings-tab="providers">Connected Providers</button>
               <button class="settings-tab" type="button"
                       data-settings-tab="connectors">Connectors</button>
+              <button class="settings-tab" type="button"
+                      data-settings-tab="mcp">MCP Servers</button>
             </nav>
 
             <div class="settings-content">
@@ -105,6 +108,19 @@ function buildHTML() {
                 </div>
                 <div id="connector-list" class="connector-list">
                   <div class="cx-loading">Loading connectors…</div>
+                </div>
+              </section>
+
+              <section class="settings-panel" data-settings-panel="mcp" hidden>
+                <div class="settings-panel-header">
+                  <h3>MCP Servers</h3>
+                  <p>
+                    Connect Model Context Protocol servers here. Browser-control MCP tools will
+                    automatically show up in chat once the server is connected.
+                  </p>
+                </div>
+                <div id="mcp-settings-panel" class="mcp-settings-panel">
+                  <div class="cx-loading">Loading MCP servers...</div>
                 </div>
               </section>
 
@@ -198,10 +214,12 @@ export function initSettingsModal() {
     setFeedback();
     updateSaveBtn();
     if (tabId === 'connectors') loadConnectorsPanel();
+    if (tabId === 'mcp') loadMCPPanel();
   }
 
   function focusActiveTab() {
     if (settingsState.activeTab === 'providers') { providersList()?.querySelector('input')?.focus(); return; }
+    if (settingsState.activeTab === 'mcp')       { document.getElementById('mcp-add-btn')?.focus(); return; }
     if (settingsState.activeTab === 'user')      nameInput()?.focus();
   }
 

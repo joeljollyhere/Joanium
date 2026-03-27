@@ -7,6 +7,50 @@ import { buildTokenFooter, updateTimeline } from './ChatTimeline.js';
 
 const RENDER_THROTTLE_MS = 80;
 
+const BROWSER_TOOL_LABELS = {
+  browser_navigate: 'Opening the website...',
+  browser_snapshot: 'Reading the current page...',
+  browser_click: 'Clicking on the page...',
+  browser_hover: 'Hovering over the page...',
+  browser_focus: 'Focusing the page control...',
+  browser_type: 'Typing into the page...',
+  browser_clear: 'Clearing a field...',
+  browser_press_key: 'Sending a key press...',
+  browser_select_option: 'Selecting an option...',
+  browser_scroll: 'Scrolling the page...',
+  browser_wait: 'Waiting a moment...',
+  browser_set_checked: 'Toggling a control...',
+  browser_list_options: 'Reading available options...',
+  browser_list_links: 'Reading visible links...',
+  browser_find_elements: 'Finding matching elements...',
+  browser_list_form_fields: 'Reading form fields...',
+  browser_scroll_into_view: 'Bringing an element into view...',
+  browser_submit_form: 'Submitting the form...',
+  browser_wait_for_element: 'Waiting for an element...',
+  browser_wait_for_text: 'Waiting for page text...',
+  browser_wait_for_navigation: 'Waiting for the next page...',
+  browser_read_element: 'Reading a page element...',
+  browser_screenshot: 'Capturing the page...',
+  browser_get_state: 'Checking the browser state...',
+  browser_back: 'Going back in the browser...',
+  browser_forward: 'Going forward in the browser...',
+  browser_refresh: 'Refreshing the page...',
+};
+
+function humanizeBrowserToolLog(text) {
+  const failureMatch = String(text ?? '').match(/^(browser_[a-z_]+)\s+failed:\s*(.+)$/i);
+  if (failureMatch) {
+    const base = BROWSER_TOOL_LABELS[failureMatch[1]] || failureMatch[1];
+    return `${base.replace(/\.\.\.$/, '')} failed: ${failureMatch[2]}`;
+  }
+
+  const toolName = String(text ?? '').trim().split(/\s+/)[0];
+  if (!BROWSER_TOOL_LABELS[toolName]) return text;
+
+  const remainder = String(text ?? '').trim().slice(toolName.length).trim();
+  return remainder ? `${BROWSER_TOOL_LABELS[toolName]} ${remainder}` : BROWSER_TOOL_LABELS[toolName];
+}
+
 /* ── Attachment frame builders ── */
 export function buildImageFrame(attachment, className) {
   const frame = document.createElement('div');
@@ -102,7 +146,7 @@ export function buildLogItem(rawLine) {
       <path d="M12 2L8 6H4v4L2 12l2 2v4h4l4 4 4-4h4v-4l2-2-2-2V6h-4L12 2z"/>
     </svg>`;
   } else if (rawLine.startsWith('[TOOL]')) {
-    displayText = rawLine.slice(6).trim();
+    displayText = humanizeBrowserToolLog(rawLine.slice(6).trim());
     iconHtml = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
       style="width:14px;height:14px;vertical-align:middle;flex-shrink:0;color:var(--text-muted)">
       <path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"

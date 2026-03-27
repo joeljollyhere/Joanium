@@ -28,6 +28,7 @@ import { initTerminalObserver } from '../../Features/Chat/UI/TerminalComponent.j
 
 import { getChatHTML, ensureDropOverlay, getDropOverlay } from './Templates/ChatTemplate.js';
 import { createEnhanceFeature } from './Features/ChatEnhance.js';
+import { createBrowserPreviewFeature } from './Features/BrowserPreview.js';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function getWelcomeTitleText() {
@@ -229,6 +230,7 @@ export function mount(outlet, { settings, navigate }) {
   // ── Enhance button ────────────────────────────────────────────────────────
   const enhanceBtn = document.getElementById('enhance-btn');
   const enhanceFeature = createEnhanceFeature({ textarea, enhanceBtn, state });
+  const browserPreviewFeature = createBrowserPreviewFeature();
 
   // ── Drag-and-drop ─────────────────────────────────────────────────────────
   ensureDropOverlay();
@@ -284,6 +286,7 @@ export function mount(outlet, { settings, navigate }) {
     window.removeEventListener('ow:settings-saved', onSettingsSaved);
     window.removeEventListener('ow:user-profile-updated', onUserProfileUpdated);
     enhanceFeature.cleanup();
+    browserPreviewFeature.cleanup();
     stopGeneration();
     const overlay = getDropOverlay();
     if (overlay) overlay.style.opacity = '0';

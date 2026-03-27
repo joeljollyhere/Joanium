@@ -36,6 +36,8 @@ import * as UsageIPC      from './Packages/Main/IPC/UsageIPC.js';
 import * as AgentsIPC    from './Packages/Main/IPC/AgentsIPC.js';
 import * as TerminalIPC   from './Packages/Main/IPC/TerminalIPC.js';
 import * as MCPIPC        from './Packages/Main/IPC/MCPIPC.js';
+import * as BrowserPreviewIPC from './Packages/Main/IPC/BrowserPreviewIPC.js';
+import { getBrowserPreviewService } from './Packages/Main/Services/BrowserPreviewService.js';
 
 /* ══════════════════════════════════════════
    ENGINES  (module-level refs, instantiated inside whenReady)
@@ -68,6 +70,7 @@ app.whenReady().then(async () => {
   GmailIPC.register(connectorEngine);
   GithubIPC.register(connectorEngine);
   WindowIPC.register();
+  BrowserPreviewIPC.register(getBrowserPreviewService());
   SkillsIPC.register();
   PersonasIPC.register();
   UsageIPC.register();
@@ -80,7 +83,8 @@ app.whenReady().then(async () => {
 
   // Show the window immediately — don't block on MCP
   const startPage = isFirstRun() ? Paths.SETUP_PAGE : Paths.INDEX_PAGE;
-  createWindow(startPage);
+  const mainWindow = createWindow(startPage);
+  getBrowserPreviewService().attachToWindow(mainWindow);
 
   // MCP auto-connect runs in the background AFTER the window is up
   MCPIPC.autoConnect().catch(err => {
@@ -88,8 +92,10 @@ app.whenReady().then(async () => {
   });
 
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0)
-      createWindow(isFirstRun() ? Paths.SETUP_PAGE : Paths.INDEX_PAGE);
+    if (BrowserWindow.getAllWindows().length === 0) {
+      const win = createWindow(isFirstRun() ? Paths.SETUP_PAGE : Paths.INDEX_PAGE);
+      getBrowserPreviewService().attachToWindow(win);
+    }
   });
 });
 
