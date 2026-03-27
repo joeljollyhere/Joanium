@@ -24,6 +24,7 @@ export function create(page) {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
+      backgroundThrottling: true, // throttle timers/intervals when window is hidden → saves memory & CPU
     },
   });
 

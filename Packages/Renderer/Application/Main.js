@@ -4,15 +4,17 @@ import { initAboutModal }     from '../Shared/Modals/AboutModal.js';
 import { initLibraryModal }   from '../Shared/Modals/LibraryModal.js';
 import { initProjectsModal }  from '../Shared/Modals/ProjectsModal.js';
 import { initSettingsModal }  from '../Shared/Modals/SettingsModal.js';
+import { injectCSS }          from '../Shared/Utils/InjectCSS.js';
 
+// Each entry: load = dynamic import, css = stylesheet to inject before mount
 const PAGES = {
-  chat:        () => import('../Pages/Chat/index.js'),
-  automations: () => import('../Pages/Automations/index.js'),
-  agents:      () => import('../Pages/Agents/index.js'),
-  events:      () => import('../Pages/Events/index.js'),
-  skills:      () => import('../Pages/Skills/index.js'),
-  personas:    () => import('../Pages/Personas/index.js'),
-  usage:       () => import('../Pages/Usage/index.js'),
+  chat:        { load: () => import('../Pages/Chat/index.js'),        css: null },
+  automations: { load: () => import('../Pages/Automations/index.js'), css: 'Assets/Styles/AutomationsPage.css' },
+  agents:      { load: () => import('../Pages/Agents/index.js'),      css: 'Assets/Styles/AgentsPage.css' },
+  events:      { load: () => import('../Pages/Events/index.js'),      css: 'Assets/Styles/EventsPage.css' },
+  skills:      { load: () => import('../Pages/Skills/index.js'),      css: 'Assets/Styles/SkillsPage.css' },
+  personas:    { load: () => import('../Pages/Personas/index.js'),    css: 'Assets/Styles/PersonasPage.css' },
+  usage:       { load: () => import('../Pages/Usage/index.js'),       css: 'Assets/Styles/UsagePage.css' },
 };
 
 /* ══════════════════════════════════════════
@@ -59,7 +61,15 @@ export async function navigate(page, options = {}) {
   outlet.innerHTML = '<div class="page-transition-loading"></div>';
 
   try {
-    const mod = await PAGES[page]();
+    const { load, css } = PAGES[page];
+
+    // Load module and CSS in parallel — both must be ready before mount()
+    // so the stylesheet is already applied when HTML is injected (no FOUC).
+    const [mod] = await Promise.all([
+      load(),
+      css ? injectCSS(css) : Promise.resolve(),
+    ]);
+
     outlet.innerHTML = ''; // clear loading state
 
     // mount() injects page HTML into outlet, wires up events,
@@ -139,28 +149,12 @@ async function init() {
   document.getElementById('btn-maximize')?.addEventListener('click', () => window.electronAPI?.maximize());
   document.getElementById('btn-close')?.addEventListener('click',    () => window.electronAPI?.close());
 
-  // ── Self-injecting shared modals ────────────────────────────────────
+  // ── CRITICAL modals (needed immediately for sidebar avatar) ─────────────
   // These inject their own HTML on first call, so they don't need
   // hardcoded entries in index.html. Order matters: settings before
   // sidebar so settings.loadUser() can hydrate the sidebar avatar.
   _settings = initSettingsModal();
   _about    = initAboutModal();
-
-  // Library needs to know which chat scope to use (project or global)
-  _library = initLibraryModal({
-    onChatSelect: async (chatId) => {
-      _library.close();
-      await navigate('chat', { pendingChatId: chatId });
-    },
-  });
-
-  // Projects is self-injecting too, but it still needs to be
-  // initialised here so the shared modal is available on every page.
-  _projects = initProjectsModal({
-    onProjectOpen:    openProject,
-    onProjectRemoved: leaveProject,
-    onClose: () => { _sidebar?.setActivePage(_currentPage); },
-  });
 
   // ── Sidebar ─────────────────────────────────────────────────────────
   // Initialized ONCE here. All navigation goes through window.appNavigate
@@ -168,8 +162,8 @@ async function init() {
   _sidebar = initSidebar({
     activePage: 'chat',
     onNewChat:     () => openFreshChat(),
-    onLibrary:     () => _library.isOpen() ? _library.close() : _library.open(),
-    onProjects:    () => _projects.isOpen() ? _projects.close() : _projects.open(),
+    onLibrary:     () => _library?.isOpen() ? _library.close() : _library?.open(),
+    onProjects:    () => _projects?.isOpen() ? _projects.close() : _projects?.open(),
     onAutomations: () => navigate('automations'),
     onAgents:      () => navigate('agents'),
     onEvents:      () => navigate('events'),
@@ -212,6 +206,28 @@ async function init() {
 
   // ── Initial page ─────────────────────────────────────────────────────
   await openFreshChat();
+
+  // ── Lazy modals (deferred until browser is idle) ─────────────────────
+  // Library and Projects only needed when user clicks sidebar buttons.
+  // Initialise them after chat renders to avoid competing with first paint.
+  const initDeferredModals = () => {
+    _library = initLibraryModal({
+      onChatSelect: async (chatId) => {
+        _library.close();
+        await navigate('chat', { pendingChatId: chatId });
+      },
+    });
+    _projects = initProjectsModal({
+      onProjectOpen:    openProject,
+      onProjectRemoved: leaveProject,
+      onClose: () => { _sidebar?.setActivePage(_currentPage); },
+    });
+  };
+  if (typeof requestIdleCallback === 'function') {
+    requestIdleCallback(initDeferredModals, { timeout: 2000 });
+  } else {
+    setTimeout(initDeferredModals, 500);
+  }
 
   // SPA navigation now uses in-memory pending chat ids.
   // Clear any stale value left over from the old multipage flow so

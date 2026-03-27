@@ -38,32 +38,10 @@ import * as TerminalIPC   from './Packages/Main/IPC/TerminalIPC.js';
 import * as MCPIPC        from './Packages/Main/IPC/MCPIPC.js';
 
 /* ══════════════════════════════════════════
-   ENGINES  (singletons shared across IPC modules)
+   ENGINES  (module-level refs, instantiated inside whenReady)
 ══════════════════════════════════════════ */
-const connectorEngine  = new ConnectorEngine(Paths.CONNECTORS_FILE);
-const automationEngine = new AutomationEngine(Paths.AUTOMATIONS_FILE, connectorEngine);
-const agentsEngine = new AgentsEngine(Paths.AGENTS_FILE, connectorEngine);
-
-/* ══════════════════════════════════════════
-   IPC REGISTRATION
-   Each module gets exactly the dependencies it needs.
-══════════════════════════════════════════ */
-SetupIPC.register();
-UserIPC.register();
-SystemIPC.register(connectorEngine);
-ChatIPC.register();
-ProjectIPC.register();
-AutomationIPC.register(automationEngine);
-ConnectorIPC.register(connectorEngine);
-GmailIPC.register(connectorEngine);
-GithubIPC.register(connectorEngine);
-WindowIPC.register();
-SkillsIPC.register();
-PersonasIPC.register();
-UsageIPC.register();
-AgentsIPC.register(agentsEngine, automationEngine);
-TerminalIPC.register();
-MCPIPC.register();
+let automationEngine = null;
+let agentsEngine     = null;
 
 /* ══════════════════════════════════════════
    APP LIFECYCLE
@@ -74,15 +52,40 @@ app.whenReady().then(async () => {
   if (!fs.existsSync(Paths.CHATS_DIR)) fs.mkdirSync(Paths.CHATS_DIR, { recursive: true });
   if (!fs.existsSync(Paths.PROJECTS_DIR)) fs.mkdirSync(Paths.PROJECTS_DIR, { recursive: true });
 
-  await MCPIPC.autoConnect().catch(err => {
-    console.warn('[App] MCP auto-connect failed:', err.message);
-  });
+  // ── Engines (created here so module parse stays instant) ────────────────
+  const connectorEngine  = new ConnectorEngine(Paths.CONNECTORS_FILE);
+  automationEngine = new AutomationEngine(Paths.AUTOMATIONS_FILE, connectorEngine);
+  agentsEngine     = new AgentsEngine(Paths.AGENTS_FILE, connectorEngine);
+
+  // ── IPC registration ─────────────────────────────────────────────────────
+  SetupIPC.register();
+  UserIPC.register();
+  SystemIPC.register(connectorEngine);
+  ChatIPC.register();
+  ProjectIPC.register();
+  AutomationIPC.register(automationEngine);
+  ConnectorIPC.register(connectorEngine);
+  GmailIPC.register(connectorEngine);
+  GithubIPC.register(connectorEngine);
+  WindowIPC.register();
+  SkillsIPC.register();
+  PersonasIPC.register();
+  UsageIPC.register();
+  AgentsIPC.register(agentsEngine, automationEngine);
+  TerminalIPC.register();
+  MCPIPC.register();
 
   automationEngine.start();
   agentsEngine.start();
 
+  // Show the window immediately — don't block on MCP
   const startPage = isFirstRun() ? Paths.SETUP_PAGE : Paths.INDEX_PAGE;
   createWindow(startPage);
+
+  // MCP auto-connect runs in the background AFTER the window is up
+  MCPIPC.autoConnect().catch(err => {
+    console.warn('[App] MCP auto-connect failed:', err.message);
+  });
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0)
@@ -91,7 +94,7 @@ app.whenReady().then(async () => {
 });
 
 app.on('window-all-closed', () => {
-  automationEngine.stop();
-  agentsEngine.stop();
+  automationEngine?.stop();
+  agentsEngine?.stop();
   if (process.platform !== 'darwin') app.quit();
 });
