@@ -17,12 +17,12 @@
     --text-secondary: #9a9a9a;
     --text-muted: #606060;
 
-    --accent: #cc785c;
-    --accent-glow: rgba(204, 120, 92, 0.18);
-    --accent-dim: rgba(204, 120, 92, 0.08);
-    --accent-hover: #d9896e;
+    --accent: #C874D9;
+    --accent-glow: rgba(200, 116, 217, 0.14);
+    --accent-dim: rgba(200, 116, 217, 0.07);
+    --accent-hover: #D989E2;
 
-    --mesh-a: rgba(204, 120, 92, 0.04);
+    --mesh-a: rgba(200, 116, 217, 0.04);
     --mesh-b: rgba(120, 100, 180, 0.03);
     --shadow-color: rgba(0, 0, 0, 0.5);
     --titlebar-bg: #141414;
@@ -42,13 +42,13 @@
     --text-secondary: #6b6760;
     --text-muted: #a09d97;
 
-    --accent: #b85c3a;
-    --accent-glow: rgba(184, 92, 58, 0.14);
-    --accent-dim: rgba(184, 92, 58, 0.07);
-    --accent-hover: #c96b48;
+    --accent: #C874D9;
+    --accent-glow: rgba(200, 116, 217, 0.14);
+    --accent-dim: rgba(200, 116, 217, 0.07);
+    --accent-hover: #D989E2;
 
-    --mesh-a: rgba(184, 92, 58, 0.04);
-    --mesh-b: rgba(80, 60, 140, 0.025);
+    --mesh-a: rgba(200, 116, 217, 0.04);
+    --mesh-b: rgba(120, 100, 180, 0.03);
     --shadow-color: rgba(0, 0, 0, 0.12);
     --titlebar-bg: #e8e6e1;
 }
