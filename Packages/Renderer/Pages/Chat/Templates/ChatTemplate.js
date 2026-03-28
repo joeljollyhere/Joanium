@@ -85,7 +85,7 @@ export function getChatHTML() {
           </div>
         </div>
       </div>
-      <p class="footer-credit">Made with love by <a href="https://joeljolly.vercel.app" target="_blank" rel="noopener noreferrer" class="credit-name">Joel Jolly</a></p>
+      <p class="footer-credit">Made with ❤️ by <a href="https://joeljolly.vercel.app" target="_blank" rel="noopener noreferrer" class="credit-name">Joel Jolly</a></p>
     </div>
   </div>
 
