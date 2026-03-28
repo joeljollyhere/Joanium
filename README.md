@@ -94,6 +94,11 @@ Evelina/
 | Google | Gemini 1.5 Pro, 2.0 Flash, 1.5 Flash | API key |
 | OpenRouter | DeepSeek R1, Mistral Large, Llama 3.3, Qwen 2.5, Gemma 3 | API key |
 | Mistral AI | Mistral Large, Codestral, Mistral Small | API key |
+| NVIDIA | Kimi K2 Thinking, DeepSeek V3.2 | API key |
+| DeepSeek | DeepSeek Reasoner, DeepSeek Chat | API key |
+| MiniMax | MiniMax M2.5, M2.5 High-Speed, M2.1 | API key |
+| Ollama | Any pulled local model | Local server |
+| LM Studio | Any loaded local model | Local server |
 
 ---
 

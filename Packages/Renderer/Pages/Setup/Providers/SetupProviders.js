@@ -115,7 +115,7 @@ export const PROVIDERS = [
     company: 'MiniMax',
     caption: 'API key',
     color: '#ef6b3d',
-    iconPath: '',
+    iconPath: 'Assets/Icons/MiniMax.png',
     iconFrame: 'soft',
     iconSize: '18px',
     fallback: 'MM',

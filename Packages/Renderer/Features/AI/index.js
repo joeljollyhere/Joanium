@@ -270,6 +270,7 @@ function extractOpenAIReasoningChunk(delta) {
 function shouldRequestReasoning(provider, modelId) {
   const providerId = provider?.provider;
   if (providerId !== 'openrouter' && providerId !== 'minimax') return false;
+  if (providerId === 'minimax') return true;
 
   const modelInfo = provider.models?.[modelId] ?? {};
   const haystack = [
