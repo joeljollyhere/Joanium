@@ -258,7 +258,7 @@ function renderProviderFields() {
   heading.className = 'keys-copy';
   heading.innerHTML = `
     <p class="keys-heading">Connect your selected providers</p>
-    <p class="keys-subheading">Cloud providers use an API key. LM Studio uses a local server URL and the loaded model name.</p>
+    <p class="keys-subheading">Cloud providers use an API key. Ollama and LM Studio use a local server URL and the model name.</p>
   `;
   keysSection.appendChild(heading);
 

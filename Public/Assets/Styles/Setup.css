@@ -406,7 +406,7 @@ body {
 
 /* ── Primary button ── */
 .btn-primary {
-    width: 100%;
+    width: 50%;
     padding: 13px 24px;
     border-radius: 100px;
     border: none;

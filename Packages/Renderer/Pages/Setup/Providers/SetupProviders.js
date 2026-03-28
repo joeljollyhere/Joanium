@@ -8,6 +8,28 @@ function apiKeyField(placeholder) {
   }];
 }
 
+function localModelFields(defaultEndpoint, modelIdLabel, modelPlaceholder) {
+  return [
+    {
+      key: 'endpoint',
+      label: 'Server URL',
+      type: 'text',
+      placeholder: defaultEndpoint,
+      defaultValue: defaultEndpoint,
+      required: true,
+      minLength: 10,
+    },
+    {
+      key: 'modelId',
+      label: modelIdLabel,
+      type: 'text',
+      placeholder: modelPlaceholder,
+      required: true,
+      minLength: 2,
+    },
+  ];
+}
+
 export const PROVIDERS = [
   {
     id: 'anthropic',
@@ -77,35 +99,57 @@ export const PROVIDERS = [
     fields: apiKeyField('nvapi-...'),
   },
   {
+    id: 'deepseek',
+    label: 'DeepSeek',
+    company: 'DeepSeek',
+    caption: 'API key',
+    color: '#4f7cff',
+    iconPath: 'Assets/Icons/Deepseek.png',
+    iconSize: '34px',
+    fallback: 'DS',
+    fields: apiKeyField('sk-...'),
+  },
+  {
+    id: 'minimax',
+    label: 'MiniMax',
+    company: 'MiniMax',
+    caption: 'API key',
+    color: '#ef6b3d',
+    iconPath: '',
+    iconFrame: 'soft',
+    iconSize: '18px',
+    fallback: 'MM',
+    fields: apiKeyField('Paste your API key'),
+  },
+  {
+    id: 'ollama',
+    label: 'Ollama',
+    company: 'Local AI',
+    caption: 'Local server',
+    color: '#111827',
+    iconPath: 'Assets/Icons/Ollama.png',
+    iconFrame: 'soft',
+    iconSize: '30px',
+    fallback: 'OL',
+    hint: 'Run Ollama, pull a model, then use the local model name below.',
+    fields: localModelFields('http://127.0.0.1:11434', 'Model ID', 'llama3.2'),
+  },
+  {
     id: 'lmstudio',
     label: 'LM Studio',
     company: 'Local AI',
     caption: 'Local server',
     color: '#5b6cff',
-    iconPath: '',
+    iconPath: 'Assets/Icons/LmStudio.png',
     iconFrame: 'soft',
-    iconSize: '18px',
+    iconSize: '30px',
     fallback: 'LM',
     hint: 'Run the LM Studio local server, then use the loaded model name below.',
-    fields: [
-      {
-        key: 'endpoint',
-        label: 'Server URL',
-        type: 'text',
-        placeholder: 'http://127.0.0.1:1234',
-        defaultValue: 'http://127.0.0.1:1234',
-        required: true,
-        minLength: 10,
-      },
-      {
-        key: 'modelId',
-        label: 'Loaded model ID',
-        type: 'text',
-        placeholder: 'qwen2.5-coder-7b-instruct',
-        required: true,
-        minLength: 2,
-      },
-    ],
+    fields: localModelFields(
+      'http://127.0.0.1:1234',
+      'Loaded model ID',
+      'qwen2.5-coder-7b-instruct',
+    ),
   },
 ];
 

@@ -180,7 +180,7 @@ export async function callAI() {
   };
 
   if (!state.selectedProvider || !state.selectedModel) {
-    remove(() => appendMessage('assistant', 'No AI provider configured. Add an API key or LM Studio in Settings.', true, true, [], doSendFromState));
+    remove(() => appendMessage('assistant', 'No AI provider configured. Add an API key, Ollama, or LM Studio in Settings.', true, true, [], doSendFromState));
     return;
   }
 
@@ -203,7 +203,7 @@ export async function callAIWithContext(contextPrompt) {
   state.isTyping = true;
   _updateSendBtn();
   if (!state.selectedProvider || !state.selectedModel) {
-    replaceLastAssistant('No AI provider configured.');
+    replaceLastAssistant('No AI provider configured. Connect an API key, Ollama, or LM Studio first.');
     state.isTyping = false; _updateSendBtn(); return;
   }
   const msgs = [...state.messages.slice(-10), { role: 'user', content: contextPrompt, attachments: [] }];
@@ -240,7 +240,7 @@ export async function sendMessage({ text, attachments, sendBtnEl }) {
   );
 
   if (!state.selectedProvider || !state.selectedModel) {
-    appendMessage('assistant', 'No AI provider configured. Add an API key or LM Studio in Settings.', true, true, [], doSendFromState);
+    appendMessage('assistant', 'No AI provider configured. Add an API key, Ollama, or LM Studio in Settings.', true, true, [], doSendFromState);
     return;
   }
 

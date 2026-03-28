@@ -268,7 +268,8 @@ function extractOpenAIReasoningChunk(delta) {
 }
 
 function shouldRequestReasoning(provider, modelId) {
-  if (provider?.provider !== 'openrouter') return false;
+  const providerId = provider?.provider;
+  if (providerId !== 'openrouter' && providerId !== 'minimax') return false;
 
   const modelInfo = provider.models?.[modelId] ?? {};
   const haystack = [
@@ -465,11 +466,12 @@ export async function fetchStreamingWithTools(
     messages: openAIMessages,
     stream: true,
   };
-  if (providerId === 'openai') {
+  if (providerId === 'openai' || providerId === 'ollama') {
     body.stream_options = { include_usage: true };
   }
   if (shouldRequestReasoning(provider, modelId)) {
-    body.include_reasoning = true;
+    if (providerId === 'minimax') body.reasoning_split = true;
+    else body.include_reasoning = true;
   }
   if (tools.length) {
     body.tools = toOpenAITools(tools);
@@ -634,6 +636,9 @@ export async function fetchWithTools(provider, modelId, messages, sysPrompt = ''
 
   const maxTokensNS = provider.models?.[modelId]?.max_output ?? 4096;
   const body = { model: modelId, max_tokens: maxTokensNS, messages: openAIMessages };
+  if (shouldRequestReasoning(provider, modelId) && providerId === 'minimax') {
+    body.reasoning_split = true;
+  }
   if (tools.length) {
     body.tools = toOpenAITools(tools);
     body.tool_choice = 'auto';

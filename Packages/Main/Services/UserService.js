@@ -14,21 +14,44 @@ const DEFAULT_USER = {
   },
 };
 
-const LM_STUDIO_DEFAULT_ENDPOINT = 'http://127.0.0.1:1234/v1/chat/completions';
-const LM_STUDIO_MODEL_TEMPLATE = {
-  description: 'Local model served through LM Studio',
-  rank: 1,
-  context_window: 128000,
-  max_output: 4096,
-  inputs: {
-    text: true,
-    image: true,
-    pdf: false,
-    docx: false,
+const LOCAL_PROVIDER_RUNTIME = {
+  lmstudio: {
+    defaultEndpoint: 'http://127.0.0.1:1234/v1/chat/completions',
+    modelTemplate: {
+      description: 'Local model served through LM Studio',
+      rank: 1,
+      context_window: 128000,
+      max_output: 4096,
+      inputs: {
+        text: true,
+        image: true,
+        pdf: false,
+        docx: false,
+      },
+      pricing: {
+        input: 0,
+        output: 0,
+      },
+    },
   },
-  pricing: {
-    input: 0,
-    output: 0,
+  ollama: {
+    defaultEndpoint: 'http://127.0.0.1:11434/v1/chat/completions',
+    modelTemplate: {
+      description: 'Local model served through Ollama',
+      rank: 1,
+      context_window: 128000,
+      max_output: 4096,
+      inputs: {
+        text: true,
+        image: true,
+        pdf: false,
+        docx: false,
+      },
+      pricing: {
+        input: 0,
+        output: 0,
+      },
+    },
   },
 };
 
@@ -61,9 +84,14 @@ function merge(existing = {}, updates = {}) {
   };
 }
 
-function normalizeLmStudioEndpoint(value) {
+function getLocalProviderRuntime(providerId) {
+  return LOCAL_PROVIDER_RUNTIME[providerId] ?? null;
+}
+
+function normalizeLocalEndpoint(providerId, value) {
+  const runtime = getLocalProviderRuntime(providerId);
   const trimmed = String(value ?? '').trim();
-  if (!trimmed) return LM_STUDIO_DEFAULT_ENDPOINT;
+  if (!trimmed) return runtime?.defaultEndpoint ?? '';
 
   const normalized = trimmed.replace(/\/+$/, '');
   if (/\/v1\/chat\/completions$/i.test(normalized)) return normalized;
@@ -71,13 +99,14 @@ function normalizeLmStudioEndpoint(value) {
   return `${normalized}/v1/chat/completions`;
 }
 
-function buildLmStudioModels(settings = {}) {
+function buildLocalModels(providerId, settings = {}) {
   const modelId = String(settings.modelId ?? '').trim();
-  if (!modelId) return {};
+  const runtime = getLocalProviderRuntime(providerId);
+  if (!modelId || !runtime?.modelTemplate) return {};
 
   return {
     [modelId]: {
-      ...LM_STUDIO_MODEL_TEMPLATE,
+      ...runtime.modelTemplate,
       name: modelId,
     },
   };
@@ -119,11 +148,12 @@ export function readModelsWithKeys() {
   return models.map((provider) => {
     const settings = providerSettings[provider.provider] ?? {};
     const api = String(apiKeys[provider.provider] ?? '').trim();
-    const endpoint = provider.provider === 'lmstudio'
-      ? normalizeLmStudioEndpoint(settings.endpoint ?? provider.endpoint)
+    const localRuntime = getLocalProviderRuntime(provider.provider);
+    const endpoint = localRuntime
+      ? normalizeLocalEndpoint(provider.provider, settings.endpoint ?? provider.endpoint)
       : provider.endpoint;
-    const resolvedModels = provider.provider === 'lmstudio'
-      ? buildLmStudioModels(settings)
+    const resolvedModels = localRuntime
+      ? buildLocalModels(provider.provider, settings)
       : provider.models;
     const configured = provider.requires_api_key === false
       ? Boolean(endpoint && Object.keys(resolvedModels ?? {}).length)

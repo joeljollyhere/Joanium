@@ -3,6 +3,10 @@ import { loadConnectorsPanel } from '../../Features/Connectors/index.js';
 import { loadMCPPanel } from '../../Features/MCP/index.js';
 import { PROVIDERS, PROVIDERS_BY_ID } from '../../Pages/Setup/Providers/SetupProviders.js';
 
+const PROVIDER_ORDER = new Map(
+  PROVIDERS.map((provider, index) => [provider.id, index]),
+);
+
 function getInitials(name) {
   const parts = String(name ?? '').trim().split(/\s+/).filter(Boolean);
   if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
@@ -58,7 +62,7 @@ function buildHTML() {
               <section class="settings-panel" data-settings-panel="providers" hidden>
                 <div class="settings-panel-header">
                   <h3>AI Providers</h3>
-                  <p>Connect hosted models with API keys or point Evelina at a local LM Studio server. Connected providers show up in the model selector immediately.</p>
+                  <p>Connect hosted models with API keys or point Evelina at local Ollama or LM Studio servers. Connected providers show up in the model selector immediately.</p>
                 </div>
                 <div id="settings-providers-list" class="providers-stack">
                   <div class="ap-empty-hint">Loading...</div>
@@ -183,10 +187,19 @@ function providerStatus(providerRecord, config, isDeleting, hasDraft) {
 
 function sortProviderCatalog(catalog, settingsState) {
   return [...catalog].sort((left, right) => {
-    const leftScore = Number(isProviderConfigured(left) || settingsState.pendingDeletes.has(left.provider)) * -1;
-    const rightScore = Number(isProviderConfigured(right) || settingsState.pendingDeletes.has(right.provider)) * -1;
-    if (leftScore !== rightScore) return leftScore - rightScore;
-    return (left.label ?? left.provider).localeCompare(right.label ?? right.provider);
+    const leftConfigured = Number(
+      isProviderConfigured(left) || settingsState.pendingDeletes.has(left.provider),
+    );
+    const rightConfigured = Number(
+      isProviderConfigured(right) || settingsState.pendingDeletes.has(right.provider),
+    );
+
+    if (leftConfigured !== rightConfigured) return rightConfigured - leftConfigured;
+
+    return (
+      (PROVIDER_ORDER.get(left.provider) ?? Number.MAX_SAFE_INTEGER) -
+      (PROVIDER_ORDER.get(right.provider) ?? Number.MAX_SAFE_INTEGER)
+    );
   });
 }
 

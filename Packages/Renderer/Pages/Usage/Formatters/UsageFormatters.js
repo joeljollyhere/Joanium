@@ -27,6 +27,10 @@ export function providerLabel(id) {
     google: 'Google',
     openrouter: 'OpenRouter',
     mistral: 'Mistral AI',
+    nvidia: 'NVIDIA',
+    deepseek: 'DeepSeek',
+    minimax: 'MiniMax',
+    ollama: 'Ollama',
     lmstudio: 'LM Studio',
   };
   return labels[id] ?? id;
