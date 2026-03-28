@@ -39,12 +39,7 @@ export function getChatHTML() {
         <h1 class="welcome-title">Welcome</h1>
       </div>
       <p class="welcome-subtitle" id="welcome-subtitle">Ask me anything.</p>
-      <div class="chips welcome-chips" aria-label="Starter prompts">
-        <button class="chip" type="button" data-prompt="Summarize this project and point out the top 3 things I should improve next.">Review this project</button>
-        <button class="chip" type="button" data-prompt="Help me debug an issue in this app. Ask for the files you need and guide me step by step.">Debug this app</button>
-        <button class="chip" type="button" data-prompt="Plan the next feature for this project with milestones, risks, and a clean implementation order.">Plan a feature</button>
-        <button class="chip" type="button" data-prompt="Write a focused to-do list for what I should work on next based on this project.">What should I build?</button>
-      </div>
+      <div class="chips welcome-chips" aria-label="Starter prompts"></div>
     </section>
 
     <section id="chat-view">

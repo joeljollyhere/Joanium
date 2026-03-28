@@ -228,11 +228,6 @@ function buildServerCards() {
 
         <div class="mcp-command-preview">${summary}</div>
 
-        <div class="mcp-tools-block">
-          <div class="mcp-tools-label">Discovered tools</div>
-          ${buildToolBadges(server.id)}
-        </div>
-
         <div class="mcp-card-actions">
           <button class="mcp-secondary-btn" type="button" data-mcp-action="${server.connected ? 'disconnect' : 'connect'}" data-server-id="${escapeHtml(server.id)}">
             ${server.connected ? 'Disconnect' : 'Connect'}
@@ -259,21 +254,6 @@ function renderPanel() {
     : '';
 
   panel.innerHTML = `
-    <section class="mcp-hero-card">
-      <div class="mcp-hero-copy">
-        <h3>Browser control through MCP</h3>
-        <p>
-          Evelina now ships with a built-in browser MCP that is ready immediately.
-          You can still add extra MCP servers below if you want a custom or external setup.
-        </p>
-      </div>
-      <div class="mcp-hero-points">
-        <span>Live website navigation</span>
-        <span>Ticket and reservation flows</span>
-        <span>Stops before irreversible actions</span>
-      </div>
-    </section>
-
     <div class="mcp-toolbar">
       <div class="mcp-toolbar-copy">
         <strong>Configured Servers</strong>

@@ -1,7 +1,7 @@
 import { state } from '../../Shared/Core/State.js';
 import { initDOM } from '../../Shared/Core/DOM.js';
 import {
-  textarea, sendBtn, chips,
+  textarea, sendBtn,
   modelDropdown, modelSelectorBtn,
   projectOpenFolderBtn, projectExitBtn,
 } from '../../Shared/Core/DOM.js';
@@ -54,6 +54,69 @@ function syncWelcomeSubtitle() {
   if (el) el.textContent = getSubtitles[Math.floor(Math.random() * getSubtitles.length)];
 }
 
+function getStarterPrompts() {
+  const projectName = state.activeProject?.name?.trim();
+  const hasWorkspace = Boolean(state.workspacePath);
+
+  if (hasWorkspace) {
+    const scopeLabel = projectName ? `the project "${projectName}"` : 'this workspace';
+    const appLabel = projectName ? `"${projectName}"` : 'this workspace';
+
+    return [
+      {
+        label: projectName ? 'Review this project' : 'Review this workspace',
+        prompt: `Summarize ${scopeLabel} and point out the top 3 things I should improve next.`,
+      },
+      {
+        label: projectName ? 'Debug this project' : 'Debug this workspace',
+        prompt: `Help me debug an issue in ${appLabel}. Ask for the files you need and guide me step by step.`,
+      },
+      {
+        label: 'Plan a feature',
+        prompt: `Plan the next feature for ${scopeLabel} with milestones, risks, and a clean implementation order.`,
+      },
+      {
+        label: 'What should I build?',
+        prompt: `Write a focused to-do list for what I should work on next based on ${scopeLabel}.`,
+      },
+    ];
+  }
+
+  return [
+    {
+      label: 'Review some code',
+      prompt: 'Review the code or approach I share and point out the top 3 improvements you would make.',
+    },
+    {
+      label: 'Debug an issue',
+      prompt: 'Help me debug an issue. Ask for the code, logs, or error message you need and guide me step by step.',
+    },
+    {
+      label: 'Plan a feature',
+      prompt: 'Help me plan a new feature with milestones, risks, and a clean implementation order.',
+    },
+    {
+      label: 'Generate starter code',
+      prompt: 'Generate starter code for what I want to build and tell me which files to create.',
+    },
+  ];
+}
+
+function renderStarterPrompts() {
+  const container = document.querySelector('.welcome-chips');
+  if (!container) return;
+
+  container.innerHTML = '';
+  for (const { label, prompt } of getStarterPrompts()) {
+    const button = document.createElement('button');
+    button.className = 'chip';
+    button.type = 'button';
+    button.dataset.prompt = prompt;
+    button.textContent = label;
+    container.appendChild(button);
+  }
+}
+
 function restoreChatFromState() {
   if (!state.messages.length) return;
   showChatView();
@@ -77,6 +140,7 @@ function syncProjectUI() {
   } else {
     if (ta) ta.placeholder = 'How can I help you today?';
   }
+  renderStarterPrompts();
   syncWorkspacePickerVisibility?.();
 }
 
@@ -86,6 +150,7 @@ export function mount(outlet, { settings, navigate }) {
 
   // CRITICAL: initDOM() must be called after HTML is injected.
   initDOM();
+  renderStarterPrompts();
   syncWelcomeTitle();
   syncWelcomeSubtitle();
 
@@ -129,14 +194,15 @@ export function mount(outlet, { settings, navigate }) {
   setSendBtnUpdater(updateSendBtn);
 
   // ── Prompt chips ──────────────────────────────────────────────────────────
-  chips.forEach(chip => {
-    chip.addEventListener('click', () => {
-      if (!textarea) return;
-      textarea.value = chip.getAttribute('data-prompt');
-      textarea.dispatchEvent(new Event('input'));
-      textarea.focus();
-    });
-  });
+  const welcomeChips = document.querySelector('.welcome-chips');
+  const onStarterChipClick = e => {
+    const chip = e.target.closest('.chip[data-prompt]');
+    if (!chip || !textarea) return;
+    textarea.value = chip.getAttribute('data-prompt');
+    textarea.dispatchEvent(new Event('input'));
+    textarea.focus();
+  };
+  welcomeChips?.addEventListener('click', onStarterChipClick);
 
   // ── Composer ──────────────────────────────────────────────────────────────
   initComposer(() => {
@@ -174,8 +240,12 @@ export function mount(outlet, { settings, navigate }) {
   }
   const onSettingsSaved = () => refreshSystemPrompt();
   const onUserProfileUpdated = () => syncWelcomeTitle();
+  const onWorkspaceChanged = () => renderStarterPrompts();
+  const onProjectChanged = () => syncProjectUI();
   window.addEventListener('ow:settings-saved', onSettingsSaved);
   window.addEventListener('ow:user-profile-updated', onUserProfileUpdated);
+  window.addEventListener('ow:workspace-changed', onWorkspaceChanged);
+  window.addEventListener('ow:project-changed', onProjectChanged);
 
   // ── Enhance button ────────────────────────────────────────────────────────
   const enhanceBtn = document.getElementById('enhance-btn');
@@ -239,6 +309,9 @@ export function mount(outlet, { settings, navigate }) {
     document.removeEventListener('drop', onDrop);
     window.removeEventListener('ow:settings-saved', onSettingsSaved);
     window.removeEventListener('ow:user-profile-updated', onUserProfileUpdated);
+    window.removeEventListener('ow:workspace-changed', onWorkspaceChanged);
+    window.removeEventListener('ow:project-changed', onProjectChanged);
+    welcomeChips?.removeEventListener('click', onStarterChipClick);
     enhanceFeature.cleanup();
     browserPreviewFeature.cleanup();
     stopGeneration();

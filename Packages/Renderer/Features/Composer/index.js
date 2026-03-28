@@ -430,6 +430,9 @@ export function init(onSend) {
       const result = await window.electronAPI?.selectDirectory?.();
       if (result && result.ok && result.path) {
         state.workspacePath = result.path;
+        window.dispatchEvent(new CustomEvent('ow:workspace-changed', {
+          detail: { workspacePath: result.path },
+        }));
         showHint(`📂 Workpace Set: ${result.path}`, 'info', { sticky: true });
         updateSendBtn();
       }
@@ -440,6 +443,9 @@ export function init(onSend) {
       if (state.activeProject) return;
       if (state.workspacePath) {
         state.workspacePath = null;
+        window.dispatchEvent(new CustomEvent('ow:workspace-changed', {
+          detail: { workspacePath: null },
+        }));
         showHint(`Workspace cleared.`, 'info');
       }
     });

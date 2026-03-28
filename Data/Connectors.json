@@ -4,9 +4,9 @@
       "enabled": true,
       "isFree": false,
       "credentials": {
-        "accessToken": "ya29.a0Aa7MYirvJHXtkfigy9zThKuGNWhP_jxEmLLbND9khqZ6-hh9N-mY6sRSsd6n085pFhwQs6QU1lAMMDx4gMrMMvqWoFL1qVoMiRJjxdEYmDaCvLDTj3wMMDyKW2Ln7BagKQOo8P78ptnB-rzS-7WWepnNusP38qoRsD0FgSb_smRgO3PuEEIauG-VJsvE3QTw6PnRmUxxaCgYKAaMSARESFQHGX2MiKVtMSO7ezH79Sux6HERBbA0207",
+        "accessToken": "ya29.a0Aa7MYiqtarCkhBXV53AMuXGexJS6lJl_gRWBt7F6xIWJs85Ia4DHWysJDTsqn-mwCF9s2XM80qOGTknBMnLJZZkXqxdLFnOxcK4GcsE74_TduggFbNs5UV5vVe-HHRFUQ252ZudEReN_1CySOyWD_L0VXdGMdDH7JL3aoYHKJUJqkOyg6UB79jSyq3VOepWLtRKrUDAEaCgYKARYSARESFQHGX2Miq7lcOG8MoCrTBv6j1ol8Dg0207",
         "refreshToken": "1//0gbR0UNAUQg7ECgYIARAAGBASNwF-L9IrgaaQRiR8I2TknmDin99rSjBU3vDZhmM1USTVQ4lYjRODueWNphdXVlLHNxywMTKyTQM",
-        "tokenExpiry": 1774610268127,
+        "tokenExpiry": 1774674721975,
         "email": "joeljollyhere@gmail.com",
         "clientId": "492756371702-quhr3jof5amqh6shft6pu3eur572thrc.apps.googleusercontent.com",
         "clientSecret": "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"
@@ -76,6 +76,71 @@
       "noKey": false,
       "credentials": {
         "apiKey": "d7fAkC6TUa8UamBJGZOWelsuPyIgNDwjns83hcuh4Kc"
+      },
+      "connectedAt": null
+    },
+    "wikipedia": {
+      "enabled": true,
+      "isFree": true,
+      "noKey": true,
+      "credentials": {},
+      "connectedAt": null
+    },
+    "ipgeo": {
+      "enabled": true,
+      "isFree": true,
+      "noKey": true,
+      "credentials": {},
+      "connectedAt": null
+    },
+    "funfacts": {
+      "enabled": true,
+      "isFree": true,
+      "noKey": true,
+      "credentials": {},
+      "connectedAt": null
+    },
+    "jokeapi": {
+      "enabled": true,
+      "isFree": true,
+      "noKey": true,
+      "credentials": {},
+      "connectedAt": null
+    },
+    "quotes": {
+      "enabled": true,
+      "isFree": true,
+      "noKey": true,
+      "credentials": {},
+      "connectedAt": null
+    },
+    "restcountries": {
+      "enabled": true,
+      "isFree": true,
+      "noKey": true,
+      "credentials": {},
+      "connectedAt": null
+    },
+    "hackernews": {
+      "enabled": true,
+      "isFree": true,
+      "noKey": true,
+      "credentials": {},
+      "connectedAt": null
+    },
+    "cleanuri": {
+      "enabled": true,
+      "isFree": true,
+      "noKey": true,
+      "credentials": {},
+      "connectedAt": null
+    },
+    "nasa": {
+      "enabled": true,
+      "isFree": true,
+      "noKey": false,
+      "credentials": {
+        "apiKey": ""
       },
       "connectedAt": null
     }
