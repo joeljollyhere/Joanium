@@ -57,7 +57,7 @@ export function buildImageFrame(attachment, className) {
   frame.className = className;
   frame.title = attachment.name || 'Pasted image';
   const img = document.createElement('img');
-  img.src = attachment.dataUrl;
+  img.src = attachment.dataUrl || attachment.url || '';
   img.alt = attachment.name || 'Pasted image';
   img.loading = 'lazy';
   frame.appendChild(img);
@@ -88,6 +88,124 @@ export function buildFileFrame(attachment, className) {
   frame.style.boxSizing = 'border-box';
   frame.style.border = '1px solid var(--border-color)';
   return frame;
+}
+
+function clonePhotoGalleryAttachment(gallery) {
+  return {
+    type: 'photo_gallery',
+    query: gallery?.query ?? '',
+    total: gallery?.total ?? null,
+    photos: Array.isArray(gallery?.photos)
+      ? gallery.photos.map(photo => ({
+          id: photo?.id ?? '',
+          description: photo?.description ?? 'Photo',
+          thumb: photo?.thumb ?? '',
+          small: photo?.small ?? '',
+          regular: photo?.regular ?? '',
+          full: photo?.full ?? '',
+          pageUrl: photo?.pageUrl ?? '',
+          photographer: photo?.photographer ?? 'Unknown',
+          photographerUsername: photo?.photographerUsername ?? '',
+          photographerUrl: photo?.photographerUrl ?? '',
+          likes: photo?.likes ?? 0,
+          width: photo?.width ?? null,
+          height: photo?.height ?? null,
+        }))
+      : [],
+  };
+}
+
+function isSupportedAttachment(attachment) {
+  if (!attachment || typeof attachment !== 'object') return false;
+
+  if (attachment.type === 'image') {
+    return typeof attachment.dataUrl === 'string' || typeof attachment.url === 'string';
+  }
+
+  if (attachment.type === 'file') {
+    return typeof attachment.dataUrl === 'string' || typeof attachment.textContent === 'string';
+  }
+
+  if (attachment.type === 'photo_gallery') {
+    return Array.isArray(attachment.photos) && attachment.photos.length > 0;
+  }
+
+  return false;
+}
+
+function createPhotoGalleryElement({ query, total, photos = [] }) {
+  const wrap = document.createElement('div');
+  wrap.className = 'agent-photo-gallery';
+
+  const header = document.createElement('div');
+  header.className = 'agent-photo-gallery-header';
+  header.innerHTML = `
+    <span class="agent-photo-gallery-title">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="3" width="18" height="18" rx="3"/>
+        <circle cx="8.5" cy="8.5" r="1.5"/>
+        <polyline points="21 15 16 10 5 21"/>
+      </svg>
+      ${photos.length} photos for &ldquo;${query}&rdquo;
+    </span>
+    <span class="agent-photo-gallery-meta">${(total ?? photos.length).toLocaleString()} total on Unsplash</span>
+  `;
+  wrap.appendChild(header);
+
+  const grid = document.createElement('div');
+  grid.className = 'agent-photo-grid';
+
+  photos.forEach((photo) => {
+    const card = document.createElement('a');
+    card.className = 'agent-photo-card';
+    card.href = photo.photographerUrl || '#';
+    card.target = '_blank';
+    card.rel = 'noopener noreferrer';
+    card.title = `${photo.photographer} - click to view profile`;
+
+    const imgWrap = document.createElement('div');
+    imgWrap.className = 'agent-photo-img-wrap';
+
+    const img = document.createElement('img');
+    img.src = photo.thumb || photo.small || '';
+    img.alt = photo.description || 'Unsplash photo';
+    img.loading = 'lazy';
+    img.decoding = 'async';
+    img.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (photo.pageUrl) window.open(photo.pageUrl, '_blank', 'noopener,noreferrer');
+    });
+    imgWrap.appendChild(img);
+
+    const overlay = document.createElement('div');
+    overlay.className = 'agent-photo-overlay';
+    overlay.innerHTML = `
+      <span class="agent-photo-desc">${(photo.description || '').slice(0, 60)}${photo.description?.length > 60 ? '...' : ''}</span>
+      <span class="agent-photo-likes">
+        <svg viewBox="0 0 24 24" fill="currentColor" width="11" height="11"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+        ${photo.likes?.toLocaleString() ?? 0}
+      </span>
+    `;
+    imgWrap.appendChild(overlay);
+    card.appendChild(imgWrap);
+
+    const meta = document.createElement('div');
+    meta.className = 'agent-photo-meta';
+    meta.innerHTML = `
+      <span class="agent-photo-photographer">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="11" height="11"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        ${photo.photographer}
+      </span>
+      <span class="agent-photo-dims">${photo.width ?? '?'}x${photo.height ?? '?'}</span>
+    `;
+    card.appendChild(meta);
+
+    grid.appendChild(card);
+  });
+
+  wrap.appendChild(grid);
+  return wrap;
 }
 
 /* ── Text utilities ── */
@@ -202,7 +320,10 @@ export function createLiveRow(doSendFromStateFn) {
             <div class="agent-tool-output"></div>
           </div>
         </div>
-        <div class="agent-reply"></div>
+        <div class="agent-reply">
+          <div class="agent-reply-media"></div>
+          <div class="agent-reply-text"></div>
+        </div>
       </div>
       <div class="message-actions assistant-actions" style="display:none;">
         <button class="action-btn copy-msg-btn" title="Copy Message">${copyIcon()}</button>
@@ -215,7 +336,8 @@ export function createLiveRow(doSendFromStateFn) {
 
   const logEl = row.querySelector('.agent-log');
   const toolOutputEl = row.querySelector('.agent-tool-output');
-  const replyEl = row.querySelector('.agent-reply');
+  const replyMediaEl = row.querySelector('.agent-reply-media');
+  const replyTextEl = row.querySelector('.agent-reply-text');
   const actionsEl = row.querySelector('.message-actions');
   const thinkingShellEl = row.querySelector('.agent-thinking-shell');
   const thinkingToggleEl = row.querySelector('.agent-thinking-toggle');
@@ -231,6 +353,7 @@ export function createLiveRow(doSendFromStateFn) {
   let _lastReasoningRenderAt = 0;
   let _cursorEl = null;
   let _thinkingState = 'working';
+  let _replyAttachments = [];
   // Tracks whether any expandable content has arrived (log items or reasoning).
   // The caret is shown only once this is true.
   let _hasContent = false;
@@ -331,6 +454,7 @@ export function createLiveRow(doSendFromStateFn) {
 
     showPhotoGallery({ query, total, photos = [] }) {
       if (!photos.length) return;
+      _replyAttachments.push(clonePhotoGalleryAttachment({ query, total, photos }));
 
       const wrap = document.createElement('div');
       wrap.className = 'agent-photo-gallery';
@@ -404,17 +528,14 @@ export function createLiveRow(doSendFromStateFn) {
 
       wrap.appendChild(grid);
 
-      // Ensure thinking panel is open so gallery is visible
-      revealCaret();
-      setThinkingOpen(true);
-      toolOutputEl.appendChild(wrap);
+      replyMediaEl.appendChild(wrap);
       smoothScrollToBottom();
     },
 
     stream(chunk) {
       if (!_streamActive) {
         _streamActive = true;
-        replyEl.classList.add('is-streaming');
+        replyTextEl.classList.add('is-streaming');
         _cursorEl = document.createElement('span');
         _cursorEl.className = 'stream-cursor';
       }
@@ -424,8 +545,8 @@ export function createLiveRow(doSendFromStateFn) {
       const now = Date.now();
       if (now - _lastRenderAt >= RENDER_THROTTLE_MS) {
         _lastRenderAt = now;
-        replyEl.innerHTML = renderMarkdown(_accumulated);
-        replyEl.appendChild(_cursorEl);
+        replyTextEl.innerHTML = renderMarkdown(_accumulated);
+        replyTextEl.appendChild(_cursorEl);
       }
 
       smoothScrollToBottom();
@@ -436,9 +557,9 @@ export function createLiveRow(doSendFromStateFn) {
       renderReasoning(true);
       _cursorEl?.remove();
       _cursorEl = null;
-      replyEl.classList.remove('is-streaming');
+      replyTextEl.classList.remove('is-streaming');
       if (_thinkingState !== 'error') setThinkingState('complete');
-      replyEl.innerHTML = renderMarkdown(markdown);
+      replyTextEl.innerHTML = renderMarkdown(markdown);
       actionsEl.style.display = 'flex';
       attachCopyEvent(actionsEl.querySelector('.copy-msg-btn'), markdown);
 
@@ -472,9 +593,9 @@ export function createLiveRow(doSendFromStateFn) {
       renderReasoning(true);
       _cursorEl?.remove();
       _cursorEl = null;
-      replyEl.classList.remove('is-streaming');
+      replyTextEl.classList.remove('is-streaming');
       if (_thinkingState !== 'error') setThinkingState('complete');
-      replyEl.innerHTML = renderMarkdown(markdown);
+      replyTextEl.innerHTML = renderMarkdown(markdown);
       actionsEl.style.display = 'flex';
       attachCopyEvent(actionsEl.querySelector('.copy-msg-btn'), markdown);
       smoothScrollToBottom();
@@ -485,11 +606,11 @@ export function createLiveRow(doSendFromStateFn) {
       renderReasoning(true);
       _cursorEl?.remove();
       _cursorEl = null;
-      replyEl.classList.remove('is-streaming');
+      replyTextEl.classList.remove('is-streaming');
       if (_thinkingState !== 'error') setThinkingState('complete');
 
       if (_accumulated) {
-        replyEl.innerHTML = renderMarkdown(_accumulated);
+        replyTextEl.innerHTML = renderMarkdown(_accumulated);
         const badge = document.createElement('span');
         badge.style.cssText = `
           display:inline-flex;align-items:center;gap:4px;
@@ -499,9 +620,9 @@ export function createLiveRow(doSendFromStateFn) {
           padding:2px 8px;margin-left:8px;vertical-align:middle;
         `;
         badge.textContent = '⏹ stopped';
-        replyEl.appendChild(badge);
+        replyTextEl.appendChild(badge);
       } else {
-        replyEl.innerHTML = `<span style="color:var(--text-muted);font-size:13px;font-style:italic;">Generation stopped.</span>`;
+        replyTextEl.innerHTML = `<span style="color:var(--text-muted);font-size:13px;font-style:italic;">Generation stopped.</span>`;
       }
 
       actionsEl.style.display = 'flex';
@@ -509,6 +630,13 @@ export function createLiveRow(doSendFromStateFn) {
         attachCopyEvent(actionsEl.querySelector('.copy-msg-btn'), _accumulated);
       }
       smoothScrollToBottom();
+    },
+
+    getAttachments() {
+      return _replyAttachments.map(attachment => {
+        if (attachment.type === 'photo_gallery') return clonePhotoGalleryAttachment(attachment);
+        return { ...attachment };
+      });
     },
   };
 }
@@ -599,9 +727,7 @@ export function normalizeMessage(msg) {
   return {
     role,
     content,
-    attachments: Array.isArray(msg?.attachments)
-      ? msg.attachments.filter(a => (a?.type === 'image' || a?.type === 'file') && (typeof a.dataUrl === 'string' || typeof a.textContent === 'string'))
-      : [],
+    attachments: Array.isArray(msg?.attachments) ? msg.attachments.filter(isSupportedAttachment) : [],
   };
 }
 
@@ -807,7 +933,29 @@ export function appendMessage(role, content, addToState = true, scroll = true, a
           <button class="action-btn retry-msg-btn" title="Retry">${retryIcon()}</button>
         </div>
       </div>`;
-    row.querySelector('.content').innerHTML = renderMarkdown(msg.content);
+    const contentEl = row.querySelector('.content');
+
+    if (msg.attachments.length > 0) {
+      const richMediaEl = document.createElement('div');
+      richMediaEl.className = 'agent-reply-media';
+
+      msg.attachments.forEach(attachment => {
+        if (attachment.type === 'photo_gallery') {
+          richMediaEl.appendChild(createPhotoGalleryElement(attachment));
+        } else if (attachment.type === 'image') {
+          richMediaEl.appendChild(buildImageFrame(attachment, 'bubble-attachment'));
+        } else if (attachment.type === 'file') {
+          richMediaEl.appendChild(buildFileFrame(attachment, 'bubble-attachment'));
+        }
+      });
+
+      if (richMediaEl.childElementCount > 0) contentEl.appendChild(richMediaEl);
+    }
+
+    const textEl = document.createElement('div');
+    textEl.className = 'assistant-text-content';
+    textEl.innerHTML = renderMarkdown(msg.content);
+    contentEl.appendChild(textEl);
     attachCopyEvent(row.querySelector('.copy-msg-btn'), msg.content);
 
     row.querySelector('.retry-msg-btn')?.addEventListener('click', async () => {
@@ -836,11 +984,15 @@ export function replaceLastAssistant(markdown) {
   const rows = chatMessages.querySelectorAll('.message-row.assistant');
   const last = rows[rows.length - 1];
   if (last) {
-    const replyEl = last.querySelector('.agent-reply');
-    if (replyEl) replyEl.innerHTML = renderMarkdown(markdown);
+    const replyTextEl = last.querySelector('.agent-reply-text');
+    if (replyTextEl) replyTextEl.innerHTML = renderMarkdown(markdown);
     else {
-      const content = last.querySelector('.content');
-      if (content) content.innerHTML = renderMarkdown(markdown);
+      const assistantTextEl = last.querySelector('.assistant-text-content');
+      if (assistantTextEl) assistantTextEl.innerHTML = renderMarkdown(markdown);
+      else {
+        const content = last.querySelector('.content');
+        if (content) content.innerHTML = renderMarkdown(markdown);
+      }
     }
     attachCopyEvent(last.querySelector('.copy-msg-btn'), markdown);
   } else {

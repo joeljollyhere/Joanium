@@ -456,12 +456,28 @@
    AGENT REPLY WRAPPER
 ══════════════════════════════════════════ */
 .agent-reply {
-  display: block;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
   font-size: 14px;
   color: var(--text-primary);
   line-height: 1.8;
   user-select: text;
   word-break: break-word;
+}
+
+.agent-reply-media {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.agent-reply-media:empty {
+  display: none;
+}
+
+.agent-reply-text:empty {
+  display: none;
 }
 
 /* ══════════════════════════════════════════
@@ -479,7 +495,8 @@
    that follows it to sit on the same line.
    The cursor itself is a simple inline-block dot.
 ══════════════════════════════════════════ */
-.agent-reply.is-streaming > p:last-of-type {
+.agent-reply.is-streaming > p:last-of-type,
+.agent-reply-text.is-streaming > p:last-of-type {
   display: inline;
 }
 

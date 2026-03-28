@@ -89,7 +89,11 @@ async function doSendFromState() {
     const safeReply = sanitizeAssistantReply(finalReply);
     if (safeReply !== finalReply) live.set(safeReply);
     await trackUsage(usage, state.currentChatId, usedProvider, usedModel);
-    state.messages.push({ role: 'assistant', content: safeReply, attachments: [] });
+    state.messages.push({
+      role: 'assistant',
+      content: safeReply,
+      attachments: live.getAttachments?.() ?? [],
+    });
     saveCurrentChat();
     bumpScrollBadge();
     attemptMemoryUpdate().catch(() => { });
@@ -101,7 +105,11 @@ async function doSendFromState() {
     }
     const errMsg = `Something went wrong: ${err.message}`;
     live.set(errMsg);
-    state.messages.push({ role: 'assistant', content: errMsg, attachments: [] });
+    state.messages.push({
+      role: 'assistant',
+      content: errMsg,
+      attachments: live.getAttachments?.() ?? [],
+    });
     console.error('[Chat] doSendFromState error:', err);
   } finally {
     state.isTyping = false;
@@ -273,7 +281,11 @@ export async function sendMessage({ text, attachments, sendBtnEl }) {
     const safeReply = sanitizeAssistantReply(finalReply);
     if (safeReply !== finalReply) live.set(safeReply);
     await trackUsage(usage, state.currentChatId, usedProvider, usedModel);
-    state.messages.push({ role: 'assistant', content: safeReply, attachments: [] });
+    state.messages.push({
+      role: 'assistant',
+      content: safeReply,
+      attachments: live.getAttachments?.() ?? [],
+    });
     saveCurrentChat();
     bumpScrollBadge();
     setTimeout(updateTimeline, 100);
@@ -287,7 +299,11 @@ export async function sendMessage({ text, attachments, sendBtnEl }) {
     } else {
       const msg = `Something went wrong: ${err.message}`;
       live.set(msg);
-      state.messages.push({ role: 'assistant', content: msg, attachments: [] });
+      state.messages.push({
+        role: 'assistant',
+        content: msg,
+        attachments: live.getAttachments?.() ?? [],
+      });
       console.error('[Chat] sendMessage error:', err);
     }
   } finally {
