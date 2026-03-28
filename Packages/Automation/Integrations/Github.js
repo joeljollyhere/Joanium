@@ -107,12 +107,10 @@ export async function getReadme(credentials, owner, repo) {
   );
 }
 
-/** Get the latest published release for a repo. */
 export async function getLatestRelease(credentials, owner, repo) {
   return githubFetch(`/repos/${owner}/${repo}/releases/latest`, credentials.token);
 }
 
-/** List releases for a repo (newest first). */
 export async function getReleases(credentials, owner, repo, perPage = 10) {
   return githubFetch(`/repos/${owner}/${repo}/releases?per_page=${perPage}`, credentials.token);
 }
@@ -205,4 +203,123 @@ export async function getWorkflowRuns(credentials, owner, repo, { branch = '', e
     `/repos/${owner}/${repo}/actions/runs?${qs.toString()}`,
     credentials.token,
   );
+}
+
+export async function starRepo(credentials, owner, repo) {
+  return githubFetch(`/user/starred/${owner}/${repo}`, credentials.token, {
+    method: 'PUT',
+    headers: { 'Content-Length': '0' },
+  });
+}
+
+export async function unstarRepo(credentials, owner, repo) {
+  return githubFetch(`/user/starred/${owner}/${repo}`, credentials.token, {
+    method: 'DELETE',
+  });
+}
+
+export async function getRepoStats(credentials, owner, repo) {
+  const data = await githubFetch(`/repos/${owner}/${repo}`, credentials.token);
+  return {
+    fullName:     data.full_name,
+    description:  data.description ?? '',
+    stars:        data.stargazers_count,
+    forks:        data.forks_count,
+    openIssues:   data.open_issues_count,
+    watchers:     data.watchers_count,
+    language:     data.language ?? 'Unknown',
+    defaultBranch: data.default_branch,
+    url:          data.html_url,
+  };
+}
+
+export async function createPR(credentials, owner, repo, { title, body = '', head, base, draft = false }) {
+  if (!head || !base) throw new Error('createPR: head and base branches are required');
+  return githubFetch(`/repos/${owner}/${repo}/pulls`, credentials.token, {
+    method: 'POST',
+    body: JSON.stringify({ title, body, head, base, draft }),
+  });
+}
+
+export async function mergePR(credentials, owner, repo, prNumber, mergeMethod = 'merge', commitTitle = '') {
+  return githubFetch(`/repos/${owner}/${repo}/pulls/${prNumber}/merge`, credentials.token, {
+    method: 'PUT',
+    body: JSON.stringify({
+      merge_method: mergeMethod,
+      ...(commitTitle ? { commit_title: commitTitle } : {}),
+    }),
+  });
+}
+
+export async function closePR(credentials, owner, repo, prNumber) {
+  return githubFetch(`/repos/${owner}/${repo}/pulls/${prNumber}`, credentials.token, {
+    method: 'PATCH',
+    body: JSON.stringify({ state: 'closed' }),
+  });
+}
+
+export async function closeIssue(credentials, owner, repo, issueNumber, reason = 'completed') {
+  return githubFetch(`/repos/${owner}/${repo}/issues/${issueNumber}`, credentials.token, {
+    method: 'PATCH',
+    body: JSON.stringify({ state: 'closed', state_reason: reason }),
+  });
+}
+
+export async function reopenIssue(credentials, owner, repo, issueNumber) {
+  return githubFetch(`/repos/${owner}/${repo}/issues/${issueNumber}`, credentials.token, {
+    method: 'PATCH',
+    body: JSON.stringify({ state: 'open' }),
+  });
+}
+
+export async function addIssueComment(credentials, owner, repo, issueNumber, body) {
+  return githubFetch(`/repos/${owner}/${repo}/issues/${issueNumber}/comments`, credentials.token, {
+    method: 'POST',
+    body: JSON.stringify({ body }),
+  });
+}
+
+export async function addLabels(credentials, owner, repo, issueNumber, labels = []) {
+  return githubFetch(`/repos/${owner}/${repo}/issues/${issueNumber}/labels`, credentials.token, {
+    method: 'POST',
+    body: JSON.stringify({ labels }),
+  });
+}
+
+export async function addAssignees(credentials, owner, repo, issueNumber, assignees = []) {
+  return githubFetch(`/repos/${owner}/${repo}/issues/${issueNumber}/assignees`, credentials.token, {
+    method: 'POST',
+    body: JSON.stringify({ assignees }),
+  });
+}
+
+export async function markAllNotificationsRead(credentials) {
+  return githubFetch('/notifications', credentials.token, {
+    method: 'PUT',
+    body: JSON.stringify({ read: true }),
+  });
+}
+
+export async function triggerWorkflow(credentials, owner, repo, workflowId, ref = 'main', inputs = {}) {
+  return githubFetch(`/repos/${owner}/${repo}/actions/workflows/${workflowId}/dispatches`, credentials.token, {
+    method: 'POST',
+    body: JSON.stringify({ ref, inputs }),
+  });
+}
+
+export async function getLatestWorkflowRun(credentials, owner, repo, workflowId, branch = '') {
+  const qs = new URLSearchParams({ per_page: '1' });
+  if (branch) qs.set('branch', branch);
+  const data = await githubFetch(
+    `/repos/${owner}/${repo}/actions/workflows/${workflowId}/runs?${qs}`,
+    credentials.token,
+  );
+  return data.workflow_runs?.[0] ?? null;
+}
+
+export async function createGist(credentials, description, files, isPublic = false) {
+  return githubFetch('/gists', credentials.token, {
+    method: 'POST',
+    body: JSON.stringify({ description, files, public: isPublic }),
+  });
 }

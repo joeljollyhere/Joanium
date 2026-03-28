@@ -88,3 +88,112 @@ export function appendDeleteWarning(fieldsEl) {
   warn.textContent = '⚠ This permanently deletes the file. There is no undo.';
   fieldsEl.appendChild(warn);
 }
+
+export function appendForwardSubs(fieldsEl, data) {
+  const noteWrap = document.createElement('div');
+  noteWrap.className = 'action-sub-cmd-wrap';
+  noteWrap.appendChild(makeFieldRow('gmailBody', data.note ?? ''));
+  fieldsEl.appendChild(makeToggleRow({
+    checkClass: 'sub-forward-note',
+    checked: !!(data.note),
+    icon: '✍️', labelText: 'Prepend a note to the forwarded message', subEl: noteWrap,
+  }));
+}
+
+export function appendPRSubs(fieldsEl, data) {
+  const bodyWrap = document.createElement('div');
+  bodyWrap.className = 'action-sub-cmd-wrap';
+  bodyWrap.appendChild(makeFieldRow('issueBody', data.body ?? ''));
+  fieldsEl.appendChild(makeToggleRow({
+    checkClass: 'sub-pr-body',
+    checked: !!(data.body),
+    icon: '📄', labelText: 'Add PR description', subEl: bodyWrap,
+  }));
+  fieldsEl.appendChild(makeToggleRow({
+    checkClass: 'sub-pr-draft',
+    checked: data.draft ?? false,
+    icon: '📝', labelText: 'Open as draft PR',
+  }));
+}
+
+export function appendMergePRSubs(fieldsEl, data) {
+  const methodRow = document.createElement('div');
+  methodRow.className = 'action-field-row';
+  const lbl = document.createElement('label');
+  lbl.className = 'action-field-label';
+  lbl.textContent = 'Merge method';
+  const select = document.createElement('select');
+  select.className = 'action-type-select';
+  select.dataset.field = 'mergeMethod';
+  ['merge', 'squash', 'rebase'].forEach(m => {
+    const o = document.createElement('option');
+    o.value = m; o.textContent = capitalize(m);
+    if (m === (data.mergeMethod ?? 'merge')) o.selected = true;
+    select.appendChild(o);
+  });
+  methodRow.append(lbl, select);
+  fieldsEl.appendChild(methodRow);
+}
+
+export function appendCloseIssueSubs(fieldsEl, data) {
+  const reasonRow = document.createElement('div');
+  reasonRow.className = 'action-field-row';
+  const lbl = document.createElement('label');
+  lbl.className = 'action-field-label';
+  lbl.textContent = 'Close reason';
+  const select = document.createElement('select');
+  select.className = 'action-type-select';
+  select.dataset.field = 'closeReason';
+  [
+    ['completed', 'Completed'],
+    ['not_planned', 'Not planned'],
+    ['duplicate', 'Duplicate'],
+  ].forEach(([val, label]) => {
+    const o = document.createElement('option');
+    o.value = val; o.textContent = label;
+    if (val === (data.reason ?? 'completed')) o.selected = true;
+    select.appendChild(o);
+  });
+  reasonRow.append(lbl, select);
+  fieldsEl.appendChild(reasonRow);
+}
+
+export function appendGistSubs(fieldsEl, data) {
+  const descWrap = document.createElement('div');
+  descWrap.className = 'action-sub-cmd-wrap';
+  const descInput = document.createElement('input');
+  descInput.type = 'text';
+  descInput.className = 'action-value-input';
+  descInput.dataset.field = 'gistDescription';
+  descInput.placeholder = 'Optional description for the Gist';
+  descInput.value = data.description ?? '';
+  descWrap.appendChild(descInput);
+
+  fieldsEl.appendChild(makeToggleRow({
+    checkClass: 'sub-gist-public',
+    checked: data.isPublic ?? false,
+    icon: '🌐', labelText: 'Make Gist public (default: secret)',
+  }));
+  fieldsEl.appendChild(makeToggleRow({
+    checkClass: 'sub-gist-open',
+    checked: data.openInBrowser ?? false,
+    icon: '🔗', labelText: 'Open Gist in browser after creation',
+  }));
+}
+
+export function appendWorkflowSubs(fieldsEl, data) {
+  const inputsWrap = document.createElement('div');
+  inputsWrap.className = 'action-sub-cmd-wrap';
+  const textarea = document.createElement('textarea');
+  textarea.className = 'action-value-textarea';
+  textarea.rows = 3;
+  textarea.dataset.field = 'workflowInputs';
+  textarea.placeholder = '{"env": "production", "version": "1.0.0"}';
+  textarea.value = data.inputs ? JSON.stringify(data.inputs, null, 2) : '';
+  inputsWrap.appendChild(textarea);
+  fieldsEl.appendChild(makeToggleRow({
+    checkClass: 'sub-workflow-inputs',
+    checked: !!(data.inputs && Object.keys(data.inputs).length),
+    icon: '⚙️', labelText: 'Pass inputs to workflow (JSON)', subEl: inputsWrap,
+  }));
+}

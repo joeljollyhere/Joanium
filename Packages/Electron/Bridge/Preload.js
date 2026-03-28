@@ -84,14 +84,29 @@ contextBridge.exposeInMainWorld('electronAPI', {
   toggleFreeConnector: (name, enabled) => ipcRenderer.invoke('toggle-free-connector', name, enabled),
   saveFreeConnectorKey: (name, apiKey) => ipcRenderer.invoke('save-free-connector-key', name, apiKey),
 
-  // Gmail
+  // ── Gmail ─────────────────────────────────────────────────────────────────
   gmailOAuthStart: (clientId, clientSecret) => ipcRenderer.invoke('gmail-oauth-start', clientId, clientSecret),
   gmailGetBrief: (maxResults) => ipcRenderer.invoke('gmail-get-brief', maxResults),
   gmailGetUnread: (maxResults) => ipcRenderer.invoke('gmail-get-unread', maxResults),
-  gmailSend: (to, subject, body) => ipcRenderer.invoke('gmail-send', to, subject, body),
+  gmailSend: (to, subject, body, cc, bcc) => ipcRenderer.invoke('gmail-send', to, subject, body, cc, bcc),
   gmailSearch: (query, maxResults) => ipcRenderer.invoke('gmail-search', query, maxResults),
+  gmailInboxStats: () => ipcRenderer.invoke('gmail-inbox-stats'),
+  gmailReply: (messageId, replyBody) => ipcRenderer.invoke('gmail-reply', messageId, replyBody),
+  gmailForward: (messageId, forwardTo, note) => ipcRenderer.invoke('gmail-forward', messageId, forwardTo, note),
+  gmailCreateDraft: (to, subject, body, cc) => ipcRenderer.invoke('gmail-create-draft', to, subject, body, cc),
+  gmailMarkAllRead: () => ipcRenderer.invoke('gmail-mark-all-read'),
+  gmailArchiveRead: (maxResults) => ipcRenderer.invoke('gmail-archive-read', maxResults),
+  gmailTrashByQuery: (query, maxResults) => ipcRenderer.invoke('gmail-trash-by-query', query, maxResults),
+  gmailMarkAsRead: (messageId) => ipcRenderer.invoke('gmail-mark-as-read', messageId),
+  gmailMarkAsUnread: (messageId) => ipcRenderer.invoke('gmail-mark-as-unread', messageId),
+  gmailArchiveMessage: (messageId) => ipcRenderer.invoke('gmail-archive-message', messageId),
+  gmailTrashMessage: (messageId) => ipcRenderer.invoke('gmail-trash-message', messageId),
+  gmailListLabels: () => ipcRenderer.invoke('gmail-list-labels'),
+  gmailCreateLabel: (name, colors) => ipcRenderer.invoke('gmail-create-label', name, colors),
+  gmailGetLabelId: (labelName) => ipcRenderer.invoke('gmail-get-label-id', labelName),
+  gmailModifyMessage: (messageId, addLabels, removeLabels) => ipcRenderer.invoke('gmail-modify-message', messageId, addLabels, removeLabels),
 
-  // GitHub
+  // ── GitHub ────────────────────────────────────────────────────────────────
   githubGetRepos: () => ipcRenderer.invoke('github-get-repos'),
   githubGetFile: (owner, repo, filePath) => ipcRenderer.invoke('github-get-file', owner, repo, filePath),
   githubGetTree: (owner, repo, branch) => ipcRenderer.invoke('github-get-tree', owner, repo, branch),
@@ -106,6 +121,25 @@ contextBridge.exposeInMainWorld('electronAPI', {
   githubGetPRChecks: (owner, repo, prNumber) => ipcRenderer.invoke('github-get-pr-checks', owner, repo, prNumber),
   githubGetWorkflowRuns: (owner, repo, branch, event, perPage) => ipcRenderer.invoke('github-get-workflow-runs', owner, repo, branch, event, perPage),
   githubGetPRComments: (owner, repo, prNumber) => ipcRenderer.invoke('github-get-pr-comments', owner, repo, prNumber),
+  githubGetRepoStats: (owner, repo) => ipcRenderer.invoke('github-get-repo-stats', owner, repo),
+  githubStarRepo: (owner, repo) => ipcRenderer.invoke('github-star-repo', owner, repo),
+  githubUnstarRepo: (owner, repo) => ipcRenderer.invoke('github-unstar-repo', owner, repo),
+  githubGetReleases: (owner, repo, perPage) => ipcRenderer.invoke('github-get-releases', owner, repo, perPage),
+  githubGetLatestRelease: (owner, repo) => ipcRenderer.invoke('github-get-latest-release', owner, repo),
+  githubCreatePR: (owner, repo, options) => ipcRenderer.invoke('github-create-pr', owner, repo, options),
+  githubMergePR: (owner, repo, prNumber, mergeMethod, commitTitle) => ipcRenderer.invoke('github-merge-pr', owner, repo, prNumber, mergeMethod, commitTitle),
+  githubClosePR: (owner, repo, prNumber) => ipcRenderer.invoke('github-close-pr', owner, repo, prNumber),
+  githubCreateIssue: (owner, repo, title, body, labels) => ipcRenderer.invoke('github-create-issue', owner, repo, title, body, labels),
+  githubCloseIssue: (owner, repo, issueNumber, reason) => ipcRenderer.invoke('github-close-issue', owner, repo, issueNumber, reason),
+  githubReopenIssue: (owner, repo, issueNumber) => ipcRenderer.invoke('github-reopen-issue', owner, repo, issueNumber),
+  githubCommentIssue: (owner, repo, issueNumber, body) => ipcRenderer.invoke('github-comment-issue', owner, repo, issueNumber, body),
+  githubAddLabels: (owner, repo, issueNumber, labels) => ipcRenderer.invoke('github-add-labels', owner, repo, issueNumber, labels),
+  githubAddAssignees: (owner, repo, issueNumber, assignees) => ipcRenderer.invoke('github-add-assignees', owner, repo, issueNumber, assignees),
+  githubMarkNotifsRead: () => ipcRenderer.invoke('github-mark-notifs-read'),
+  githubTriggerWorkflow: (owner, repo, workflowId, ref, inputs) => ipcRenderer.invoke('github-trigger-workflow', owner, repo, workflowId, ref, inputs),
+  githubGetLatestWorkflowRun: (owner, repo, workflowId, branch) => ipcRenderer.invoke('github-get-latest-workflow-run', owner, repo, workflowId, branch),
+  githubCreateGist: (description, files, isPublic) => ipcRenderer.invoke('github-create-gist', description, files, isPublic),
+  githubGetBranches: (owner, repo) => ipcRenderer.invoke('github-get-branches', owner, repo),
 
   // Skills
   getSkills: () => ipcRenderer.invoke('get-skills'),
@@ -133,7 +167,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   runAgentNow: (agentId) => ipcRenderer.invoke('run-agent-now', agentId),
   launchAgents: () => ipcRenderer.invoke('launch-agents'),
 
-  // Channel gateway — main → renderer event + reply back
+  // Channel gateway
   onChannelIncoming: (cb) => ipcRenderer.on('channel-incoming', (_e, data) => cb(data)),
   channelReply: (id, text) => ipcRenderer.invoke('channel-reply', id, text),
 
@@ -201,7 +235,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openFolderOS: (params) => ipcRenderer.invoke('open-folder-os', params),
   openTerminalOS: (params) => ipcRenderer.invoke('open-terminal-os', params),
   deleteItem: (params) => ipcRenderer.invoke('delete-item', params),
-  
+
   // PTY / Embedded Terminal
   spawnPty: (opts) => ipcRenderer.invoke('pty-spawn', opts),
   writePty: (pid, data) => ipcRenderer.invoke('pty-write', pid, data),
@@ -215,5 +249,4 @@ contextBridge.exposeInMainWorld('electronAPI', {
     if (typeof callback === 'function') ptyExitListeners.add(callback);
   },
   offPtyExit: (callback) => ptyExitListeners.delete(callback),
-
 });

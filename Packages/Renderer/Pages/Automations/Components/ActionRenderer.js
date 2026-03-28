@@ -4,6 +4,8 @@ import {
     appendFolderSubs, appendRunCommandSubs, appendRunScriptSubs,
     appendWriteFileSubs, appendNotifSubs, appendHttpSubs,
     appendGmailSendSubs, appendGithubCheckSubs, appendDeleteWarning,
+    appendPRSubs, appendMergePRSubs, appendGistSubs, appendWorkflowSubs,
+    appendCloseIssueSubs, appendForwardSubs,
 } from '../Events/SubEvents.js';
 
 export function renderActionFields(fieldsEl, type, data = {}) {
@@ -15,6 +17,7 @@ export function renderActionFields(fieldsEl, type, data = {}) {
     const showLabel = meta.fields.length > 1 || meta.group !== 'System';
     for (const fieldKey of meta.fields)
         fieldsEl.appendChild(makeFieldRow(fieldKey, data[fieldKey] ?? '', !showLabel));
+
     switch (type) {
         case 'open_folder': appendFolderSubs(fieldsEl, data); break;
         case 'run_command': appendRunCommandSubs(fieldsEl, data); break;
@@ -23,8 +26,15 @@ export function renderActionFields(fieldsEl, type, data = {}) {
         case 'send_notification': appendNotifSubs(fieldsEl, data); break;
         case 'http_request': appendHttpSubs(fieldsEl, data); break;
         case 'gmail_send_email': appendGmailSendSubs(fieldsEl, data); break;
+        case 'gmail_forward': appendForwardSubs(fieldsEl, data); break;
+        case 'gmail_create_draft': appendGmailSendSubs(fieldsEl, data); break; // reuse CC/BCC sub
         case 'github_check_prs':
         case 'github_check_issues': appendGithubCheckSubs(fieldsEl, type, data); break;
+        case 'github_create_pr': appendPRSubs(fieldsEl, data); break;
+        case 'github_merge_pr': appendMergePRSubs(fieldsEl, data); break;
+        case 'github_close_issue': appendCloseIssueSubs(fieldsEl, data); break;
+        case 'github_create_gist': appendGistSubs(fieldsEl, data); break;
+        case 'github_trigger_workflow': appendWorkflowSubs(fieldsEl, data); break;
         case 'delete_file': appendDeleteWarning(fieldsEl); break;
         default: break;
     }
@@ -84,6 +94,7 @@ export function collectActionFromRow(row) {
     const action = { type };
 
     switch (type) {
+        // System
         case 'open_site':
             action.url = get('url'); if (!action.url) return null; break;
         case 'open_multiple_sites':
@@ -125,6 +136,8 @@ export function collectActionFromRow(row) {
             if (getCb('sub-http-headers')) action.headers = getVal('httpHeaders');
             if (getCb('sub-http-body')) action.body = getVal('httpBody');
             action.notify = getCb('sub-http-notify'); break;
+
+        // Gmail
         case 'gmail_send_email':
             action.to = get('to'); action.subject = get('subject'); action.body = getVal('gmailBody');
             if (!action.to || !action.subject) return null;
@@ -135,6 +148,30 @@ export function collectActionFromRow(row) {
         case 'gmail_search_notify':
             action.query = get('query'); if (!action.query) return null;
             action.maxResults = parseInt(get('maxResults'), 10) || 5; break;
+        case 'gmail_reply':
+            action.messageId = get('messageId'); if (!action.messageId) return null;
+            action.body = getVal('gmailBody'); if (!action.body) return null; break;
+        case 'gmail_forward':
+            action.messageId = get('messageId'); if (!action.messageId) return null;
+            action.forwardTo = get('forwardTo'); if (!action.forwardTo) return null;
+            if (getCb('sub-forward-note')) action.note = getVal('gmailBody'); break;
+        case 'gmail_create_draft':
+            action.to = get('to'); action.subject = get('subject'); action.body = getVal('gmailBody');
+            if (!action.to || !action.subject) return null;
+            if (getCb('sub-email-extra')) action.cc = get('cc'); break;
+        case 'gmail_mark_all_read': break;
+        case 'gmail_archive_read':
+            action.maxResults = parseInt(get('maxResults'), 10) || 100; break;
+        case 'gmail_trash_by_query':
+            action.query = get('query'); if (!action.query) return null;
+            action.maxResults = parseInt(get('maxResults'), 10) || 50; break;
+        case 'gmail_inbox_stats': break;
+        case 'gmail_label_emails':
+            action.query = get('query'); if (!action.query) return null;
+            action.labelName = get('labelName'); if (!action.labelName) return null;
+            action.maxResults = parseInt(get('maxResults'), 10) || 20; break;
+
+        // GitHub
         case 'github_open_repo':
             action.owner = get('owner'); action.repo = get('repo');
             if (!action.owner || !action.repo) return null; break;
@@ -142,7 +179,8 @@ export function collectActionFromRow(row) {
         case 'github_check_issues':
             action.owner = get('owner'); action.repo = get('repo');
             if (!action.owner || !action.repo) return null;
-            action.state = getCb('sub-filter-state') ? (row.querySelector('[data-field="state"]')?.value || 'open') : 'open'; break;
+            action.state = getCb('sub-filter-state')
+                ? (row.querySelector('[data-field="state"]')?.value || 'open') : 'open'; break;
         case 'github_check_commits':
             action.owner = get('owner'); action.repo = get('repo');
             if (!action.owner || !action.repo) return null;
@@ -155,6 +193,60 @@ export function collectActionFromRow(row) {
             action.owner = get('owner'); action.repo = get('repo'); action.issueTitle = get('issueTitle');
             if (!action.owner || !action.repo || !action.issueTitle) return null;
             action.issueBody = getVal('issueBody'); action.labels = get('labels'); break;
+        case 'github_repo_stats':
+            action.owner = get('owner'); action.repo = get('repo');
+            if (!action.owner || !action.repo) return null; break;
+        case 'github_star_repo':
+            action.owner = get('owner'); action.repo = get('repo');
+            if (!action.owner || !action.repo) return null; break;
+        case 'github_create_pr':
+            action.owner = get('owner'); action.repo = get('repo');
+            action.title = get('prTitle'); action.head = get('prHead'); action.base = get('prBase');
+            if (!action.owner || !action.repo || !action.title || !action.head || !action.base) return null;
+            action.body = getVal('issueBody');
+            action.draft = getCb('sub-pr-draft'); break;
+        case 'github_merge_pr':
+            action.owner = get('owner'); action.repo = get('repo');
+            action.prNumber = parseInt(get('prNumber'), 10);
+            if (!action.owner || !action.repo || !action.prNumber) return null;
+            action.mergeMethod = row.querySelector('[data-field="mergeMethod"]')?.value || 'merge'; break;
+        case 'github_close_issue':
+            action.owner = get('owner'); action.repo = get('repo');
+            action.issueNumber = parseInt(get('issueNumber'), 10);
+            if (!action.owner || !action.repo || !action.issueNumber) return null;
+            action.reason = row.querySelector('[data-field="closeReason"]')?.value || 'completed'; break;
+        case 'github_comment_issue':
+            action.owner = get('owner'); action.repo = get('repo');
+            action.issueNumber = parseInt(get('issueNumber'), 10);
+            action.body = getVal('issueBody');
+            if (!action.owner || !action.repo || !action.issueNumber || !action.body) return null; break;
+        case 'github_add_labels':
+            action.owner = get('owner'); action.repo = get('repo');
+            action.issueNumber = parseInt(get('issueNumber'), 10);
+            action.labels = get('labels');
+            if (!action.owner || !action.repo || !action.issueNumber || !action.labels) return null; break;
+        case 'github_assign':
+            action.owner = get('owner'); action.repo = get('repo');
+            action.issueNumber = parseInt(get('issueNumber'), 10);
+            action.assignees = get('assignees');
+            if (!action.owner || !action.repo || !action.issueNumber || !action.assignees) return null; break;
+        case 'github_mark_notifs_read': break;
+        case 'github_trigger_workflow':
+            action.owner = get('owner'); action.repo = get('repo');
+            action.workflowId = get('workflowId');
+            if (!action.owner || !action.repo || !action.workflowId) return null;
+            action.ref = get('workflowRef') || 'main'; break;
+        case 'github_workflow_status':
+            action.owner = get('owner'); action.repo = get('repo');
+            action.workflowId = get('workflowId');
+            if (!action.owner || !action.repo || !action.workflowId) return null; break;
+        case 'github_create_gist':
+            action.filename = get('gistFilename'); if (!action.filename) return null;
+            action.content = getVal('content'); if (!action.content.trim()) return null;
+            action.description = '';
+            action.isPublic = getCb('sub-gist-public');
+            action.openInBrowser = getCb('sub-gist-open'); break;
+
         default: return null;
     }
     return action;
