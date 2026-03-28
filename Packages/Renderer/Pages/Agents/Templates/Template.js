@@ -122,7 +122,7 @@ export function getAgentsHTML() {
           <label class="agent-field-label">Fallback Models <span
               style="color:var(--text-muted);font-weight:400">(optional)</span></label>
           <div class="agent-fallback-list" id="fallback-models-list">
-            <div style="font-size:12px;color:var(--text-muted);padding:4px">Add API keys in Settings to see available
+            <div style="font-size:12px;color:var(--text-muted);padding:4px">Connect a provider in Settings to see available
               models.</div>
           </div>
           <div class="agent-field-hint">If the primary model fails, these are tried in order. Smart failover keeps

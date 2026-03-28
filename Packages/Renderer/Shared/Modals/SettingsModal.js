@@ -1,23 +1,7 @@
 import { state } from '../Core/State.js';
 import { loadConnectorsPanel } from '../../Features/Connectors/index.js';
 import { loadMCPPanel } from '../../Features/MCP/index.js';
-
-// PROVIDER META
-const PROVIDER_META = {
-  anthropic: { color: '#cc785c', placeholder: 'sk-ant-api03-…', iconPath: 'Assets/Icons/Claude.png', fallback: 'C' },
-  openai: { color: '#10a37f', placeholder: 'sk-proj-…', iconPath: 'Assets/Icons/ChatGPT.png', fallback: 'GPT' },
-  google: { color: '#4285f4', placeholder: 'AIza…', iconPath: 'Assets/Icons/Gemini.png', fallback: 'G' },
-  openrouter: { color: '#9b59b6', placeholder: 'sk-or-v1-…', iconPath: 'Assets/Icons/OpenRouter.png', fallback: 'OR' },
-  mistral: { color: '#f54e42', placeholder: 'Enter Mistral API key', iconPath: 'Assets/Icons/Mistral.png', fallback: 'M' },
-  nvidia: { color: '#76b900', placeholder: 'nvapi-...', iconPath: 'Assets/Icons/Nvidia.png', fallback: 'NV', },
-};
-
-// HELPERS
-function escapeHtml(v) {
-  return String(v ?? '')
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
+import { PROVIDERS, PROVIDERS_BY_ID } from '../../Pages/Setup/Providers/SetupProviders.js';
 
 function getInitials(name) {
   const parts = String(name ?? '').trim().split(/\s+/).filter(Boolean);
@@ -25,145 +9,203 @@ function getInitials(name) {
   return (parts[0] ?? 'OW').slice(0, 2).toUpperCase();
 }
 
-// HTML TEMPLATE
 function buildHTML() {
-  return /* html */`
+  return `
     <div id="settings-modal-backdrop">
-      <div id="settings-modal" role="dialog" aria-modal="true"
-           aria-labelledby="settings-modal-title">
-
+      <div id="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settings-modal-title">
         <div class="settings-modal-header">
           <div class="settings-modal-copy">
             <h2 id="settings-modal-title">Workspace settings</h2>
           </div>
-          <button id="settings-modal-close" class="settings-modal-close"
-                  type="button" aria-label="Close settings">
+          <button id="settings-modal-close" class="settings-modal-close" type="button" aria-label="Close settings">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
-              <path d="M18 6L6 18M6 6l12 12"
-                    stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"/>
+              <path d="M18 6L6 18M6 6l12 12" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"/>
             </svg>
           </button>
         </div>
 
         <div class="settings-modal-body">
           <div class="settings-shell">
-
             <nav class="settings-tabs" aria-label="Settings sections">
-              <button class="settings-tab active" type="button"
-                      data-settings-tab="user">User</button>
-              <button class="settings-tab" type="button"
-                      data-settings-tab="providers">Connected Providers</button>
-              <button class="settings-tab" type="button"
-                      data-settings-tab="connectors">Connectors</button>
-              <button class="settings-tab" type="button"
-                      data-settings-tab="mcp">MCP Servers</button>
+              <button class="settings-tab active" type="button" data-settings-tab="user">User</button>
+              <button class="settings-tab" type="button" data-settings-tab="providers">AI Providers</button>
+              <button class="settings-tab" type="button" data-settings-tab="connectors">Connectors</button>
+              <button class="settings-tab" type="button" data-settings-tab="mcp">MCP Servers</button>
             </nav>
 
             <div class="settings-content">
-
-              <!-- ── User tab ── -->
               <section class="settings-panel active" data-settings-panel="user">
                 <div class="settings-panel-header">
                   <h3>User</h3>
-                  <p>Update your display name, memory, and custom instructions.
-                     These are injected into every AI conversation automatically.</p>
+                  <p>Update your display name, memory, and custom instructions. These are injected into every AI conversation automatically.</p>
                 </div>
                 <div class="settings-form">
                   <label class="settings-field">
                     <span class="settings-field-label">Name</span>
-                    <input id="settings-user-name" type="text" maxlength="80"
-                           placeholder="Your name" autocomplete="name"/>
+                    <input id="settings-user-name" type="text" maxlength="80" placeholder="Your name" autocomplete="name"/>
                   </label>
                   <label class="settings-field">
                     <span class="settings-field-label">Memory</span>
-                    <textarea id="settings-memory"
-                      placeholder="Facts about you, ongoing projects, preferences the AI should always remember…">
-                    </textarea>
+                    <textarea id="settings-memory" placeholder="Facts about you, ongoing projects, and preferences the AI should always remember."></textarea>
                   </label>
                   <label class="settings-field">
                     <span class="settings-field-label">Custom Instructions</span>
-                    <textarea id="settings-custom-instructions"
-                      placeholder="Tone, style, or behaviour instructions for the AI…">
-                    </textarea>
+                    <textarea id="settings-custom-instructions" placeholder="Tone, style, or behaviour instructions for the AI."></textarea>
                   </label>
                 </div>
               </section>
 
-              <!-- ── Providers tab ── -->
               <section class="settings-panel" data-settings-panel="providers" hidden>
                 <div class="settings-panel-header">
-                  <h3>Connected Providers</h3>
-                  <p>Add, update, or remove API keys for AI providers. Active providers are available in the model selector.</p>
+                  <h3>AI Providers</h3>
+                  <p>Connect hosted models with API keys or point Evelina at a local LM Studio server. Connected providers show up in the model selector immediately.</p>
                 </div>
                 <div id="settings-providers-list" class="providers-stack">
-                  <div class="ap-empty-hint">Loading…</div>
+                  <div class="ap-empty-hint">Loading...</div>
                 </div>
               </section>
 
-              <!-- ── Connectors tab ── -->
               <section class="settings-panel" data-settings-panel="connectors" hidden>
                 <div class="settings-panel-header">
                   <h3>Connectors</h3>
-                  <p>Link Gmail and GitHub so the AI knows about your emails and repos,
-                     and automations can take action.</p>
+                  <p>Link Gmail and GitHub so the AI knows about your emails and repos, and automations can take action.</p>
                 </div>
                 <div id="connector-list" class="connector-list">
-                  <div class="cx-loading">Loading connectors…</div>
+                  <div class="cx-loading">Loading connectors...</div>
                 </div>
               </section>
 
               <section class="settings-panel" data-settings-panel="mcp" hidden>
                 <div class="settings-panel-header">
                   <h3>MCP Servers</h3>
-                  <p>
-                    Connect Model Context Protocol servers here. Browser-control MCP tools will
-                    automatically show up in chat once the server is connected.
-                  </p>
+                  <p>Connect Model Context Protocol servers here. Browser-control MCP tools automatically show up in chat once a server is connected.</p>
                 </div>
                 <div id="mcp-settings-panel" class="mcp-settings-panel">
                   <div class="cx-loading">Loading MCP servers...</div>
                 </div>
               </section>
-
             </div>
           </div>
         </div>
 
         <div class="settings-modal-footer">
-          <div id="settings-save-feedback" class="settings-feedback"
-               aria-live="polite"></div>
-          <button id="settings-save" class="settings-save-btn" type="button">
-            Save changes
-          </button>
+          <div id="settings-save-feedback" class="settings-feedback" aria-live="polite"></div>
+          <button id="settings-save" class="settings-save-btn" type="button">Save changes</button>
         </div>
-
       </div>
     </div>
   `;
 }
 
-// MAIN EXPORT
+function buildProviderCatalog(providers) {
+  const knownProviders = new Set(PROVIDERS.map((provider) => provider.id));
+  const catalog = Array.isArray(providers) ? [...providers] : [];
+
+  PROVIDERS.forEach((definition) => {
+    if (!catalog.some((provider) => provider.provider === definition.id)) {
+      catalog.push({
+        provider: definition.id,
+        label: definition.label,
+        api: null,
+        settings: {},
+        configured: false,
+        models: {},
+      });
+    }
+  });
+
+  return catalog.filter((provider) => knownProviders.has(provider.provider));
+}
+
+function getProviderDefinition(providerId) {
+  return PROVIDERS_BY_ID[providerId] ?? null;
+}
+
+function getSavedProviderConfig(providerRecord) {
+  return {
+    apiKey: String(providerRecord.api ?? ''),
+    endpoint: String(providerRecord.settings?.endpoint ?? ''),
+    modelId: String(providerRecord.settings?.modelId ?? ''),
+  };
+}
+
+function isProviderConfigured(providerRecord) {
+  return Boolean(providerRecord?.configured);
+}
+
+function getEffectiveProviderConfig(providerRecord, pendingConfig = {}) {
+  const definition = getProviderDefinition(providerRecord.provider);
+  const saved = getSavedProviderConfig(providerRecord);
+  const effective = { ...saved };
+
+  definition?.fields?.forEach((field) => {
+    if (field.type !== 'password' && !effective[field.key] && field.defaultValue != null) {
+      effective[field.key] = field.defaultValue;
+    }
+  });
+
+  Object.entries(pendingConfig ?? {}).forEach(([key, value]) => {
+    effective[key] = String(value ?? '');
+  });
+
+  return effective;
+}
+
+function providerHasDraftChanges(pendingConfig = {}) {
+  return Object.keys(pendingConfig ?? {}).length > 0;
+}
+
+function providerIsComplete(providerRecord, config) {
+  const definition = getProviderDefinition(providerRecord.provider);
+  if (!definition) return false;
+
+  return definition.fields.every((field) => {
+    if (!field.required) return true;
+    return String(config[field.key] ?? '').trim().length >= (field.minLength ?? 1);
+  });
+}
+
+function providerStatus(providerRecord, config, isDeleting, hasDraft) {
+  if (isDeleting) {
+    return { tone: 'removing', label: 'Removing' };
+  }
+  if (providerIsComplete(providerRecord, config)) {
+    return {
+      tone: isProviderConfigured(providerRecord) ? 'active' : 'draft',
+      label: isProviderConfigured(providerRecord) ? 'Connected' : 'Ready to save',
+    };
+  }
+  if (hasDraft) {
+    return { tone: 'incomplete', label: 'Needs required fields' };
+  }
+  return { tone: 'inactive', label: 'Not connected' };
+}
+
+function sortProviderCatalog(catalog, settingsState) {
+  return [...catalog].sort((left, right) => {
+    const leftScore = Number(isProviderConfigured(left) || settingsState.pendingDeletes.has(left.provider)) * -1;
+    const rightScore = Number(isProviderConfigured(right) || settingsState.pendingDeletes.has(right.provider)) * -1;
+    if (leftScore !== rightScore) return leftScore - rightScore;
+    return (left.label ?? left.provider).localeCompare(right.label ?? right.provider);
+  });
+}
+
 export function initSettingsModal() {
-
-  // 1. Inject HTML (only once)
   if (!document.getElementById('settings-modal-backdrop')) {
-    const wrap = document.createElement('div');
-    wrap.innerHTML = buildHTML();
-    document.body.appendChild(wrap.firstElementChild);
-
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = buildHTML();
+    document.body.appendChild(wrapper.firstElementChild);
   }
 
-  // 2. Module state
   const settingsState = {
     activeTab: 'user',
     providerCatalog: [],
-    pendingProviderKeys: {},
-    pendingDeletes: new Set(), // provider IDs marked for key removal
+    pendingProviderConfigs: {},
+    pendingDeletes: new Set(),
   };
 
-  // 3. Element accessors (resolved after injection)
   const $ = (id) => document.getElementById(id);
-  const $$ = (sel) => Array.from(document.querySelectorAll(sel));
+  const $$ = (selector) => Array.from(document.querySelectorAll(selector));
 
   const backdrop = () => $('settings-modal-backdrop');
   const closeBtn = () => $('settings-modal-close');
@@ -171,205 +213,82 @@ export function initSettingsModal() {
   const saveFeedback = () => $('settings-save-feedback');
   const nameInput = () => $('settings-user-name');
   const memoryInput = () => $('settings-memory');
-  const instructInput = () => $('settings-custom-instructions');
+  const instructionsInput = () => $('settings-custom-instructions');
   const providersList = () => $('settings-providers-list');
 
   const tabs = () => $$('[data-settings-tab]');
   const panels = () => $$('[data-settings-panel]');
 
-  // 4. Feedback
-  function setFeedback(msg = '', tone = 'info') {
-    const el = saveFeedback();
-    if (!el) return;
-    el.textContent = msg;
-    el.className = msg ? `settings-feedback ${tone}` : 'settings-feedback';
+  function setFeedback(message = '', tone = 'info') {
+    const element = saveFeedback();
+    if (!element) return;
+    element.textContent = message;
+    element.className = message ? `settings-feedback ${tone}` : 'settings-feedback';
   }
 
-  function updateSaveBtn() {
-    const btn = saveBtn();
-    if (!btn) return;
-    const tab = settingsState.activeTab;
-    if (tab === 'user') { btn.textContent = 'Save changes'; btn.disabled = false; return; }
-    if (tab === 'providers') {
-      btn.textContent = 'Save provider changes';
-      btn.disabled = false;
+  function providerTabHasChanges() {
+    return settingsState.pendingDeletes.size > 0 ||
+      Object.values(settingsState.pendingProviderConfigs).some((config) => providerHasDraftChanges(config));
+  }
+
+  function updateSaveButton() {
+    const button = saveBtn();
+    if (!button) return;
+
+    if (settingsState.activeTab === 'user') {
+      button.textContent = 'Save changes';
+      button.disabled = false;
       return;
     }
-    btn.textContent = 'No changes to save';
-    btn.disabled = true;
+
+    if (settingsState.activeTab === 'providers') {
+      button.textContent = 'Save provider changes';
+      button.disabled = !providerTabHasChanges();
+      return;
+    }
+
+    button.textContent = 'No changes to save';
+    button.disabled = true;
   }
 
-  // 5. Tabs
   function switchTab(tabId) {
     settingsState.activeTab = tabId;
-    tabs().forEach(btn => {
-      const active = btn.dataset.settingsTab === tabId;
-      btn.classList.toggle('active', active);
-      btn.setAttribute('aria-selected', String(active));
+
+    tabs().forEach((button) => {
+      const active = button.dataset.settingsTab === tabId;
+      button.classList.toggle('active', active);
+      button.setAttribute('aria-selected', String(active));
     });
-    panels().forEach(panel => {
+
+    panels().forEach((panel) => {
       const active = panel.dataset.settingsPanel === tabId;
       panel.classList.toggle('active', active);
       panel.hidden = !active;
     });
+
     setFeedback();
-    updateSaveBtn();
+    updateSaveButton();
     if (tabId === 'connectors') loadConnectorsPanel();
     if (tabId === 'mcp') loadMCPPanel();
   }
 
   function focusActiveTab() {
-    if (settingsState.activeTab === 'providers') { providersList()?.querySelector('input')?.focus(); return; }
-    if (settingsState.activeTab === 'mcp') { document.getElementById('mcp-add-btn')?.focus(); return; }
+    if (settingsState.activeTab === 'providers') {
+      providersList()?.querySelector('input')?.focus();
+      return;
+    }
+    if (settingsState.activeTab === 'mcp') {
+      document.getElementById('mcp-add-btn')?.focus();
+      return;
+    }
     if (settingsState.activeTab === 'user') nameInput()?.focus();
   }
 
-  // 6. Providers tab — enhanced with status badges + delete
-  function renderProviders() {
-    const list = providersList();
-    if (!list) return;
-
-    if (!settingsState.providerCatalog.length) {
-      list.innerHTML = '<div class="settings-empty-card">No providers available</div>';
-      updateSaveBtn(); return;
-    }
-
-    // Sort: active (has key) first, then inactive
-    const sorted = [...settingsState.providerCatalog].sort((a, b) => {
-      const aActive = Boolean(String(a.api ?? '').trim());
-      const bActive = Boolean(String(b.api ?? '').trim());
-      return Number(bActive) - Number(aActive);
-    });
-
-    list.innerHTML = '';
-
-    sorted.forEach(p => {
-      const meta = PROVIDER_META[p.provider] ?? {};
-      const inputId = `settings-key-${p.provider}`;
-      const savedKey = String(p.api ?? '').trim();
-      const isActive = savedKey.length > 0;
-      const isDeleting = settingsState.pendingDeletes.has(p.provider);
-      const pending = settingsState.pendingProviderKeys[p.provider] ?? '';
-
-      const row = document.createElement('div');
-      row.className = `spr-row${isActive && !isDeleting ? ' spr-row--active' : ''}${isDeleting ? ' spr-row--deleting' : ''}`;
-      row.style.setProperty('--p-color', meta.color ?? 'var(--accent)');
-
-      // ── Provider icon
-      const iconWrap = document.createElement('div');
-      iconWrap.className = 'spr-icon';
-      const img = document.createElement('img');
-      img.className = 'spr-icon-img';
-      img.src = meta.iconPath ?? '';
-      img.alt = '';
-      img.addEventListener('error', () => iconWrap.classList.add('icon-missing'));
-      img.addEventListener('load', () => iconWrap.classList.remove('icon-missing'));
-      if (img.complete && img.naturalWidth === 0) iconWrap.classList.add('icon-missing');
-      iconWrap.appendChild(img);
-
-      // ── Provider name + status badge
-      const info = document.createElement('div');
-      info.className = 'spr-info';
-
-      const providerName = document.createElement('div');
-      providerName.className = 'spr-provider-name';
-      providerName.textContent = p.label ?? p.provider;
-
-      const statusBadge = document.createElement('span');
-      if (isDeleting) {
-        statusBadge.className = 'spr-status spr-status--removing';
-        statusBadge.textContent = '× Removing';
-      } else if (isActive) {
-        statusBadge.className = 'spr-status spr-status--active';
-        statusBadge.innerHTML = `
-          <span class="spr-status-dot"></span>
-          Active
-        `;
-      } else {
-        statusBadge.className = 'spr-status spr-status--inactive';
-        statusBadge.textContent = 'No key';
-      }
-
-      info.append(providerName, statusBadge);
-
-      // ── Key input area
-      const keyWrap = document.createElement('div');
-      keyWrap.className = 'key-input-wrap spr-key-wrap';
-
-      const input = document.createElement('input');
-      input.className = 'key-input spr-key-input';
-      input.id = inputId;
-      input.type = 'password';
-      input.dataset.providerInput = p.provider;
-      input.placeholder = isActive && !isDeleting ? '••••••••  (key saved)' : (meta.placeholder ?? 'Paste API key');
-      input.value = pending;
-      input.autocomplete = 'off';
-      input.spellcheck = false;
-      if (isDeleting) {
-        input.disabled = true;
-        input.placeholder = 'Key will be removed on save';
-      }
-      input.addEventListener('input', () => {
-        settingsState.pendingProviderKeys[p.provider] = input.value;
-        // If they type a new key, cancel any pending delete
-        if (input.value.trim()) {
-          settingsState.pendingDeletes.delete(p.provider);
-          row.classList.remove('spr-row--deleting');
-          statusBadge.className = 'spr-status spr-status--inactive';
-          statusBadge.textContent = 'No key';
-        }
-        updateSaveBtn();
-      });
-
-      const eyeBtn = document.createElement('button');
-      eyeBtn.type = 'button';
-      eyeBtn.className = 'key-eye';
-      eyeBtn.title = 'Show / hide';
-      eyeBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke-width="1.8"/><circle cx="12" cy="12" r="3" stroke-width="1.8"/></svg>`;
-      eyeBtn.addEventListener('click', () => {
-        input.type = input.type === 'password' ? 'text' : 'password';
-      });
-
-      keyWrap.append(input, eyeBtn);
-
-      // ── Delete / undo button (only shown when a key exists or is being deleted)
-      const actionArea = document.createElement('div');
-      actionArea.className = 'spr-actions';
-
-      if (isActive || isDeleting) {
-        const deleteBtn = document.createElement('button');
-        deleteBtn.type = 'button';
-        deleteBtn.className = isDeleting ? 'spr-undo-btn' : 'spr-delete-btn';
-        deleteBtn.title = isDeleting ? 'Undo removal' : 'Remove API key';
-        deleteBtn.innerHTML = isDeleting
-          ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 14l-4-4 4-4M5 10h11a4 4 0 010 8h-1" stroke-linecap="round" stroke-linejoin="round"/></svg> Undo`
-          : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
-
-        deleteBtn.addEventListener('click', () => {
-          if (isDeleting) {
-            // Undo
-            settingsState.pendingDeletes.delete(p.provider);
-          } else {
-            // Mark for deletion, clear any pending key edit
-            settingsState.pendingDeletes.add(p.provider);
-            settingsState.pendingProviderKeys[p.provider] = '';
-            input.value = '';
-          }
-          updateSaveBtn();
-          renderProviders(); // re-render to update visual state
-        });
-
-        actionArea.appendChild(deleteBtn);
-      }
-
-      row.append(iconWrap, info, keyWrap, actionArea);
-      list.appendChild(row);
-    });
-
-    updateSaveBtn();
+  function syncBodyClass() {
+    const hasOpen = Boolean(document.querySelector('#settings-modal-backdrop.open, #library-modal-backdrop.open'));
+    document.body.classList.toggle('modal-open', hasOpen);
   }
 
-  // 7. Apply user profile to DOM + state
   function applyUserProfile(user = {}) {
     const rawName = String(user?.name ?? '').trim();
     const displayName = rawName || 'User';
@@ -386,23 +305,177 @@ export function initSettingsModal() {
     }));
   }
 
-  // 8. Load user (public)
-  async function loadUser() {
-    try {
-      const user = await window.electronAPI?.getUser?.();
-      applyUserProfile(user ?? {});
-      return user;
-    } catch (err) {
-      console.warn('[SettingsModal] Could not load user:', err);
-      applyUserProfile({});
-      return null;
+  function renderProviderField(providerRecord, field, savedConfig, effectiveConfig, disabled) {
+    const wrapper = document.createElement('label');
+    wrapper.className = 'spr-field';
+
+    const label = document.createElement('span');
+    label.className = 'spr-field-label';
+    label.textContent = field.label;
+
+    const inputWrap = document.createElement('div');
+    inputWrap.className = 'key-input-wrap spr-key-wrap';
+
+    const input = document.createElement('input');
+    input.className = 'key-input spr-key-input';
+    input.type = field.type === 'password' ? 'password' : 'text';
+    input.placeholder = field.type === 'password' && savedConfig.apiKey
+      ? '••••••••  (saved)'
+      : field.placeholder;
+    input.autocomplete = 'off';
+    input.spellcheck = false;
+    input.disabled = disabled;
+    input.value = field.type === 'password'
+      ? String(settingsState.pendingProviderConfigs[providerRecord.provider]?.[field.key] ?? '')
+      : String(effectiveConfig[field.key] ?? '');
+    input.addEventListener('input', () => {
+      const pending = { ...(settingsState.pendingProviderConfigs[providerRecord.provider] ?? {}) };
+      const trimmed = input.value.trim();
+
+      if (field.type === 'password' && !trimmed && savedConfig.apiKey) {
+        delete pending[field.key];
+      } else {
+        pending[field.key] = input.value;
+      }
+
+      if (Object.keys(pending).length > 0) settingsState.pendingProviderConfigs[providerRecord.provider] = pending;
+      else delete settingsState.pendingProviderConfigs[providerRecord.provider];
+
+      if (trimmed) settingsState.pendingDeletes.delete(providerRecord.provider);
+      renderProviders();
+    });
+    inputWrap.appendChild(input);
+
+    if (field.type === 'password') {
+      const eyeButton = document.createElement('button');
+      eyeButton.type = 'button';
+      eyeButton.className = 'key-eye';
+      eyeButton.title = 'Show or hide';
+      eyeButton.innerHTML = `
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke-width="1.8"/>
+          <circle cx="12" cy="12" r="3" stroke-width="1.8"/>
+        </svg>
+      `;
+      eyeButton.disabled = disabled;
+      eyeButton.addEventListener('click', () => {
+        input.type = input.type === 'password' ? 'text' : 'password';
+      });
+      inputWrap.appendChild(eyeButton);
     }
+
+    wrapper.append(label, inputWrap);
+    return wrapper;
   }
 
-  // 9. Hydrate modal fields
+  function renderProviders() {
+    const list = providersList();
+    if (!list) return;
+
+    const catalog = sortProviderCatalog(settingsState.providerCatalog, settingsState);
+    if (!catalog.length) {
+      list.innerHTML = '<div class="settings-empty-card">No providers available.</div>';
+      updateSaveButton();
+      return;
+    }
+
+    list.innerHTML = '';
+
+    catalog.forEach((providerRecord) => {
+      const definition = getProviderDefinition(providerRecord.provider);
+      if (!definition) return;
+
+      const savedConfig = getSavedProviderConfig(providerRecord);
+      const pendingConfig = settingsState.pendingProviderConfigs[providerRecord.provider] ?? {};
+      const effectiveConfig = getEffectiveProviderConfig(providerRecord, pendingConfig);
+      const isDeleting = settingsState.pendingDeletes.has(providerRecord.provider);
+      const hasDraft = providerHasDraftChanges(pendingConfig);
+      const hasAnyConfig = isProviderConfigured(providerRecord) || hasDraft;
+      const status = providerStatus(providerRecord, effectiveConfig, isDeleting, hasDraft);
+
+      const row = document.createElement('div');
+      row.className = `spr-row${status.tone === 'active' ? ' spr-row--active' : ''}${isDeleting ? ' spr-row--deleting' : ''}`;
+      row.style.setProperty('--p-color', definition.color);
+
+      const main = document.createElement('div');
+      main.className = 'spr-main';
+
+      const summary = document.createElement('div');
+      summary.className = 'spr-summary';
+
+      const icon = document.createElement('div');
+      icon.className = 'spr-icon';
+      icon.innerHTML = `
+        <img class="spr-icon-img" src="${definition.iconPath || 'data:,'}" alt="" />
+        <span class="spr-icon-fallback">${definition.fallback}</span>
+      `;
+      if (!definition.iconPath) icon.classList.add('icon-missing');
+      const image = icon.querySelector('.spr-icon-img');
+      image?.addEventListener('error', () => icon.classList.add('icon-missing'));
+      image?.addEventListener('load', () => icon.classList.remove('icon-missing'));
+
+      const info = document.createElement('div');
+      info.className = 'spr-info';
+      info.innerHTML = `
+        <div class="spr-provider-name">${providerRecord.label ?? definition.label}</div>
+        <div class="spr-provider-copy">${definition.company || definition.caption}</div>
+      `;
+
+      const badge = document.createElement('span');
+      badge.className = `spr-status spr-status--${status.tone}`;
+      badge.textContent = status.label;
+
+      summary.append(icon, info, badge);
+
+      const fields = document.createElement('div');
+      fields.className = `spr-fields${definition.fields.length > 1 ? ' spr-fields--multi' : ''}`;
+      definition.fields.forEach((field) => {
+        fields.appendChild(renderProviderField(providerRecord, field, savedConfig, effectiveConfig, isDeleting));
+      });
+
+      main.append(summary, fields);
+
+      if (definition.hint) {
+        const hint = document.createElement('p');
+        hint.className = 'spr-hint';
+        hint.textContent = definition.hint;
+        main.appendChild(hint);
+      }
+
+      const actions = document.createElement('div');
+      actions.className = 'spr-actions';
+
+      const deleteButton = document.createElement('button');
+      deleteButton.type = 'button';
+      deleteButton.className = isDeleting ? 'spr-undo-btn' : 'spr-delete-btn';
+      deleteButton.title = isDeleting ? 'Undo removal' : 'Remove configuration';
+      deleteButton.hidden = !isDeleting && !hasAnyConfig;
+      deleteButton.innerHTML = isDeleting
+        ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 14l-4-4 4-4M5 10h11a4 4 0 010 8h-1" stroke-linecap="round" stroke-linejoin="round"/></svg> Undo`
+        : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+      deleteButton.addEventListener('click', () => {
+        if (isDeleting) {
+          settingsState.pendingDeletes.delete(providerRecord.provider);
+        } else {
+          settingsState.pendingDeletes.add(providerRecord.provider);
+          delete settingsState.pendingProviderConfigs[providerRecord.provider];
+        }
+        renderProviders();
+      });
+
+      actions.appendChild(deleteButton);
+      row.append(main, actions);
+      list.appendChild(row);
+    });
+
+    updateSaveButton();
+  }
+
   async function hydrateModal() {
     setFeedback();
     settingsState.pendingDeletes.clear();
+    settingsState.pendingProviderConfigs = {};
+
     const [user, customInstructions, memory, providers] = await Promise.all([
       window.electronAPI?.getUser?.(),
       window.electronAPI?.getCustomInstructions?.(),
@@ -411,105 +484,131 @@ export function initSettingsModal() {
     ]);
 
     applyUserProfile(user ?? {});
-    settingsState.providerCatalog = Array.isArray(providers) ? providers : [];
-    settingsState.pendingProviderKeys = {};
+    settingsState.providerCatalog = buildProviderCatalog(providers);
 
-    const ni = nameInput(); if (ni) ni.value = user?.name ?? '';
-    const mi = memoryInput(); if (mi) mi.value = memory ?? '';
-    const ii = instructInput(); if (ii) ii.value = customInstructions ?? '';
+    if (nameInput()) nameInput().value = user?.name ?? '';
+    if (memoryInput()) memoryInput().value = memory ?? '';
+    if (instructionsInput()) instructionsInput().value = customInstructions ?? '';
 
     renderProviders();
-    updateSaveBtn();
+    updateSaveButton();
   }
 
-  // 10. Save — user tab
   async function saveUserTab() {
     const nextName = nameInput()?.value.trim() ?? '';
-    const nextMem = memoryInput()?.value ?? '';
-    const nextInstr = instructInput()?.value ?? '';
+    const nextMemory = memoryInput()?.value ?? '';
+    const nextInstructions = instructionsInput()?.value ?? '';
 
     if (nextName.length < 2) {
       setFeedback('Enter a name with at least 2 characters.', 'error');
-      nameInput()?.focus(); return;
+      nameInput()?.focus();
+      return;
     }
 
     saveBtn().disabled = true;
-    setFeedback('Saving…', 'info');
+    setFeedback('Saving...', 'info');
 
     try {
-      const [profileRes, instrRes, memRes] = await Promise.all([
+      const [profileResult, instructionsResult, memoryResult] = await Promise.all([
         window.electronAPI?.saveUserProfile?.({ name: nextName }),
-        window.electronAPI?.saveCustomInstructions?.(nextInstr),
-        window.electronAPI?.saveMemory?.(nextMem),
+        window.electronAPI?.saveCustomInstructions?.(nextInstructions),
+        window.electronAPI?.saveMemory?.(nextMemory),
       ]);
-      if (!profileRes?.ok) throw new Error(profileRes?.error ?? 'Could not save profile.');
-      if (!instrRes?.ok) throw new Error(instrRes?.error ?? 'Could not save custom instructions.');
-      if (!memRes?.ok) throw new Error(memRes?.error ?? 'Could not save memory.');
 
-      applyUserProfile(profileRes.user ?? { name: nextName });
+      if (!profileResult?.ok) throw new Error(profileResult?.error ?? 'Could not save profile.');
+      if (!instructionsResult?.ok) throw new Error(instructionsResult?.error ?? 'Could not save custom instructions.');
+      if (!memoryResult?.ok) throw new Error(memoryResult?.error ?? 'Could not save memory.');
+
+      applyUserProfile(profileResult.user ?? { name: nextName });
       setFeedback('Changes saved.', 'success');
       window.dispatchEvent(new CustomEvent('ow:settings-saved'));
-    } catch (err) {
-      console.error('[SettingsModal] Save user error:', err);
-      setFeedback(err.message || 'Could not save.', 'error');
-    } finally { updateSaveBtn(); }
+    } catch (error) {
+      console.error('[SettingsModal] Save user error:', error);
+      setFeedback(error.message || 'Could not save.', 'error');
+    } finally {
+      updateSaveButton();
+    }
   }
 
-  // 11. Save — providers tab (handles both new keys AND deletions)
   async function saveProvidersTab() {
     const changes = {};
 
-    // New / updated keys
-    Object.entries(settingsState.pendingProviderKeys).forEach(([id, key]) => {
-      const trimmed = String(key ?? '').trim();
-      if (trimmed.length > 0 && !settingsState.pendingDeletes.has(id)) {
-        changes[id] = trimmed;
+    for (const providerRecord of settingsState.providerCatalog) {
+      const providerId = providerRecord.provider;
+      if (settingsState.pendingDeletes.has(providerId)) {
+        changes[providerId] = null;
+        continue;
       }
-    });
 
-    // Deletions — pass null to remove the key
-    settingsState.pendingDeletes.forEach(id => {
-      changes[id] = null;
-    });
+      const pendingConfig = settingsState.pendingProviderConfigs[providerId];
+      if (!providerHasDraftChanges(pendingConfig)) continue;
+
+      const effectiveConfig = getEffectiveProviderConfig(providerRecord, pendingConfig);
+      if (!providerIsComplete(providerRecord, effectiveConfig)) {
+        setFeedback(`Finish the required fields for ${providerRecord.label ?? providerId}.`, 'error');
+        renderProviders();
+        return;
+      }
+
+      const definition = getProviderDefinition(providerId);
+      const savedConfig = getSavedProviderConfig(providerRecord);
+      const payload = {};
+
+      definition.fields.forEach((field) => {
+        const pendingValue = pendingConfig[field.key];
+        if (pendingValue != null) {
+          payload[field.key] = String(pendingValue).trim();
+          return;
+        }
+
+        if (!savedConfig[field.key] && effectiveConfig[field.key]) {
+          payload[field.key] = String(effectiveConfig[field.key]).trim();
+        }
+      });
+
+      if (Object.keys(payload).length > 0) changes[providerId] = payload;
+    }
 
     if (!Object.keys(changes).length) {
-      setFeedback('No changes to save.', 'error'); return;
+      setFeedback('No provider changes to save.', 'error');
+      return;
     }
 
     saveBtn().disabled = true;
-    setFeedback('Saving provider keys…', 'info');
+    setFeedback('Saving provider settings...', 'info');
 
     try {
-      const result = await window.electronAPI?.saveAPIKeys?.(changes);
-      if (!result?.ok) throw new Error(result?.error ?? 'Could not save keys.');
+      const result = await window.electronAPI?.saveProviderConfigs?.(changes);
+      if (!result?.ok) throw new Error(result?.error ?? 'Could not save provider settings.');
 
-      const all = await window.electronAPI?.getModels?.() ?? [];
-      state.allProviders = all;
-      state.providers = all.filter(p => p.api && p.api.trim() !== '');
+      const allProviders = await window.electronAPI?.getModels?.() ?? [];
+      state.allProviders = allProviders;
+      state.providers = allProviders.filter((provider) => provider.configured);
 
-      settingsState.providerCatalog = all;
-      settingsState.pendingProviderKeys = {};
+      settingsState.providerCatalog = buildProviderCatalog(allProviders);
+      settingsState.pendingProviderConfigs = {};
       settingsState.pendingDeletes.clear();
       renderProviders();
 
-      const addedCount = Object.values(changes).filter(v => v !== null).length;
-      const removedCount = Object.values(changes).filter(v => v === null).length;
+      const savedCount = Object.values(changes).filter((value) => value !== null).length;
+      const removedCount = Object.values(changes).filter((value) => value === null).length;
       const parts = [];
-      if (addedCount) parts.push(`${addedCount} key${addedCount !== 1 ? 's' : ''} saved`);
-      if (removedCount) parts.push(`${removedCount} key${removedCount !== 1 ? 's' : ''} removed`);
-      setFeedback(parts.join(', ') + '.', 'success');
+      if (savedCount) parts.push(`${savedCount} provider${savedCount !== 1 ? 's' : ''} saved`);
+      if (removedCount) parts.push(`${removedCount} provider${removedCount !== 1 ? 's' : ''} removed`);
+      setFeedback(`${parts.join(', ')}.`, 'success');
       window.dispatchEvent(new CustomEvent('ow:settings-saved'));
-    } catch (err) {
-      console.error('[SettingsModal] Save providers error:', err);
-      setFeedback(err.message || 'Could not save.', 'error');
-    } finally { updateSaveBtn(); }
+    } catch (error) {
+      console.error('[SettingsModal] Save providers error:', error);
+      setFeedback(error.message || 'Could not save.', 'error');
+    } finally {
+      updateSaveButton();
+    }
   }
 
-  // 12. Wire all events
   function wireEvents() {
-    tabs().forEach(btn => {
-      btn.addEventListener('click', () => {
-        switchTab(btn.dataset.settingsTab);
+    tabs().forEach((button) => {
+      button.addEventListener('click', () => {
+        switchTab(button.dataset.settingsTab);
         focusActiveTab();
       });
     });
@@ -520,50 +619,55 @@ export function initSettingsModal() {
     });
 
     closeBtn()?.addEventListener('click', close);
-    backdrop()?.addEventListener('click', e => {
-      if (e.target === backdrop()) close();
+    backdrop()?.addEventListener('click', (event) => {
+      if (event.target === backdrop()) close();
     });
 
-    document.addEventListener('keydown', e => {
-      const isSave = (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's';
+    document.addEventListener('keydown', (event) => {
+      const isSave = (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's';
       if (isSave && backdrop()?.classList.contains('open')) {
-        e.preventDefault();
+        event.preventDefault();
         if (settingsState.activeTab === 'user') void saveUserTab();
         if (settingsState.activeTab === 'providers') void saveProvidersTab();
         return;
       }
-      if (e.key === 'Escape' && backdrop()?.classList.contains('open')) close();
+
+      if (event.key === 'Escape' && backdrop()?.classList.contains('open')) close();
     });
   }
 
   wireEvents();
 
-  // 13. Sync body class
-  function syncBodyClass() {
-    const hasOpen = Boolean(
-      document.querySelector(
-        '#settings-modal-backdrop.open, #library-modal-backdrop.open'
-      )
-    );
-    document.body.classList.toggle('modal-open', hasOpen);
-  }
-
-  // 14. Public API
   async function open(tabId = settingsState.activeTab) {
     switchTab(tabId);
     backdrop()?.classList.add('open');
     syncBodyClass();
-    try { await hydrateModal(); }
-    catch (err) {
-      console.error('[SettingsModal] Could not load settings:', err);
+
+    try {
+      await hydrateModal();
+    } catch (error) {
+      console.error('[SettingsModal] Could not load settings:', error);
       setFeedback('Could not load settings.', 'error');
     }
+
     requestAnimationFrame(() => focusActiveTab());
   }
 
   function close() {
     backdrop()?.classList.remove('open');
     syncBodyClass();
+  }
+
+  async function loadUser() {
+    try {
+      const user = await window.electronAPI?.getUser?.();
+      applyUserProfile(user ?? {});
+      return user;
+    } catch (error) {
+      console.warn('[SettingsModal] Could not load user:', error);
+      applyUserProfile({});
+      return null;
+    }
   }
 
   return { open, close, loadUser };

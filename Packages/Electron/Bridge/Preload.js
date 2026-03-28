@@ -34,6 +34,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Setup
   saveUser: (userData) => ipcRenderer.invoke('save-user', userData),
   saveAPIKeys: (keysMap) => ipcRenderer.invoke('save-api-keys', keysMap),
+  saveProviderConfigs: (configMap) => ipcRenderer.invoke('save-provider-configs', configMap),
   saveUserProfile: (profile) => ipcRenderer.invoke('save-user-profile', profile),
   launchMain: () => ipcRenderer.invoke('launch-main'),
   launchSkills: () => ipcRenderer.invoke('launch-skills'),

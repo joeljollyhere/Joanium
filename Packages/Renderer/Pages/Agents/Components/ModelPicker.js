@@ -67,7 +67,7 @@ export function createModelPicker({
     primaryModelMenu.innerHTML = '';
 
     if (!state.allModels.length) {
-      primaryModelMenu.innerHTML = '<div style="padding:12px;font-size:12px;color:var(--text-muted)">No models. Add API keys in Settings.</div>';
+      primaryModelMenu.innerHTML = '<div style="padding:12px;font-size:12px;color:var(--text-muted)">No models. Connect a provider in Settings.</div>';
       return;
     }
 

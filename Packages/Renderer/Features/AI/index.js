@@ -58,6 +58,16 @@ function buildOpenAIContent(msg) {
   return parts;
 }
 
+function buildOpenAIStyleHeaders(providerId, authHeader, authPrefix, apiKey) {
+  return {
+    'content-type': 'application/json',
+    ...(authHeader && apiKey ? { [authHeader]: `${authPrefix}${apiKey}` } : {}),
+    ...(providerId === 'openrouter'
+      ? { 'HTTP-Referer': 'https://romelson.app', 'X-Title': 'Evelina' }
+      : {}),
+  };
+}
+
 /* ══════════════════════════════════════════
    TOOL FORMAT CONVERTERS
 ══════════════════════════════════════════ */
@@ -288,7 +298,12 @@ export async function fetchStreamingWithTools(
   onReasoning = null,
   signal = null,
 ) {
-  const { provider: providerId, endpoint, api, auth_header, auth_prefix = '' } = provider;
+  if (!provider?.configured) throw new Error('Provider is not configured.');
+  const { provider: providerId, endpoint, auth_header, auth_prefix = '' } = provider;
+  const api = String(provider.api ?? '').trim();
+  if (provider.requires_api_key !== false && !api) {
+    throw new Error(`No API key for "${providerId}"`);
+  }
   const _history = messages.slice(-20).map(normalizeMessage);
   const history = embedFileAttachments(_history);
 
@@ -461,18 +476,12 @@ export async function fetchStreamingWithTools(
     body.tool_choice = 'auto';
   }
 
-  const res = await fetch(endpoint, {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      [auth_header]: `${auth_prefix}${api}`,
-      ...(providerId === 'openrouter'
-        ? { 'HTTP-Referer': 'https://romelson.app', 'X-Title': 'Evelina' }
-        : {}),
-    },
-    body: JSON.stringify(body),
-    signal,
-  });
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: buildOpenAIStyleHeaders(providerId, auth_header, auth_prefix, api),
+      body: JSON.stringify(body),
+      signal,
+    });
   if (!res.ok) {
     const e = await res.json().catch(() => ({}));
     throw new Error(e?.error?.message ?? `HTTP ${res.status}`);
@@ -529,7 +538,12 @@ export async function fetchStreamingWithTools(
    NON-STREAMING FETCH
 ══════════════════════════════════════════ */
 export async function fetchWithTools(provider, modelId, messages, sysPrompt = '', tools = []) {
-  const { provider: providerId, endpoint, api, auth_header, auth_prefix = '' } = provider;
+  if (!provider?.configured) throw new Error('Provider is not configured.');
+  const { provider: providerId, endpoint, auth_header, auth_prefix = '' } = provider;
+  const api = String(provider.api ?? '').trim();
+  if (provider.requires_api_key !== false && !api) {
+    throw new Error(`No API key for "${providerId}"`);
+  }
   const _history = messages.slice(-20).map(normalizeMessage);
   const history = embedFileAttachments(_history);
 
@@ -627,13 +641,7 @@ export async function fetchWithTools(provider, modelId, messages, sysPrompt = ''
 
   const res = await fetch(endpoint, {
     method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      [auth_header]: `${auth_prefix}${api}`,
-      ...(providerId === 'openrouter'
-        ? { 'HTTP-Referer': 'https://romelson.app', 'X-Title': 'Evelina' }
-        : {}),
-    },
+    headers: buildOpenAIStyleHeaders(providerId, auth_header, auth_prefix, api),
     body: JSON.stringify(body),
   });
   if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e?.error?.message ?? `HTTP ${res.status}`); }

@@ -70,7 +70,7 @@ export function mount(outlet) {
       state.allModels = [];
 
       providers.forEach(provider => {
-        if (!provider.api?.trim()) return;
+        if (!provider.configured) return;
 
         Object.entries(provider.models ?? {}).forEach(([modelId, info]) => {
           state.allModels.push({

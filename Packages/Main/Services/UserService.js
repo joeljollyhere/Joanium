@@ -1,14 +1,12 @@
 import fs from 'fs';
 import Paths from '../Core/Paths.js';
 
-/* ══════════════════════════════════════════
-   DEFAULTS
-══════════════════════════════════════════ */
 const DEFAULT_USER = {
   name: '',
   setup_complete: false,
   created_at: null,
   api_keys: {},
+  provider_settings: {},
   preferences: {
     theme: 'dark',
     default_provider: null,
@@ -16,12 +14,28 @@ const DEFAULT_USER = {
   },
 };
 
-/* ══════════════════════════════════════════
-   HELPERS
-══════════════════════════════════════════ */
+const LM_STUDIO_DEFAULT_ENDPOINT = 'http://127.0.0.1:1234/v1/chat/completions';
+const LM_STUDIO_MODEL_TEMPLATE = {
+  description: 'Local model served through LM Studio',
+  rank: 1,
+  context_window: 128000,
+  max_output: 4096,
+  inputs: {
+    text: true,
+    image: true,
+    pdf: false,
+    docx: false,
+  },
+  pricing: {
+    input: 0,
+    output: 0,
+  },
+};
+
 export function ensureDataDir() {
-  if (!fs.existsSync(Paths.DATA_DIR))
+  if (!fs.existsSync(Paths.DATA_DIR)) {
     fs.mkdirSync(Paths.DATA_DIR, { recursive: true });
+  }
 }
 
 function merge(existing = {}, updates = {}) {
@@ -34,6 +48,11 @@ function merge(existing = {}, updates = {}) {
       ...(existing.api_keys ?? {}),
       ...(updates.api_keys ?? {}),
     },
+    provider_settings: {
+      ...DEFAULT_USER.provider_settings,
+      ...(existing.provider_settings ?? {}),
+      ...(updates.provider_settings ?? {}),
+    },
     preferences: {
       ...DEFAULT_USER.preferences,
       ...(existing.preferences ?? {}),
@@ -42,12 +61,34 @@ function merge(existing = {}, updates = {}) {
   };
 }
 
-/* ══════════════════════════════════════════
-   USER JSON
-══════════════════════════════════════════ */
+function normalizeLmStudioEndpoint(value) {
+  const trimmed = String(value ?? '').trim();
+  if (!trimmed) return LM_STUDIO_DEFAULT_ENDPOINT;
+
+  const normalized = trimmed.replace(/\/+$/, '');
+  if (/\/v1\/chat\/completions$/i.test(normalized)) return normalized;
+  if (/\/v1$/i.test(normalized)) return `${normalized}/chat/completions`;
+  return `${normalized}/v1/chat/completions`;
+}
+
+function buildLmStudioModels(settings = {}) {
+  const modelId = String(settings.modelId ?? '').trim();
+  if (!modelId) return {};
+
+  return {
+    [modelId]: {
+      ...LM_STUDIO_MODEL_TEMPLATE,
+      name: modelId,
+    },
+  };
+}
+
 export function readUser() {
-  try { return merge(JSON.parse(fs.readFileSync(Paths.USER_FILE, 'utf-8'))); }
-  catch { return merge(); }
+  try {
+    return merge(JSON.parse(fs.readFileSync(Paths.USER_FILE, 'utf-8')));
+  } catch {
+    return merge();
+  }
 }
 
 export function writeUser(updates = {}) {
@@ -58,61 +99,116 @@ export function writeUser(updates = {}) {
 }
 
 export function isFirstRun() {
-  try { return readUser().setup_complete !== true; }
-  catch { return true; }
+  try {
+    return readUser().setup_complete !== true;
+  } catch {
+    return true;
+  }
 }
 
-/* ══════════════════════════════════════════
-   MODELS JSON
-══════════════════════════════════════════ */
 export function readModels() {
   return JSON.parse(fs.readFileSync(Paths.MODELS_FILE, 'utf-8'));
 }
 
 export function readModelsWithKeys() {
   const models = readModels();
-  const apiKeys = readUser().api_keys ?? {};
-  return models.map(p => ({ ...p, api: apiKeys[p.provider] ?? null }));
+  const user = readUser();
+  const apiKeys = user.api_keys ?? {};
+  const providerSettings = user.provider_settings ?? {};
+
+  return models.map((provider) => {
+    const settings = providerSettings[provider.provider] ?? {};
+    const api = String(apiKeys[provider.provider] ?? '').trim();
+    const endpoint = provider.provider === 'lmstudio'
+      ? normalizeLmStudioEndpoint(settings.endpoint ?? provider.endpoint)
+      : provider.endpoint;
+    const resolvedModels = provider.provider === 'lmstudio'
+      ? buildLmStudioModels(settings)
+      : provider.models;
+    const configured = provider.requires_api_key === false
+      ? Boolean(endpoint && Object.keys(resolvedModels ?? {}).length)
+      : Boolean(api);
+
+    return {
+      ...provider,
+      endpoint,
+      models: resolvedModels,
+      api: api || null,
+      settings,
+      configured,
+    };
+  });
 }
 
-/* ══════════════════════════════════════════
-   API KEYS
-   FIX: merge() spreads existing.api_keys before updates.api_keys, so
-   deleted keys (absent from nextKeys) still survive via the existing spread.
-   We bypass merge entirely for the api_keys field and write it directly.
-══════════════════════════════════════════ */
 export function saveApiKeys(keysMap) {
+  const normalized = Object.fromEntries(
+    Object.entries(keysMap ?? {}).map(([id, value]) => [
+      id,
+      typeof value === 'string' || value === null ? { apiKey: value } : value,
+    ]),
+  );
+  return saveProviderConfigurations(normalized);
+}
+
+export function saveProviderConfigurations(configMap) {
   const user = readUser();
   const nextKeys = { ...(user.api_keys ?? {}) };
+  const nextSettings = { ...(user.provider_settings ?? {}) };
 
-  Object.entries(keysMap ?? {}).forEach(([id, key]) => {
-    if (typeof key === 'string') {
-      const trimmed = key.trim();
-      if (trimmed) nextKeys[id] = trimmed;
-    } else if (key === null) {
-      // Explicitly delete — do NOT use merge() after this because
-      // merge spreads existing.api_keys first, which re-adds the deleted key.
+  Object.entries(configMap ?? {}).forEach(([id, patch]) => {
+    if (patch === null) {
       delete nextKeys[id];
+      delete nextSettings[id];
+      return;
     }
+
+    if (typeof patch === 'string') {
+      const trimmed = patch.trim();
+      if (trimmed) nextKeys[id] = trimmed;
+      else delete nextKeys[id];
+      return;
+    }
+
+    if (!patch || typeof patch !== 'object' || Array.isArray(patch)) return;
+
+    if (Object.prototype.hasOwnProperty.call(patch, 'apiKey')) {
+      const trimmedApiKey = String(patch.apiKey ?? '').trim();
+      if (trimmedApiKey) nextKeys[id] = trimmedApiKey;
+      else delete nextKeys[id];
+    }
+
+    const currentSettings = { ...(nextSettings[id] ?? {}) };
+    if (Object.prototype.hasOwnProperty.call(patch, 'endpoint')) {
+      const endpoint = String(patch.endpoint ?? '').trim();
+      if (endpoint) currentSettings.endpoint = endpoint;
+      else delete currentSettings.endpoint;
+    }
+    if (Object.prototype.hasOwnProperty.call(patch, 'modelId')) {
+      const modelId = String(patch.modelId ?? '').trim();
+      if (modelId) currentSettings.modelId = modelId;
+      else delete currentSettings.modelId;
+    }
+
+    if (Object.keys(currentSettings).length > 0) nextSettings[id] = currentSettings;
+    else delete nextSettings[id];
   });
 
-  // Build the full user object with the final api_keys, bypassing the
-  // merge() spread that would resurrect deleted keys.
   ensureDataDir();
   const next = {
-    ...merge(user, {}),   // apply all defaults / preferences merges
-    api_keys: nextKeys,   // then stamp the correct final api_keys on top
+    ...merge(user, {}),
+    api_keys: nextKeys,
+    provider_settings: nextSettings,
   };
   fs.writeFileSync(Paths.USER_FILE, JSON.stringify(next, null, 2), 'utf-8');
   return next;
 }
 
-/* ══════════════════════════════════════════
-   TEXT FILES (custom instructions, memory)
-══════════════════════════════════════════ */
 export function readText(filePath) {
-  try { return fs.readFileSync(filePath, 'utf-8'); }
-  catch { return ''; }
+  try {
+    return fs.readFileSync(filePath, 'utf-8');
+  } catch {
+    return '';
+  }
 }
 
 export function writeText(filePath, content) {

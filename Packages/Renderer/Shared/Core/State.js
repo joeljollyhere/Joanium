@@ -7,7 +7,7 @@ export const state = {
 
   // Models
   allProviders:    [],   // every provider regardless of whether a key is set
-  providers:       [],   // providers that have a valid API key
+  providers:       [],   // providers that are ready to use
   selectedProvider: null,
   selectedModel:   null,
 

@@ -82,7 +82,7 @@ export function notifyModelSelectionChanged() {
 export function updateModelLabel() {
   if (!modelLabel) return;
   if (!state.selectedProvider || !state.selectedModel) {
-    modelLabel.textContent = 'No API keys set';
+    modelLabel.textContent = 'No AI providers connected';
     return;
   }
   modelLabel.textContent =
@@ -145,12 +145,12 @@ export async function loadProviders() {
     const prevModelId = state.selectedModel ?? null;
 
     state.allProviders = all;
-    state.providers = all.filter(p => p.api && p.api.trim() !== '');
+    state.providers = all.filter((provider) => provider.configured);
 
     if (state.providers.length === 0) {
       state.selectedProvider = null;
       state.selectedModel = null;
-      if (modelLabel) modelLabel.textContent = 'No API keys set';
+      if (modelLabel) modelLabel.textContent = 'No AI providers connected';
       if (modelDropdown) modelDropdown.innerHTML = '';
       notifyModelSelectionChanged();
       return;

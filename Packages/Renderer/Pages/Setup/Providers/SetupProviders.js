@@ -1,60 +1,106 @@
-/**
- * Provider definitions used by the Setup wizard.
- * Each entry describes one AI provider card shown in step 2.
- */
+function apiKeyField(placeholder) {
+  return [{
+    key: 'apiKey',
+    label: 'API key',
+    type: 'password',
+    placeholder,
+    required: true,
+    minLength: 8,
+  }];
+}
+
 export const PROVIDERS = [
   {
     id: 'anthropic',
     label: 'Claude',
     company: 'Anthropic',
-    placeholder: 'sk-ant-api03-...',
+    caption: 'API key',
     color: '#cc785c',
     iconPath: 'Assets/Icons/Claude.png',
     fallback: 'C',
+    fields: apiKeyField('sk-ant-api03-...'),
   },
   {
     id: 'openai',
     label: 'ChatGPT',
     company: 'OpenAI',
-    placeholder: 'sk-proj-...',
+    caption: 'API key',
     color: '#10a37f',
     iconPath: 'Assets/Icons/ChatGPT.png',
     fallback: 'GPT',
+    fields: apiKeyField('sk-proj-...'),
   },
   {
     id: 'google',
     label: 'Gemini',
     company: 'Google',
-    placeholder: 'AIza...',
+    caption: 'API key',
     color: '#4285f4',
     iconPath: 'Assets/Icons/Gemini.png',
     fallback: 'G',
+    fields: apiKeyField('AIza...'),
   },
   {
     id: 'openrouter',
     label: 'OpenRouter',
     company: '',
-    placeholder: 'sk-or-v1-...',
+    caption: 'API key',
     color: '#9b59b6',
     iconPath: 'Assets/Icons/OpenRouter.png',
     fallback: 'OR',
+    fields: apiKeyField('sk-or-v1-...'),
   },
   {
     id: 'mistral',
     label: 'Mistral',
     company: '',
-    placeholder: 'sk-or-v1-...',
-    color: '#b6b159ff',
+    caption: 'API key',
+    color: '#d17c48',
     iconPath: 'Assets/Icons/Mistral.png',
     fallback: 'MI',
+    fields: apiKeyField('mistral-...'),
   },
   {
     id: 'nvidia',
     label: 'NVIDIA',
     company: 'NVIDIA',
-    placeholder: 'nvapi-...',
+    caption: 'API key',
     color: '#76b900',
     iconPath: 'Assets/Icons/Nvidia.png',
     fallback: 'NV',
+    fields: apiKeyField('nvapi-...'),
+  },
+  {
+    id: 'lmstudio',
+    label: 'LM Studio',
+    company: 'Local AI',
+    caption: 'Local server',
+    color: '#5b6cff',
+    iconPath: '',
+    fallback: 'LM',
+    hint: 'Run the LM Studio local server, then use the loaded model name below.',
+    fields: [
+      {
+        key: 'endpoint',
+        label: 'Server URL',
+        type: 'text',
+        placeholder: 'http://127.0.0.1:1234',
+        defaultValue: 'http://127.0.0.1:1234',
+        required: true,
+        minLength: 10,
+      },
+      {
+        key: 'modelId',
+        label: 'Loaded model ID',
+        type: 'text',
+        placeholder: 'qwen2.5-coder-7b-instruct',
+        required: true,
+        minLength: 2,
+      },
+    ],
   },
 ];
+
+export const PROVIDERS_BY_ID = Object.fromEntries(
+  PROVIDERS.map((provider) => [provider.id, provider]),
+);

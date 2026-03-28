@@ -16,6 +16,11 @@ export function register() {
     catch (err) { return { ok: false, error: err.message }; }
   });
 
+  ipcMain.handle('save-provider-configs', (_e, configMap) => {
+    try { return { ok: true, user: UserService.saveProviderConfigurations(configMap) }; }
+    catch (err) { return { ok: false, error: err.message }; }
+  });
+
   // ── Page navigation ────────────────────────────────────────────────
 
   ipcMain.handle('launch-main', () => {

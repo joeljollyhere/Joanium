@@ -43,13 +43,18 @@ async function trackUsage({ provider, model, modelName, inputTokens, outputToken
    AI CALLER  — returns { text, inputTokens, outputTokens }
 ══════════════════════════════════════════ */
 async function callModel(providerData, modelId, systemPrompt, userMessage) {
-  if (!providerData?.api?.trim()) throw new Error(`No API key for "${providerData?.provider}"`);
+  if (!providerData?.configured) throw new Error(`Provider "${providerData?.provider}" is not configured`);
   const { provider: pid, endpoint, api, auth_header, auth_prefix = '' } = providerData;
+  const apiKey = String(api ?? '').trim();
+
+  if (providerData.requires_api_key !== false && !apiKey) {
+    throw new Error(`No API key for "${providerData?.provider}"`);
+  }
 
   if (pid === 'anthropic') {
     const res = await fetch(endpoint, {
       method: 'POST',
-      headers: { 'content-type': 'application/json', 'x-api-key': api, 'anthropic-version': '2023-06-01' },
+      headers: { 'content-type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
       body: JSON.stringify({
         model: modelId,
         max_tokens: providerData.models?.[modelId]?.max_output ?? 2048,
@@ -67,7 +72,7 @@ async function callModel(providerData, modelId, systemPrompt, userMessage) {
   }
 
   if (pid === 'google') {
-    const res = await fetch(endpoint.replace('{model}', modelId) + `?key=${api}`, {
+    const res = await fetch(endpoint.replace('{model}', modelId) + `?key=${apiKey}`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
@@ -89,7 +94,7 @@ async function callModel(providerData, modelId, systemPrompt, userMessage) {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
-      [auth_header]: `${auth_prefix}${api}`,
+      ...(auth_header && apiKey ? { [auth_header]: `${auth_prefix}${apiKey}` } : {}),
       ...(pid === 'openrouter' ? { 'HTTP-Referer': 'https://romelson.app', 'X-Title': 'Evelina' } : {}),
     },
     body: JSON.stringify({
@@ -114,12 +119,12 @@ async function callAIWithFailover(agent, systemPrompt, userMessage, allProviders
   const candidates = [];
   if (agent.primaryModel?.provider && agent.primaryModel?.modelId) {
     const p = allProviders.find(x => x.provider === agent.primaryModel.provider);
-    if (p?.api?.trim()) candidates.push({ provider: p, modelId: agent.primaryModel.modelId });
+    if (p?.configured) candidates.push({ provider: p, modelId: agent.primaryModel.modelId });
   }
   for (const fb of (agent.fallbackModels ?? [])) {
     if (!fb?.provider || !fb?.modelId) continue;
     const p = allProviders.find(x => x.provider === fb.provider);
-    if (p?.api?.trim()) candidates.push({ provider: p, modelId: fb.modelId });
+    if (p?.configured) candidates.push({ provider: p, modelId: fb.modelId });
   }
   if (!candidates.length) throw new Error('No AI model configured for this agent.');
 

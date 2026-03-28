@@ -1,72 +1,112 @@
-import { PROVIDERS } from './Providers/SetupProviders.js';
+import { PROVIDERS, PROVIDERS_BY_ID } from './Providers/SetupProviders.js';
 import { initStepController } from './Steps/SetupSteps.js';
 
-/* ── State ── */
 const state = {
-  step: 0,              // 0=splash, 1=name, 2=providers, 3=done
+  step: 0,
   name: '',
   selectedProviders: new Set(),
-  apiKeys: {},
+  providerConfigs: {},
 };
 
-/* ── DOM refs ── */
-const stepSplash    = document.getElementById('step-splash');
-const stepName      = document.getElementById('step-name');
+const stepSplash = document.getElementById('step-splash');
+const stepName = document.getElementById('step-name');
 const stepProviders = document.getElementById('step-providers');
-const stepDone      = document.getElementById('step-done');
+const stepDone = document.getElementById('step-done');
 
-const tcCheck        = document.getElementById('tc-check');
+const tcCheck = document.getElementById('tc-check');
 const splashContinue = document.getElementById('splash-continue');
 
-const nameInput    = document.getElementById('name-input');
+const nameInput = document.getElementById('name-input');
 const nameContinue = document.getElementById('name-continue');
 
-const providerGrid  = document.getElementById('provider-grid');
-const keysSection   = document.getElementById('keys-section');
-const keysContinue  = document.getElementById('keys-continue');
+const providerGrid = document.getElementById('provider-grid');
+const keysSection = document.getElementById('keys-section');
+const keysContinue = document.getElementById('keys-continue');
 
 const progressTrack = document.getElementById('progress-track');
-const setupLogo     = document.getElementById('setup-logo');
-const progressDots  = document.querySelectorAll('.dot'); // 4 dots
-const doneTitle     = document.getElementById('done-title');
+const setupLogo = document.getElementById('setup-logo');
+const progressDots = document.querySelectorAll('.dot');
+const doneTitle = document.getElementById('done-title');
 
-// Step elements in order (index = step number)
 const STEP_ELS = [stepSplash, stepName, stepProviders, stepDone];
 
-/* ── Step controller ── */
-// Wrap the base controller to inject page-specific side-effects (buildProviderGrid on step 2).
-const { goToStep: _baseGoToStep } = initStepController({
-  state, STEP_ELS, setupLogo, progressTrack, progressDots, nameInput, doneTitle,
+const { goToStep: baseGoToStep } = initStepController({
+  state,
+  STEP_ELS,
+  setupLogo,
+  progressTrack,
+  progressDots,
+  nameInput,
+  doneTitle,
 });
-function goToStep(n) {
-  _baseGoToStep(n);
-  if (n === 2) buildProviderGrid();
+
+function goToStep(nextStep) {
+  baseGoToStep(nextStep);
+  if (nextStep === 2) buildProviderGrid();
 }
 
-/* ══════════════════════════════════════════
-     Particles (splash background)
-   ══════════════════════════════════════════ */
+function ensureProviderConfig(providerId) {
+  const provider = PROVIDERS_BY_ID[providerId];
+  const config = { ...(state.providerConfigs[providerId] ?? {}) };
+
+  provider?.fields?.forEach((field) => {
+    if (
+      field.defaultValue != null &&
+      (config[field.key] == null || config[field.key] === '')
+    ) {
+      config[field.key] = field.defaultValue;
+    }
+  });
+
+  state.providerConfigs[providerId] = config;
+  return config;
+}
+
+function getProviderValue(providerId, fieldKey) {
+  return String(ensureProviderConfig(providerId)[fieldKey] ?? '');
+}
+
+function providerIsComplete(providerId) {
+  const provider = PROVIDERS_BY_ID[providerId];
+  if (!provider) return false;
+
+  return provider.fields.every((field) => {
+    if (!field.required) return true;
+    return getProviderValue(providerId, field.key).trim().length >= (field.minLength ?? 1);
+  });
+}
+
+function serializeProviderConfig(providerId) {
+  const provider = PROVIDERS_BY_ID[providerId];
+  const config = ensureProviderConfig(providerId);
+  const payload = {};
+
+  provider?.fields?.forEach((field) => {
+    payload[field.key] = String(config[field.key] ?? '').trim();
+  });
+
+  return payload;
+}
+
 (function spawnParticles() {
   const canvas = document.getElementById('splash-canvas');
   if (!canvas) return;
-  for (let i = 0; i < 18; i++) {
-    const p = document.createElement('div');
-    p.className = 'particle';
+
+  for (let index = 0; index < 18; index += 1) {
+    const particle = document.createElement('div');
+    particle.className = 'particle';
     const size = 2 + Math.random() * 4;
-    p.style.cssText = `
+    particle.style.cssText = `
       width:${size}px; height:${size}px;
       left:${Math.random() * 100}%;
       bottom:${Math.random() * 40}%;
       --dur:${4 + Math.random() * 6}s;
       --delay:-${Math.random() * 5}s;
     `;
-    canvas.appendChild(p);
+    canvas.appendChild(particle);
   }
-})();
+}());
 
-/* ══════════════════════════════════════════
-     STEP 0 — Splash / T&C
-   ══════════════════════════════════════════ */
 tcCheck.addEventListener('change', () => {
   const checked = tcCheck.checked;
   splashContinue.disabled = !checked;
@@ -78,129 +118,181 @@ splashContinue.addEventListener('click', () => {
   goToStep(1);
 });
 
-/* ══════════════════════════════════════════
-     STEP 1 — Name
-   ══════════════════════════════════════════ */
 nameInput.addEventListener('input', () => {
-  const val = nameInput.value.trim();
-  nameContinue.classList.toggle('ready', val.length >= 2);
+  const value = nameInput.value.trim();
+  nameContinue.classList.toggle('ready', value.length >= 2);
 });
 
-nameInput.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') tryAdvanceFromName();
+nameInput.addEventListener('keydown', (event) => {
+  if (event.key === 'Enter') tryAdvanceFromName();
 });
 
 nameContinue.addEventListener('click', tryAdvanceFromName);
 
 function tryAdvanceFromName() {
-  const val = nameInput.value.trim();
-  if (val.length < 2) return;
-  state.name = val;
+  const value = nameInput.value.trim();
+  if (value.length < 2) return;
+  state.name = value;
   goToStep(2);
 }
 
-/* ══════════════════════════════════════════
-     STEP 2 — Providers
-   ══════════════════════════════════════════ */
+function bindProviderCardIcon(card, provider) {
+  const image = card.querySelector('.p-icon-image');
+  if (!image || !provider.iconPath) {
+    card.classList.add('icon-missing');
+    return;
+  }
+
+  image.addEventListener('error', () => card.classList.add('icon-missing'));
+  image.addEventListener('load', () => card.classList.remove('icon-missing'));
+  if (image.complete && image.naturalWidth === 0) card.classList.add('icon-missing');
+}
+
 function buildProviderGrid() {
   providerGrid.innerHTML = '';
-  PROVIDERS.forEach(p => {
+
+  PROVIDERS.forEach((provider) => {
     const card = document.createElement('button');
-    const isSelected = state.selectedProviders.has(p.id);
+    const isSelected = state.selectedProviders.has(provider.id);
 
     card.type = 'button';
     card.className = 'provider-card';
-    card.dataset.id = p.id;
-    card.title = `${p.label}${p.company ? ` by ${p.company}` : ''}`;
+    card.dataset.id = provider.id;
+    card.title = `${provider.label}${provider.company ? ` by ${provider.company}` : ''}`;
     card.setAttribute('aria-label', card.title);
     card.setAttribute('aria-pressed', String(isSelected));
-    card.style.setProperty('--p-color', p.color);
+    card.style.setProperty('--p-color', provider.color);
     card.innerHTML = `
       <span class="p-check" aria-hidden="true">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
           <path d="M5 12l5 5L19 7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"/>
         </svg>
       </span>
-      <span class="p-icon" aria-hidden="true">
-        <img class="p-icon-image" src="${p.iconPath}" alt="" />
-        <span class="p-icon-fallback">${p.fallback}</span>
-      </span>`;
+      <span class="p-card-stack">
+        <span class="p-icon" aria-hidden="true">
+          <img class="p-icon-image" src="${provider.iconPath || 'data:,'}" alt="" />
+          <span class="p-icon-fallback">${provider.fallback}</span>
+        </span>
+        <span class="p-name">${provider.label}</span>
+        <span class="p-caption">${provider.caption}</span>
+      </span>
+    `;
 
     if (isSelected) card.classList.add('selected');
-
-    const image = card.querySelector('.p-icon-image');
-    image.addEventListener('error', () => card.classList.add('icon-missing'));
-    image.addEventListener('load',  () => card.classList.remove('icon-missing'));
-    if (image.complete && image.naturalWidth === 0) card.classList.add('icon-missing');
-
-    card.addEventListener('click', () => toggleProvider(p.id, card));
+    bindProviderCardIcon(card, provider);
+    card.addEventListener('click', () => toggleProvider(provider.id, card));
     providerGrid.appendChild(card);
   });
 }
 
-function toggleProvider(id, card) {
-  if (state.selectedProviders.has(id)) {
-    state.selectedProviders.delete(id);
+function toggleProvider(providerId, card) {
+  if (state.selectedProviders.has(providerId)) {
+    state.selectedProviders.delete(providerId);
     card.classList.remove('selected');
     card.setAttribute('aria-pressed', 'false');
   } else {
-    state.selectedProviders.add(id);
+    state.selectedProviders.add(providerId);
+    ensureProviderConfig(providerId);
     card.classList.add('selected');
     card.setAttribute('aria-pressed', 'true');
   }
-  renderKeyFields();
+
+  renderProviderFields();
   updateKeysContinue();
 }
 
-function renderKeyFields() {
-  keysSection.innerHTML = '';
-  if (state.selectedProviders.size === 0) return;
+function createProviderField(providerId, field) {
+  const wrapper = document.createElement('label');
+  wrapper.className = 'config-field';
 
-  const heading = document.createElement('p');
-  heading.className = 'keys-heading';
-  heading.textContent = 'Enter your API keys';
-  keysSection.appendChild(heading);
+  const label = document.createElement('span');
+  label.className = 'config-field-label';
+  label.textContent = field.label;
 
-  PROVIDERS.filter(p => state.selectedProviders.has(p.id)).forEach(p => {
-    const row = document.createElement('div');
-    row.className = 'key-row';
-    row.style.setProperty('--p-color', p.color);
-    row.innerHTML = `
-      <label class="key-label">
-        <span class="key-dot"></span>
-        ${p.label}
-      </label>
-      <div class="key-input-wrap">
-        <input
-          type="password"
-          class="key-input"
-          id="key-${p.id}"
-          placeholder="${p.placeholder}"
-          autocomplete="off"
-          spellcheck="false"
-        />
-        <button type="button" class="key-eye" data-target="key-${p.id}" title="Show/hide">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke-width="1.8"/>
-            <circle cx="12" cy="12" r="3" stroke-width="1.8"/>
-          </svg>
-        </button>
-      </div>`;
+  const inputWrap = document.createElement('div');
+  inputWrap.className = 'key-input-wrap';
 
-    const input = row.querySelector('.key-input');
-    input.value = state.apiKeys[p.id] || '';
-    input.addEventListener('input', () => {
-      state.apiKeys[p.id] = input.value.trim();
-      updateKeysContinue();
-    });
+  const input = document.createElement('input');
+  input.className = 'key-input';
+  input.id = `provider-${providerId}-${field.key}`;
+  input.type = field.type === 'password' ? 'password' : 'text';
+  input.placeholder = field.placeholder;
+  input.autocomplete = 'off';
+  input.spellcheck = false;
+  input.value = getProviderValue(providerId, field.key);
+  input.addEventListener('input', () => {
+    ensureProviderConfig(providerId)[field.key] = input.value;
+    updateKeysContinue();
+  });
+  inputWrap.appendChild(input);
 
-    const eye = row.querySelector('.key-eye');
+  if (field.type === 'password') {
+    const eye = document.createElement('button');
+    eye.type = 'button';
+    eye.className = 'key-eye';
+    eye.title = 'Show or hide';
+    eye.innerHTML = `
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke-width="1.8"/>
+        <circle cx="12" cy="12" r="3" stroke-width="1.8"/>
+      </svg>
+    `;
     eye.addEventListener('click', () => {
       input.type = input.type === 'password' ? 'text' : 'password';
     });
+    inputWrap.appendChild(eye);
+  }
 
-    keysSection.appendChild(row);
-  });
+  wrapper.append(label, inputWrap);
+  return wrapper;
+}
+
+function renderProviderFields() {
+  keysSection.innerHTML = '';
+  if (state.selectedProviders.size === 0) return;
+
+  const heading = document.createElement('div');
+  heading.className = 'keys-copy';
+  heading.innerHTML = `
+    <p class="keys-heading">Connect your selected providers</p>
+    <p class="keys-subheading">Cloud providers use an API key. LM Studio uses a local server URL and the loaded model name.</p>
+  `;
+  keysSection.appendChild(heading);
+
+  PROVIDERS
+    .filter((provider) => state.selectedProviders.has(provider.id))
+    .forEach((provider) => {
+      const card = document.createElement('div');
+      card.className = 'provider-config-card';
+      card.style.setProperty('--p-color', provider.color);
+
+      const header = document.createElement('div');
+      header.className = 'provider-config-header';
+      header.innerHTML = `
+        <div class="provider-config-title">
+          <span class="key-dot"></span>
+          <span>${provider.label}</span>
+        </div>
+        <span class="provider-config-badge">${provider.caption}</span>
+      `;
+
+      const fields = document.createElement('div');
+      fields.className = `provider-config-fields provider-config-fields--${provider.fields.length > 1 ? 'multi' : 'single'}`;
+      provider.fields.forEach((field) => {
+        fields.appendChild(createProviderField(provider.id, field));
+      });
+
+      card.append(header, fields);
+
+      if (provider.hint) {
+        const hint = document.createElement('p');
+        hint.className = 'provider-config-hint';
+        hint.textContent = provider.hint;
+        card.appendChild(hint);
+      }
+
+      keysSection.appendChild(card);
+    });
 }
 
 function updateKeysContinue() {
@@ -208,28 +300,18 @@ function updateKeysContinue() {
     keysContinue.classList.remove('ready');
     return;
   }
-  const allFilled = [...state.selectedProviders].every(id => {
-    const input = document.getElementById(`key-${id}`);
-    return input && input.value.trim().length > 8;
-  });
-  keysContinue.classList.toggle('ready', allFilled);
+
+  const allReady = [...state.selectedProviders].every((providerId) => providerIsComplete(providerId));
+  keysContinue.classList.toggle('ready', allReady);
 }
 
 keysContinue.addEventListener('click', async () => {
   if (!keysContinue.classList.contains('ready')) return;
 
-  state.selectedProviders.forEach(id => {
-    const input = document.getElementById(`key-${id}`);
-    if (input) state.apiKeys[id] = input.value.trim();
-  });
-
   await saveSetup();
   goToStep(3);
 });
 
-/* ══════════════════════════════════════════
-     SAVE — write User.json + Models.json
-   ══════════════════════════════════════════ */
 async function saveSetup() {
   try {
     await window.electronAPI.saveUser({
@@ -243,20 +325,19 @@ async function saveSetup() {
       },
     });
 
-    await window.electronAPI.saveAPIKeys(
+    await window.electronAPI.saveProviderConfigs(
       Object.fromEntries(
-        [...state.selectedProviders].map(id => [id, state.apiKeys[id]])
-      )
+        [...state.selectedProviders].map((providerId) => [
+          providerId,
+          serializeProviderConfig(providerId),
+        ]),
+      ),
     );
-  } catch (err) {
-    console.error('[setup] Save error:', err);
-    // Graceful degradation: still advance
+  } catch (error) {
+    console.error('[setup] Save error:', error);
   }
 }
 
-
-
-// Dot 0 (splash) active on load
-progressDots.forEach((dot, i) => {
-  dot.classList.toggle('active', i === 0);
+progressDots.forEach((dot, index) => {
+  dot.classList.toggle('active', index === 0);
 });

@@ -27,6 +27,7 @@ export function providerLabel(id) {
     google: 'Google',
     openrouter: 'OpenRouter',
     mistral: 'Mistral AI',
+    lmstudio: 'LM Studio',
   };
   return labels[id] ?? id;
 }
