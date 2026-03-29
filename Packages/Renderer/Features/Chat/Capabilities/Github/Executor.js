@@ -5,6 +5,10 @@ const HANDLED = new Set([
     'github_reopen_issue', 'github_comment_on_issue', 'github_list_branches',
     'github_get_releases', 'github_star_repo', 'github_create_gist',
     'github_mark_notifications_read',
+    'github_get_repo_stats', 'github_create_pull_request', 'github_merge_pull_request',
+    'github_close_pull_request', 'github_add_labels', 'github_add_assignees',
+    'github_trigger_workflow', 'github_get_latest_workflow_run', 'github_get_latest_release',
+    'github_get_notification_count',
 ]);
 
 export function handles(toolName) { return HANDLED.has(toolName); }
@@ -209,12 +213,9 @@ export async function execute(toolName, params, onStage = () => { }) {
             if (!owner || !repo) throw new Error('Missing required params: owner, repo');
             const isUnstar = String(action).toLowerCase() === 'unstar';
             onStage(`[GITHUB] ${isUnstar ? 'Unstarring' : 'Starring'} ${owner}/${repo}…`);
-            let res;
-            if (isUnstar) {
-                res = await window.electronAPI?.githubUnstarRepo?.(owner, repo);
-            } else {
-                res = await window.electronAPI?.githubStarRepo?.(owner, repo);
-            }
+            const res = isUnstar
+                ? await window.electronAPI?.githubUnstarRepo?.(owner, repo)
+                : await window.electronAPI?.githubStarRepo?.(owner, repo);
             if (!res?.ok) throw new Error(res?.error ?? 'GitHub error');
             return `${isUnstar ? '⭐ Unstarred' : '⭐ Starred'} ${owner}/${repo} successfully.`;
         }
@@ -242,6 +243,219 @@ export async function execute(toolName, params, onStage = () => { }) {
             const res = await window.electronAPI?.githubMarkNotifsRead?.();
             if (!res?.ok) throw new Error(res?.error ?? 'GitHub error');
             return '✅ All GitHub notifications marked as read.';
+        }
+
+        case 'github_get_repo_stats': {
+            const { owner, repo } = params;
+            if (!owner || !repo) throw new Error('Missing required params: owner, repo');
+            onStage(`[GITHUB] Fetching stats for ${owner}/${repo}…`);
+            const res = await window.electronAPI?.githubGetRepoStats?.(owner, repo);
+            if (!res?.ok) throw new Error(res?.error ?? 'GitHub error');
+            const s = res.stats ?? {};
+            const sizeKb = s.size ?? 0;
+            const sizeFmt = sizeKb >= 1024
+                ? `${(sizeKb / 1024).toFixed(1)} MB`
+                : `${sizeKb} KB`;
+            return [
+                `📊 ${owner}/${repo}`,
+                ``,
+                `⭐ Stars: ${(s.stargazers_count ?? 0).toLocaleString()}`,
+                `🍴 Forks: ${(s.forks_count ?? 0).toLocaleString()}`,
+                `👀 Watchers: ${(s.watchers_count ?? 0).toLocaleString()}`,
+                `🐛 Open issues: ${(s.open_issues_count ?? 0).toLocaleString()}`,
+                `🌿 Default branch: ${s.default_branch ?? 'unknown'}`,
+                s.language ? `💻 Primary language: ${s.language}` : '',
+                `📦 Size: ${sizeFmt}`,
+                s.license?.name ? `📄 License: ${s.license.name}` : '',
+                s.description ? `\n${s.description}` : '',
+                `\n🔗 ${s.html_url ?? `https://github.com/${owner}/${repo}`}`,
+            ].filter(Boolean).join('\n');
+        }
+
+        case 'github_create_pull_request': {
+            const { owner, repo, title, head, base, body = '', draft = false } = params;
+            if (!owner || !repo || !title || !head || !base) {
+                throw new Error('Missing required params: owner, repo, title, head, base');
+            }
+            onStage(`[GITHUB] Creating pull request in ${owner}/${repo}…`);
+            const res = await window.electronAPI?.githubCreatePR?.(owner, repo, {
+                title, head, base, body, draft: Boolean(draft),
+            });
+            if (!res?.ok) throw new Error(res?.error ?? 'GitHub error');
+            const pr = res.pr;
+            return [
+                `✅ Pull request created in ${owner}/${repo}`,
+                ``,
+                `**#${pr.number}: ${pr.title}**`,
+                `${head} → ${base}`,
+                draft ? `Status: Draft` : `Status: Open`,
+                `URL: ${pr.html_url}`,
+            ].join('\n');
+        }
+
+        case 'github_merge_pull_request': {
+            const { owner, repo, pr_number, merge_method = 'merge', commit_title = '' } = params;
+            if (!owner || !repo || !pr_number) throw new Error('Missing required params: owner, repo, pr_number');
+            onStage(`[GITHUB] Merging PR #${pr_number} in ${owner}/${repo}…`);
+            const res = await window.electronAPI?.githubMergePR?.(
+                owner, repo, Number(pr_number), merge_method, commit_title,
+            );
+            if (!res?.ok) throw new Error(res?.error ?? 'GitHub error');
+            return [
+                `✅ PR #${pr_number} merged in ${owner}/${repo}`,
+                `Strategy: ${merge_method}`,
+                res.sha ? `Merge SHA: \`${res.sha.slice(0, 7)}\`` : '',
+                res.message ? `Message: ${res.message}` : '',
+            ].filter(Boolean).join('\n');
+        }
+
+        case 'github_close_pull_request': {
+            const { owner, repo, pr_number } = params;
+            if (!owner || !repo || !pr_number) throw new Error('Missing required params: owner, repo, pr_number');
+            onStage(`[GITHUB] Closing PR #${pr_number} in ${owner}/${repo}…`);
+            const res = await window.electronAPI?.githubClosePR?.(owner, repo, Number(pr_number));
+            if (!res?.ok) throw new Error(res?.error ?? 'GitHub error');
+            const pr = res.pr;
+            return [
+                `✅ PR #${pr_number} closed in ${owner}/${repo}`,
+                `Title: ${pr.title}`,
+                `URL: ${pr.html_url}`,
+            ].join('\n');
+        }
+
+        case 'github_add_labels': {
+            const { owner, repo, issue_number, labels } = params;
+            if (!owner || !repo || !issue_number || !labels) {
+                throw new Error('Missing required params: owner, repo, issue_number, labels');
+            }
+            onStage(`[GITHUB] Adding labels to #${issue_number} in ${owner}/${repo}…`);
+            const labelArray = labels.split(',').map(l => l.trim()).filter(Boolean);
+            const res = await window.electronAPI?.githubAddLabels?.(owner, repo, Number(issue_number), labelArray);
+            if (!res?.ok) throw new Error(res?.error ?? 'GitHub error');
+            const applied = (res.labels ?? []).map(l => l.name ?? l).join(', ');
+            return [
+                `✅ Labels added to ${owner}/${repo}#${issue_number}`,
+                `Applied: ${applied || labelArray.join(', ')}`,
+            ].join('\n');
+        }
+
+        case 'github_add_assignees': {
+            const { owner, repo, issue_number, assignees } = params;
+            if (!owner || !repo || !issue_number || !assignees) {
+                throw new Error('Missing required params: owner, repo, issue_number, assignees');
+            }
+            onStage(`[GITHUB] Adding assignees to #${issue_number} in ${owner}/${repo}…`);
+            const assigneeArray = assignees.split(',').map(a => a.trim()).filter(Boolean);
+            const res = await window.electronAPI?.githubAddAssignees?.(owner, repo, Number(issue_number), assigneeArray);
+            if (!res?.ok) throw new Error(res?.error ?? 'GitHub error');
+            return [
+                `✅ Assignees added to ${owner}/${repo}#${issue_number}`,
+                `Assigned: ${assigneeArray.map(a => `@${a}`).join(', ')}`,
+            ].join('\n');
+        }
+
+        case 'github_trigger_workflow': {
+            const { owner, repo, workflow_id, ref = 'main', inputs } = params;
+            if (!owner || !repo || !workflow_id) {
+                throw new Error('Missing required params: owner, repo, workflow_id');
+            }
+            onStage(`[GITHUB] Triggering workflow "${workflow_id}" on ${owner}/${repo}@${ref}…`);
+            let parsedInputs = {};
+            if (inputs) {
+                try { parsedInputs = JSON.parse(inputs); } catch { /* ignore malformed */ }
+            }
+            const res = await window.electronAPI?.githubTriggerWorkflow?.(
+                owner, repo, workflow_id, ref, parsedInputs,
+            );
+            if (!res?.ok) throw new Error(res?.error ?? 'GitHub error');
+            return [
+                `✅ Workflow dispatched`,
+                `Workflow: ${workflow_id}`,
+                `Repo: ${owner}/${repo}`,
+                `Branch/ref: ${ref}`,
+                Object.keys(parsedInputs).length
+                    ? `Inputs: ${JSON.stringify(parsedInputs)}`
+                    : '',
+                `\nThe run should appear in the Actions tab shortly.`,
+            ].filter(Boolean).join('\n');
+        }
+
+        case 'github_get_latest_workflow_run': {
+            const { owner, repo, workflow_id, branch = '' } = params;
+            if (!owner || !repo || !workflow_id) {
+                throw new Error('Missing required params: owner, repo, workflow_id');
+            }
+            onStage(`[GITHUB] Fetching latest run for "${workflow_id}" in ${owner}/${repo}…`);
+            const res = await window.electronAPI?.githubGetLatestWorkflowRun?.(
+                owner, repo, workflow_id, branch,
+            );
+            if (!res?.ok) throw new Error(res?.error ?? 'GitHub error');
+            const run = res.run;
+            if (!run) return `No runs found for workflow "${workflow_id}" in ${owner}/${repo}.`;
+            const started = run.created_at
+                ? new Date(run.created_at).toLocaleString()
+                : 'unknown';
+            const conclusion = run.conclusion ?? 'in progress';
+            const conclusionEmoji = {
+                success: '✅', failure: '❌', cancelled: '⚠️', skipped: '⏭️',
+            }[conclusion] ?? '🔄';
+            return [
+                `${conclusionEmoji} Latest run for \`${workflow_id}\` in ${owner}/${repo}`,
+                ``,
+                `Run #${run.run_number ?? '?'} — ${run.name ?? workflow_id}`,
+                `Status: ${run.status} / Conclusion: ${conclusion}`,
+                `Branch: ${run.head_branch ?? (branch || 'unknown')}`
+                `Event: ${run.event ?? 'unknown'}`,
+                `Started: ${started}`,
+                `URL: ${run.html_url ?? `https://github.com/${owner}/${repo}/actions`}`,
+            ].join('\n');
+        }
+
+        case 'github_get_latest_release': {
+            const { owner, repo } = params;
+            if (!owner || !repo) throw new Error('Missing required params: owner, repo');
+            onStage(`[GITHUB] Fetching latest release for ${owner}/${repo}…`);
+            const res = await window.electronAPI?.githubGetLatestRelease?.(owner, repo);
+            if (!res?.ok) throw new Error(res?.error ?? 'GitHub error');
+            const r = res.release;
+            if (!r) return `No releases found for ${owner}/${repo}.`;
+            const published = r.published_at
+                ? new Date(r.published_at).toLocaleDateString()
+                : 'unknown date';
+            const notes = (r.body ?? '').trim().slice(0, 300);
+            return [
+                `🏷️ Latest release: **${r.name || r.tag_name}** (${r.tag_name})`,
+                `Published: ${published}`,
+                r.prerelease ? `Status: Pre-release` : `Status: Stable`,
+                notes ? `\nRelease notes:\n${notes}${r.body?.length > 300 ? '\n…(truncated)' : ''}` : '',
+                `\nURL: ${r.html_url}`,
+            ].filter(Boolean).join('\n');
+        }
+
+        case 'github_get_notification_count': {
+            onStage(`[GITHUB] Counting unread notifications…`);
+            const res = await window.electronAPI?.githubGetNotifications?.();
+            if (!res?.ok) throw new Error(res?.error ?? 'GitHub error');
+            const notifications = res.notifications ?? [];
+            if (!notifications.length) return '📭 No unread GitHub notifications.';
+
+            // Group by repo
+            const byRepo = {};
+            for (const n of notifications) {
+                const repoName = n.repository?.full_name ?? 'unknown';
+                byRepo[repoName] = (byRepo[repoName] ?? 0) + 1;
+            }
+            const repoLines = Object.entries(byRepo)
+                .sort(([, a], [, b]) => b - a)
+                .slice(0, 10)
+                .map(([name, count]) => `  • ${name}: ${count}`);
+
+            return [
+                `🔔 You have **${notifications.length}** unread GitHub notification${notifications.length !== 1 ? 's' : ''}`,
+                ``,
+                `By repository:`,
+                ...repoLines,
+            ].join('\n');
         }
 
         default:
