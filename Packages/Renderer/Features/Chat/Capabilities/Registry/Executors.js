@@ -14,7 +14,6 @@ import * as AstronomyExecutor from '../Astronomy/Executor.js';
 import * as HackerNewsExecutor from '../HackerNews/Executor.js';
 import * as UrlExecutor from '../Url/Executor.js';
 import * as TerminalExecutor from '../Terminal/Executor.js';
-import * as RepoExecutor from '../Repo/Executor.js';
 import * as ReviewExecutor from '../Review/Executor.js';
 import * as UtilityExecutor from '../Utility/Executor.js';
 import * as MCPExecutor from '../MCP/Executor.js';
@@ -40,7 +39,6 @@ const EXECUTORS = [
   HackerNewsExecutor,
   UrlExecutor,
   TerminalExecutor,
-  RepoExecutor,
   ReviewExecutor,
   UtilityExecutor,
   SearchExecutor,

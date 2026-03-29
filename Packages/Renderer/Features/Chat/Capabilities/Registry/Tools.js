@@ -15,7 +15,6 @@ import { ASTRONOMY_TOOLS } from '../Astronomy/Tools.js';
 import { HACKERNEWS_TOOLS } from '../HackerNews/Tools.js';
 import { URL_TOOLS } from '../Url/Tools.js';
 import { TERMINAL_TOOLS } from '../Terminal/Tools.js';
-import { REPO_TOOLS } from '../Repo/Tools.js';
 import { REVIEW_TOOLS } from '../Review/Tools.js';
 import { UTILITY_TOOLS } from '../Utility/Tools.js';
 import { SEARCH_TOOLS } from '../Search/Tools.js';
@@ -26,7 +25,7 @@ import { PASSWORD_TOOLS } from '../Password/Tools.js';
 export {
   GMAIL_TOOLS, GITHUB_TOOLS, WEATHER_TOOLS, CRYPTO_TOOLS, FINANCE_TOOLS, PHOTO_TOOLS,
   WIKI_TOOLS, GEO_TOOLS, FUN_TOOLS, JOKE_TOOLS, QUOTE_TOOLS, COUNTRY_TOOLS,
-  ASTRONOMY_TOOLS, HACKERNEWS_TOOLS, URL_TOOLS, TERMINAL_TOOLS, REPO_TOOLS, REVIEW_TOOLS,
+  ASTRONOMY_TOOLS, HACKERNEWS_TOOLS, URL_TOOLS, TERMINAL_TOOLS, REVIEW_TOOLS,
   UTILITY_TOOLS, SEARCH_TOOLS, DICTIONARY_TOOLS, DATETIME_TOOLS, PASSWORD_TOOLS,
 };
 
@@ -47,7 +46,6 @@ export const STATIC_TOOLS = [
   ...HACKERNEWS_TOOLS,
   ...URL_TOOLS,
   ...TERMINAL_TOOLS,
-  ...REPO_TOOLS,
   ...REVIEW_TOOLS,
   ...UTILITY_TOOLS,
   ...SEARCH_TOOLS,
@@ -62,8 +60,6 @@ export const TOOLS = STATIC_TOOLS;
 const CATEGORY_TO_CONNECTOR = {
   gmail: 'gmail',
   github: 'github',
-  github_repo: 'github',
-  github_review: 'github',
   open_meteo: 'open_meteo',
   coingecko: 'coingecko',
   exchange_rate: 'exchange_rate',
