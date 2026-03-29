@@ -1,8 +1,3 @@
-/* ══════════════════════════════════════════
-   Joanium — Automations page styles
-   Inherits design tokens from Root.css / Themes.css
-══════════════════════════════════════════ */
-
 /* ── Page layout ── */
 .automations-main {
   flex: 1;

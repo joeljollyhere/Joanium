@@ -1,9 +1,3 @@
-/* ══════════════════════════════════════════
-   Joanium — Connectors.css
-   Styles for the Connectors settings panel
-   (Gmail, GitHub connector cards)
-══════════════════════════════════════════ */
-
 /* ── Panel wrapper ── */
 .connector-list {
   display: flex;

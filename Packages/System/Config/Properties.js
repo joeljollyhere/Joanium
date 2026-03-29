@@ -10,7 +10,7 @@ export const Properties = {
   license: 'MIT',
 
   get repository() {
-    return `https://github.com/withinJoel/${this.name}`;
+    return `https://github.com/${this.name}/${this.name}`;
   },
 };
 
