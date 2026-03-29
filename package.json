@@ -1,5 +1,5 @@
 {
-  "name": "Evelina",
+  "name": "Joanium",
   "version": "0.1.0",
   "description": "Your AI assistant.",
   "type": "module",
@@ -11,7 +11,7 @@
     "lint": "eslint ."
   },
   "keywords": [
-    "Evelina",
+    "Joanium",
     "electron",
     "automation",
     "integration",
@@ -36,8 +36,8 @@
     "eslint": "^10.1.0"
   },
   "build": {
-    "appId": "com.Evelina.app",
-    "productName": "Evelina",
+    "appId": "com.Joanium.app",
+    "productName": "Joanium",
     "directories": {
       "output": "dist"
     },

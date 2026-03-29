@@ -63,7 +63,7 @@ function buildOpenAIStyleHeaders(providerId, authHeader, authPrefix, apiKey) {
     'content-type': 'application/json',
     ...(authHeader && apiKey ? { [authHeader]: `${authPrefix}${apiKey}` } : {}),
     ...(providerId === 'openrouter'
-      ? { 'HTTP-Referer': 'https://romelson.app', 'X-Title': 'Evelina' }
+      ? { 'HTTP-Referer': 'https://romelson.app', 'X-Title': 'Joanium' }
       : {}),
   };
 }
@@ -481,12 +481,12 @@ export async function fetchStreamingWithTools(
     body.tool_choice = 'auto';
   }
 
-    const res = await fetch(endpoint, {
-      method: 'POST',
-      headers: buildOpenAIStyleHeaders(providerId, auth_header, auth_prefix, api),
-      body: JSON.stringify(body),
-      signal,
-    });
+  const res = await fetch(endpoint, {
+    method: 'POST',
+    headers: buildOpenAIStyleHeaders(providerId, auth_header, auth_prefix, api),
+    body: JSON.stringify(body),
+    signal,
+  });
   if (!res.ok) {
     const e = await res.json().catch(() => ({}));
     throw new Error(e?.error?.message ?? `HTTP ${res.status}`);

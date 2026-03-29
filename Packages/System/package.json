@@ -1,8 +1,8 @@
 {
-  "name": "@evelina/system",
+  "name": "@Joanium/system",
   "private": true,
   "type": "module",
-  "description": "System prompt and shared system metadata modules for Evelina.",
+  "description": "System prompt and shared system metadata modules for Joanium.",
   "main": "./index.js",
   "exports": {
     ".": "./index.js"

@@ -95,7 +95,7 @@ async function callModel(providerData, modelId, systemPrompt, userMessage) {
     headers: {
       'content-type': 'application/json',
       ...(auth_header && apiKey ? { [auth_header]: `${auth_prefix}${apiKey}` } : {}),
-      ...(pid === 'openrouter' ? { 'HTTP-Referer': 'https://romelson.app', 'X-Title': 'Evelina' } : {}),
+      ...(pid === 'openrouter' ? { 'HTTP-Referer': 'https://romelson.app', 'X-Title': 'Joanium' } : {}),
     },
     body: JSON.stringify({
       model: modelId,

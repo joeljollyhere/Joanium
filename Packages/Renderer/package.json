@@ -1,8 +1,8 @@
 {
-  "name": "@evelina/renderer",
+  "name": "@Joanium/renderer",
   "private": true,
   "type": "module",
-  "description": "Renderer-process JavaScript package for Evelina.",
+  "description": "Renderer-process JavaScript package for Joanium.",
   "main": "./Application/Main.js",
   "exports": {
     ".": "./Application/Main.js"

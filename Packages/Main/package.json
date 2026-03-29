@@ -1,8 +1,8 @@
 {
-  "name": "@evelina/main",
+  "name": "@Joanium/main",
   "private": true,
   "type": "module",
-  "description": "Main-process application modules for Evelina.",
+  "description": "Main-process application modules for Joanium.",
   "main": "./index.js",
   "exports": {
     ".": "./index.js"

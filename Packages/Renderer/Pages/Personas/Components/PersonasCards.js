@@ -44,7 +44,7 @@ export function buildDefaultCard({ isActive, searchQuery, onActivate, onChat }) 
     </div>
     <div class="persona-info">
       <div class="persona-name">Default Assistant</div>
-      <div class="persona-description">The standard Evelina AI - helpful, accurate, and contextually aware of your system, repos, and email.</div>
+      <div class="persona-description">The standard Joanium AI - helpful, accurate, and contextually aware of your system, repos, and email.</div>
     </div>
     <div class="persona-personality">
       <span class="persona-tag">helpful</span>
@@ -53,8 +53,8 @@ export function buildDefaultCard({ isActive, searchQuery, onActivate, onChat }) 
     </div>
     <div class="persona-card-footer">
       ${isActive
-        ? `<button class="persona-status-btn" disabled>Currently active</button>`
-        : `<button class="persona-activate-btn" type="button">Set active</button>`}
+      ? `<button class="persona-status-btn" disabled>Currently active</button>`
+      : `<button class="persona-activate-btn" type="button">Set active</button>`}
       <button class="persona-chat-btn" type="button">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
           <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" stroke-linecap="round" stroke-linejoin="round"/>
@@ -110,8 +110,8 @@ export function buildPersonaCard({ persona, isActive, onActivate, onDeactivate, 
     ${tags ? `<div class="persona-personality">${tags}</div>` : ''}
     <div class="persona-card-footer">
       ${isActive
-        ? `<button class="persona-deactivate-btn" type="button">Deactivate</button>`
-        : `<button class="persona-activate-btn" type="button">Activate</button>`}
+      ? `<button class="persona-deactivate-btn" type="button">Deactivate</button>`
+      : `<button class="persona-activate-btn" type="button">Activate</button>`}
       <button class="persona-chat-btn" type="button">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
           <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" stroke-linecap="round" stroke-linejoin="round"/>

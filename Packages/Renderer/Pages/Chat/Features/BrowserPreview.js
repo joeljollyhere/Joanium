@@ -77,7 +77,7 @@ export function createBrowserPreviewFeature() {
     }
 
     if (browserPreviewUrl) {
-      browserPreviewUrl.textContent = currentState.url || 'AI browser activity will appear here once Evelina starts navigating.';
+      browserPreviewUrl.textContent = currentState.url || 'AI browser activity will appear here once Joanium starts navigating.';
       browserPreviewUrl.title = currentState.url || 'Built-in Browser';
     }
 

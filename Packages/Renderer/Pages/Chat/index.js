@@ -154,7 +154,7 @@ export function mount(outlet, { settings, navigate }) {
   syncWelcomeTitle();
   syncWelcomeSubtitle();
 
-  const APP_NAME = 'Evelina';
+  const APP_NAME = 'Joanium';
   document.title = APP_NAME;
 
   syncProjectUI();

@@ -141,7 +141,7 @@ function buildAvatarPanelHTML() {
       <div class="ap-badge" id="avatar-panel-badge">OW</div>
       <div class="ap-user-info">
         <span class="ap-name"    id="avatar-panel-name">User</span>
-        <span class="ap-subtitle">Evelina account</span>
+        <span class="ap-subtitle">Joanium account</span>
       </div>
     </div>
 

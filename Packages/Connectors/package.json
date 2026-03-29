@@ -1,8 +1,8 @@
 {
-  "name": "@evelina/connectors",
+  "name": "@Joanium/connectors",
   "private": true,
   "type": "module",
-  "description": "Connector integrations and credential management for Evelina.",
+  "description": "Connector integrations and credential management for Joanium.",
   "main": "./index.js",
   "exports": {
     ".": "./index.js"

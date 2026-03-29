@@ -56,7 +56,7 @@ export function getAutomationsHTML() {
         <div class="trigger-options">
           <div class="trigger-option selected" data-trigger="on_startup">
             <div class="trigger-radio"></div>
-            <div><div class="trigger-option-text">⚡ On app startup</div><div class="trigger-option-sub">Runs every time Evelina is launched</div></div>
+            <div><div class="trigger-option-text">⚡ On app startup</div><div class="trigger-option-sub">Runs every time Joanium is launched</div></div>
           </div>
           <div class="trigger-option" data-trigger="interval">
             <div class="trigger-radio"></div>

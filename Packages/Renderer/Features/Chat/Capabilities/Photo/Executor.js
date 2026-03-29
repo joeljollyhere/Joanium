@@ -24,7 +24,7 @@ export async function execute(toolName, params, onStage = () => { }) {
             `1. Go to unsplash.com/developers`,
             `2. Create a free account and register an app`,
             `3. Copy your Access Key`,
-            `4. In Evelina: Settings → Connectors → Unsplash → Add key`,
+            `4. In Joanium: Settings → Connectors → Unsplash → Add key`,
             ``,
             `The free tier allows 50 requests/hour.`,
         ].join('\n');

@@ -181,7 +181,7 @@ export async function loadProviders() {
     state.providers = [];
     state.selectedProvider = null;
     state.selectedModel = null;
-    if (modelLabel) modelLabel.textContent = 'Evelina';
+    if (modelLabel) modelLabel.textContent = 'Joanium';
     if (modelDropdown) modelDropdown.innerHTML = '';
     notifyModelSelectionChanged();
   }

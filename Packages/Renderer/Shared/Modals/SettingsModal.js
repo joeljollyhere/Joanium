@@ -64,7 +64,7 @@ function buildHTML() {
               <section class="settings-panel" data-settings-panel="providers" hidden>
                 <div class="settings-panel-header">
                   <h3>AI Providers</h3>
-                  <p>Connect hosted models with API keys or point Evelina at local Ollama or LM Studio servers. Connected providers show up in the model selector immediately.</p>
+                  <p>Connect hosted models with API keys or point Joanium at local Ollama or LM Studio servers. Connected providers show up in the model selector immediately.</p>
                 </div>
                 <div id="settings-providers-list" class="providers-stack">
                   <div class="ap-empty-hint">Loading...</div>

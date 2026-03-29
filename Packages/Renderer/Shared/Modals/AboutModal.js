@@ -24,7 +24,7 @@ function buildHTML() {
             </svg>
           </div>
 
-          <div class="about-app-name" id="about-modal-title">Evelina</div>
+          <div class="about-app-name" id="about-modal-title">Joanium</div>
           <div class="about-version" id="about-version">v1.0.0</div>
 
           <p class="about-description">

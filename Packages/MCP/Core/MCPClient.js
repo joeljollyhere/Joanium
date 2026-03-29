@@ -4,7 +4,7 @@ import { createInterface } from 'readline';
 import { getBuiltinBrowserServer } from '../Builtin/BrowserMCPServer.js';
 
 const PROTOCOL_VERSION = '2024-11-05';
-const CLIENT_INFO = { name: 'Evelina', version: '0.1.0' };
+const CLIENT_INFO = { name: 'Joanium', version: '0.1.0' };
 
 /* ══════════════════════════════════════════
    BASE MCP SESSION

@@ -1,4 +1,4 @@
-export const APP_NAME = 'Evelina';
+export const APP_NAME = 'Joanium';
 
 export default {
   APP_NAME,

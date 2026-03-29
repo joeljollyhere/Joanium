@@ -198,7 +198,7 @@ export class BrowserPreviewService extends EventEmitter {
     if (!this._view) {
       this._view = new BrowserView({
         webPreferences: {
-          partition: 'persist:evelina-browser-mcp',
+          partition: 'persist:Joanium-browser-mcp',
           contextIsolation: true,
           nodeIntegration: false,
           sandbox: false,

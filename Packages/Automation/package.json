@@ -1,8 +1,8 @@
 {
-  "name": "@evelina/automation",
+  "name": "@Joanium/automation",
   "private": true,
   "type": "module",
-  "description": "Automation engine and action executors for Evelina.",
+  "description": "Automation engine and action executors for Joanium.",
   "main": "./index.js",
   "exports": {
     ".": "./index.js"

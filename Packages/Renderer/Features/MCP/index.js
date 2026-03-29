@@ -87,7 +87,7 @@ function transportLabel(transport = 'stdio') {
 
 function buildServerSummary(server) {
   if (server.transport === 'builtin') {
-    return escapeHtml(server.description || 'Built into Evelina and ready without extra setup.');
+    return escapeHtml(server.description || 'Built into Joanium and ready without extra setup.');
   }
 
   if (server.transport === 'http') {
@@ -151,7 +151,7 @@ function buildEditorCard() {
 
       <label class="mcp-checkbox-row">
         <input id="mcp-server-enabled" type="checkbox" ${server.enabled !== false ? 'checked' : ''} />
-        <span>Connect automatically when Evelina launches</span>
+        <span>Connect automatically when Joanium launches</span>
       </label>
 
       <div id="mcp-stdio-fields" ${isHttp ? 'hidden' : ''}>
@@ -184,7 +184,7 @@ function buildEditorCard() {
                  value="${escapeHtml(server.url ?? '')}" />
         </label>
         <div class="mcp-inline-note">
-          Use the base MCP server URL. Evelina will call the MCP endpoint automatically.
+          Use the base MCP server URL. Joanium will call the MCP endpoint automatically.
         </div>
       </div>
 

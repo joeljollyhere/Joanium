@@ -105,7 +105,7 @@ export function getChatHTML() {
               <span id="browser-preview-status-dot" class="browser-preview-status-dot is-idle" aria-hidden="true"></span>
             </div>
           </div>
-          <p id="browser-preview-url" class="browser-preview-url">AI browser activity will appear here once Evelina starts navigating.</p>
+          <p id="browser-preview-url" class="browser-preview-url">AI browser activity will appear here once Joanium starts navigating.</p>
           <p id="browser-preview-status" class="browser-preview-status-text"></p>
         </div>
       </div>
@@ -119,7 +119,7 @@ export function getChatHTML() {
             <path d="M9 14h6M12 11v6"></path>
           </svg>
           <p class="browser-preview-empty-title">Watch the AI browser work live</p>
-          <p class="browser-preview-empty-copy">Ask Evelina to open a site, search, compare options, or fill a form and the live page will show up here.</p>
+          <p class="browser-preview-empty-copy">Ask Joanium to open a site, search, compare options, or fill a form and the live page will show up here.</p>
         </div>
       </div>
     </div>

@@ -1,8 +1,8 @@
 {
-  "name": "@evelina/mcp",
+  "name": "@Joanium/mcp",
   "private": true,
   "type": "module",
-  "description": "Model Context Protocol client modules for Evelina.",
+  "description": "Model Context Protocol client modules for Joanium.",
   "main": "./index.js",
   "exports": {
     ".": "./index.js"

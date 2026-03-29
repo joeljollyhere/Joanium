@@ -309,7 +309,7 @@ export function initProjectsModal({
       item.querySelector('.project-delete-btn')?.addEventListener('click', async () => {
         const confirmed = await showConfirm(
           'Remove project',
-          `Remove "${project.name}" from Evelina and delete its saved project chats? Your local folder will not be touched.`
+          `Remove "${project.name}" from Joanium and delete its saved project chats? Your local folder will not be touched.`
         );
         if (!confirmed) return;
 

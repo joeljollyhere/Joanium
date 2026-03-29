@@ -2182,7 +2182,7 @@ export class BrowserMCPServer {
     this._preview.setStatus('Capturing screenshot');
     const image = await webContents.capturePage();
     const safeName = String(fileName ?? '').trim().replace(/[<>:"/\\|?*]+/g, '-');
-    const finalName = safeName ? (safeName.endsWith('.png') ? safeName : `${safeName}.png`) : `evelina-browser-${Date.now()}.png`;
+    const finalName = safeName ? (safeName.endsWith('.png') ? safeName : `${safeName}.png`) : `Joanium-browser-${Date.now()}.png`;
     const screenshotPath = path.join(app.getPath('temp'), finalName);
     fs.writeFileSync(screenshotPath, image.toPNG());
     this._preview.clearStatus();
