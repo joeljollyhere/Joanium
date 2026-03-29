@@ -1,4 +1,4 @@
-# Joanium
+<img width="699" height="161" alt="Screenshot 2026-03-29 204551" src="https://github.com/user-attachments/assets/a1f5c259-66c5-4203-9ff4-21876ba9f5a1" />
 
 > Your desktop AI workspace. Local-first, project-aware, and built to actually help you get work done. ⚡
 
