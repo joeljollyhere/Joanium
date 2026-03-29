@@ -57,6 +57,12 @@
       "Icons/Logo.icns",
       "Icons/Logo.png"
     ],
+    "extraResources": [
+      {
+        "from": "Data/Models.json",
+        "to": "Data/Models.json"
+      }
+    ],
     "win": {
       "icon": "Icons/Logo.ico"
     },

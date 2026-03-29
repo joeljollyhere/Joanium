@@ -1,38 +1,44 @@
 import { fileURLToPath } from 'url';
 import path from 'path';
+import { app } from 'electron';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Two levels up from Packages/Main/ → project root
+// Two levels up from Packages/Main/ → project root (inside ASAR when packaged)
 const ROOT = path.resolve(__dirname, '..', '..', '..');
+
+// ── External root (outside ASAR) ────────────────────────────────────
+// In production: resources/ folder beside app.asar (writable, not encrypted)
+// In development: project root itself (same as ROOT)
+const EXTERNAL = app.isPackaged ? process.resourcesPath : ROOT;
 
 export const Paths = {
   ROOT,
 
-  // Data
-  DATA_DIR: path.join(ROOT, 'Data'),
-  USER_FILE: path.join(ROOT, 'Data', 'User.json'),
-  MODELS_FILE: path.join(ROOT, 'Data', 'Models.json'),
-  CUSTOM_INSTRUCTIONS_FILE: path.join(ROOT, 'Data', 'CustomInstructions.md'),
-  MEMORY_FILE: path.join(ROOT, 'Data', 'Memory.md'),
-  CHATS_DIR: path.join(ROOT, 'Data', 'Chats'),
-  PROJECTS_DIR: path.join(ROOT, 'Data', 'Projects'),
-  AUTOMATIONS_FILE: path.join(ROOT, 'Data', 'Automations.json'),
-  SKILLS_FILE: path.join(ROOT, 'Data', 'Skills.json'),
-  CONNECTORS_FILE: path.join(ROOT, 'Data', 'Connectors.json'),
-  ACTIVE_PERSONA_FILE: path.join(ROOT, 'Data', 'ActivePersona.json'),
-  USAGE_FILE: path.join(ROOT, 'Data', 'Usage.json'),
-  AGENTS_FILE: path.join(ROOT, 'Data', 'Agents.json'),
-  CHANNELS_FILE: path.join(ROOT, 'Data', 'Channels.json'),
-  MCP_FILE: path.join(ROOT, 'Data', 'MCPServers.json'),
-  WINDOW_STATE_FILE: path.join(ROOT, 'Data', 'WindowState.json'),
+  // Data (mutable — outside ASAR in production)
+  DATA_DIR: path.join(EXTERNAL, 'Data'),
+  USER_FILE: path.join(EXTERNAL, 'Data', 'User.json'),
+  MODELS_FILE: path.join(EXTERNAL, 'Data', 'Models.json'),
+  CUSTOM_INSTRUCTIONS_FILE: path.join(EXTERNAL, 'Data', 'CustomInstructions.md'),
+  MEMORY_FILE: path.join(EXTERNAL, 'Data', 'Memory.md'),
+  CHATS_DIR: path.join(EXTERNAL, 'Data', 'Chats'),
+  PROJECTS_DIR: path.join(EXTERNAL, 'Data', 'Projects'),
+  AUTOMATIONS_FILE: path.join(EXTERNAL, 'Data', 'Automations.json'),
+  SKILLS_FILE: path.join(EXTERNAL, 'Data', 'Skills.json'),
+  CONNECTORS_FILE: path.join(EXTERNAL, 'Data', 'Connectors.json'),
+  ACTIVE_PERSONA_FILE: path.join(EXTERNAL, 'Data', 'ActivePersona.json'),
+  USAGE_FILE: path.join(EXTERNAL, 'Data', 'Usage.json'),
+  AGENTS_FILE: path.join(EXTERNAL, 'Data', 'Agents.json'),
+  CHANNELS_FILE: path.join(EXTERNAL, 'Data', 'Channels.json'),
+  MCP_FILE: path.join(EXTERNAL, 'Data', 'MCPServers.json'),
+  WINDOW_STATE_FILE: path.join(EXTERNAL, 'Data', 'WindowState.json'),
 
-  // Skills & Personas directories (project root)
-  SKILLS_DIR: path.join(ROOT, 'Skills'),
-  PERSONAS_DIR: path.join(ROOT, 'Personas'),
+  // Skills & Personas (outside ASAR — downloadable/editable)
+  SKILLS_DIR: path.join(EXTERNAL, 'Skills'),
+  PERSONAS_DIR: path.join(EXTERNAL, 'Personas'),
 
-  // Electron
+  // Electron (code/pages — stays inside ASAR, read-only is fine)
   PRELOAD: path.join(ROOT, 'Packages', 'Electron', 'Bridge', 'Preload.js'),
   SETUP_PAGE: path.join(ROOT, 'Public', 'Setup.html'),
   INDEX_PAGE: path.join(ROOT, 'Public', 'index.html'),
