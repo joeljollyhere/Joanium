@@ -59,8 +59,16 @@
     ],
     "extraResources": [
       {
-        "from": "Data/Models.json",
-        "to": "Data/Models.json"
+        "from": "Config/Models.json",
+        "to": "Config/Models.json"
+      },
+      {
+        "from": "Config/User.json",
+        "to": "Config/User.json"
+      },
+      {
+        "from": "Config/WindowState.json",
+        "to": "Config/WindowState.json"
       },
       {
         "from": "Skills",

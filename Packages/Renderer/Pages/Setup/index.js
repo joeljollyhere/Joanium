@@ -31,13 +31,7 @@ const doneTitle = document.getElementById('done-title');
 const STEP_ELS = [stepSplash, stepName, stepProviders, stepDone];
 
 const { goToStep: baseGoToStep } = initStepController({
-  state,
-  STEP_ELS,
-  setupLogo,
-  progressTrack,
-  progressDots,
-  nameInput,
-  doneTitle,
+  state, STEP_ELS, setupLogo, progressTrack, progressDots, nameInput, doneTitle,
 });
 
 function goToStep(nextStep) {
@@ -45,15 +39,14 @@ function goToStep(nextStep) {
   if (nextStep === 2) buildProviderGrid();
 }
 
+// ── Config helpers ────────────────────────────────────────────────────────────
+
 function ensureProviderConfig(providerId) {
   const provider = PROVIDERS_BY_ID[providerId];
   const config = { ...(state.providerConfigs[providerId] ?? {}) };
 
   provider?.fields?.forEach((field) => {
-    if (
-      field.defaultValue != null &&
-      (config[field.key] == null || config[field.key] === '')
-    ) {
+    if (field.defaultValue != null && (config[field.key] == null || config[field.key] === '')) {
       config[field.key] = field.defaultValue;
     }
   });
@@ -69,7 +62,6 @@ function getProviderValue(providerId, fieldKey) {
 function providerIsComplete(providerId) {
   const provider = PROVIDERS_BY_ID[providerId];
   if (!provider) return false;
-
   return provider.fields.every((field) => {
     if (!field.required) return true;
     return getProviderValue(providerId, field.key).trim().length >= (field.minLength ?? 1);
@@ -80,32 +72,33 @@ function serializeProviderConfig(providerId) {
   const provider = PROVIDERS_BY_ID[providerId];
   const config = ensureProviderConfig(providerId);
   const payload = {};
-
   provider?.fields?.forEach((field) => {
     payload[field.key] = String(config[field.key] ?? '').trim();
   });
-
   return payload;
 }
+
+// ── Splash particles ──────────────────────────────────────────────────────────
 
 (function spawnParticles() {
   const canvas = document.getElementById('splash-canvas');
   if (!canvas) return;
-
-  for (let index = 0; index < 18; index += 1) {
-    const particle = document.createElement('div');
-    particle.className = 'particle';
+  for (let i = 0; i < 18; i++) {
+    const p = document.createElement('div');
+    p.className = 'particle';
     const size = 2 + Math.random() * 4;
-    particle.style.cssText = `
+    p.style.cssText = `
       width:${size}px; height:${size}px;
       left:${Math.random() * 100}%;
       bottom:${Math.random() * 40}%;
       --dur:${4 + Math.random() * 6}s;
       --delay:-${Math.random() * 5}s;
     `;
-    canvas.appendChild(particle);
+    canvas.appendChild(p);
   }
 }());
+
+// ── Splash step ───────────────────────────────────────────────────────────────
 
 tcCheck.addEventListener('change', () => {
   const checked = tcCheck.checked;
@@ -118,13 +111,14 @@ splashContinue.addEventListener('click', () => {
   goToStep(1);
 });
 
+// ── Name step ─────────────────────────────────────────────────────────────────
+
 nameInput.addEventListener('input', () => {
-  const value = nameInput.value.trim();
-  nameContinue.classList.toggle('ready', value.length >= 2);
+  nameContinue.classList.toggle('ready', nameInput.value.trim().length >= 2);
 });
 
-nameInput.addEventListener('keydown', (event) => {
-  if (event.key === 'Enter') tryAdvanceFromName();
+nameInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') tryAdvanceFromName();
 });
 
 nameContinue.addEventListener('click', tryAdvanceFromName);
@@ -136,13 +130,14 @@ function tryAdvanceFromName() {
   goToStep(2);
 }
 
+// ── Provider grid ─────────────────────────────────────────────────────────────
+
 function bindProviderCardIcon(card, provider) {
   const image = card.querySelector('.p-icon-image');
   if (!image || !provider.iconPath) {
     card.classList.add('icon-missing');
     return;
   }
-
   image.addEventListener('error', () => card.classList.add('icon-missing'));
   image.addEventListener('load', () => card.classList.remove('icon-missing'));
   if (image.complete && image.naturalWidth === 0) card.classList.add('icon-missing');
@@ -150,6 +145,9 @@ function bindProviderCardIcon(card, provider) {
 
 function buildProviderGrid() {
   providerGrid.innerHTML = '';
+
+  const row = document.createElement('div');
+  row.className = 'provider-row';
 
   PROVIDERS.forEach((provider) => {
     const card = document.createElement('button');
@@ -165,6 +163,7 @@ function buildProviderGrid() {
     card.setAttribute('aria-pressed', String(isSelected));
     card.style.setProperty('--p-color', provider.color);
     if (provider.iconSize) card.style.setProperty('--p-icon-size', provider.iconSize);
+
     card.innerHTML = `
       <span class="p-check" aria-hidden="true">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -183,34 +182,81 @@ function buildProviderGrid() {
 
     if (isSelected) card.classList.add('selected');
     bindProviderCardIcon(card, provider);
-    card.addEventListener('click', () => toggleProvider(provider.id, card));
-    providerGrid.appendChild(card);
+
+    // Only fire click if NOT a drag scroll
+    card.addEventListener('click', () => {
+      if (providerGrid._wasDragging) return;
+      toggleProvider(provider.id);
+    });
+
+    row.appendChild(card);
+  });
+
+  providerGrid.appendChild(row);
+  initDragScroll(providerGrid);
+}
+
+// ── Drag-to-scroll ────────────────────────────────────────────────────────────
+
+function initDragScroll(el) {
+  let isDown = false;
+  let startX = 0;
+  let scrollLeft = 0;
+
+  el._wasDragging = false;
+
+  el.addEventListener('mousedown', (e) => {
+    isDown = true;
+    startX = e.pageX - el.offsetLeft;
+    scrollLeft = el.scrollLeft;
+    el._wasDragging = false;
+  });
+
+  el.addEventListener('mouseleave', () => { isDown = false; });
+  el.addEventListener('mouseup', () => { isDown = false; });
+
+  el.addEventListener('mousemove', (e) => {
+    if (!isDown) return;
+    e.preventDefault();
+    const x = e.pageX - el.offsetLeft;
+    const walk = (x - startX) * 1.2;
+    if (Math.abs(walk) > 4) el._wasDragging = true;
+    el.scrollLeft = scrollLeft - walk;
   });
 }
 
-function toggleProvider(providerId, card) {
+// ── Toggle selection ──────────────────────────────────────────────────────────
+
+function toggleProvider(providerId) {
   if (state.selectedProviders.has(providerId)) {
     state.selectedProviders.delete(providerId);
-    card.classList.remove('selected');
-    card.setAttribute('aria-pressed', 'false');
   } else {
     state.selectedProviders.add(providerId);
     ensureProviderConfig(providerId);
-    card.classList.add('selected');
-    card.setAttribute('aria-pressed', 'true');
   }
+
+  const selected = state.selectedProviders.has(providerId);
+  providerGrid.querySelectorAll(`[data-id="${providerId}"]`).forEach((card) => {
+    card.classList.toggle('selected', selected);
+    card.setAttribute('aria-pressed', String(selected));
+  });
 
   renderProviderFields();
   updateKeysContinue();
 }
 
+// ── Key fields ────────────────────────────────────────────────────────────────
+
 function createProviderField(providerId, field) {
   const wrapper = document.createElement('label');
   wrapper.className = 'config-field';
 
-  const label = document.createElement('span');
-  label.className = 'config-field-label';
-  label.textContent = field.label;
+  if (field.label) {
+    const label = document.createElement('span');
+    label.className = 'config-field-label';
+    label.textContent = field.label;
+    wrapper.appendChild(label);
+  }
 
   const inputWrap = document.createElement('div');
   inputWrap.className = 'key-input-wrap';
@@ -223,10 +269,12 @@ function createProviderField(providerId, field) {
   input.autocomplete = 'off';
   input.spellcheck = false;
   input.value = getProviderValue(providerId, field.key);
+
   input.addEventListener('input', () => {
     ensureProviderConfig(providerId)[field.key] = input.value;
     updateKeysContinue();
   });
+
   inputWrap.appendChild(input);
 
   if (field.type === 'password') {
@@ -246,7 +294,7 @@ function createProviderField(providerId, field) {
     inputWrap.appendChild(eye);
   }
 
-  wrapper.append(label, inputWrap);
+  wrapper.appendChild(inputWrap);
   return wrapper;
 }
 
@@ -258,12 +306,12 @@ function renderProviderFields() {
   heading.className = 'keys-copy';
   heading.innerHTML = `
     <p class="keys-heading">Connect your selected providers</p>
-    <p class="keys-subheading">Cloud providers use an API key. Ollama and LM Studio use a local server URL and the model name.</p>
+    <p class="keys-subheading">Cloud providers use an API key. Ollama and LM Studio use a local server URL and model name.</p>
   `;
   keysSection.appendChild(heading);
 
   PROVIDERS
-    .filter((provider) => state.selectedProviders.has(provider.id))
+    .filter((p) => state.selectedProviders.has(p.id))
     .forEach((provider) => {
       const card = document.createElement('div');
       card.className = 'provider-config-card';
@@ -281,9 +329,7 @@ function renderProviderFields() {
 
       const fields = document.createElement('div');
       fields.className = `provider-config-fields provider-config-fields--${provider.fields.length > 1 ? 'multi' : 'single'}`;
-      provider.fields.forEach((field) => {
-        fields.appendChild(createProviderField(provider.id, field));
-      });
+      provider.fields.forEach((field) => fields.appendChild(createProviderField(provider.id, field)));
 
       card.append(header, fields);
 
@@ -303,14 +349,14 @@ function updateKeysContinue() {
     keysContinue.classList.remove('ready');
     return;
   }
-
-  const allReady = [...state.selectedProviders].every((providerId) => providerIsComplete(providerId));
+  const allReady = [...state.selectedProviders].every(providerIsComplete);
   keysContinue.classList.toggle('ready', allReady);
 }
 
+// ── Save & finish ─────────────────────────────────────────────────────────────
+
 keysContinue.addEventListener('click', async () => {
   if (!keysContinue.classList.contains('ready')) return;
-
   await saveSetup();
   goToStep(3);
 });
@@ -330,10 +376,7 @@ async function saveSetup() {
 
     await window.electronAPI.saveProviderConfigs(
       Object.fromEntries(
-        [...state.selectedProviders].map((providerId) => [
-          providerId,
-          serializeProviderConfig(providerId),
-        ]),
+        [...state.selectedProviders].map((id) => [id, serializeProviderConfig(id)]),
       ),
     );
   } catch (error) {
@@ -341,6 +384,6 @@ async function saveSetup() {
   }
 }
 
-progressDots.forEach((dot, index) => {
-  dot.classList.toggle('active', index === 0);
-});
+// ── Init dots ─────────────────────────────────────────────────────────────────
+
+progressDots.forEach((dot, i) => dot.classList.toggle('active', i === 0));

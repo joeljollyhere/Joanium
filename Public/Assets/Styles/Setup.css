@@ -2,7 +2,6 @@
        STEP 0 — Splash / T&C screen
     ══════════════════════════════════════════ */
 
-/* ── Floating particles background ── */
 .splash-canvas {
     position: fixed;
     inset: 0;
@@ -39,7 +38,6 @@
     }
 }
 
-/* ── Splash step wrapper ── */
 #step-splash {
     z-index: 1;
     gap: 0;
@@ -47,7 +45,6 @@
     align-items: center;
 }
 
-/* ── App name rise animation ── */
 .splash-wordmark-wrap {
     overflow: hidden;
     padding-bottom: 4px;
@@ -67,10 +64,6 @@
     opacity: 0;
     transform: translateY(72px);
     animation: wordmarkRise 0.9s var(--ease-out-expo) 0.15s forwards;
-}
-
-.splash-wordmark .w-open {
-    color: var(--text-primary);
 }
 
 .splash-wordmark .w-world {
@@ -93,7 +86,6 @@
     }
 }
 
-/* ── Tagline ── */
 .splash-tagline {
     font-size: 15px;
     color: var(--text-secondary);
@@ -110,7 +102,6 @@
     font-weight: 500;
 }
 
-/* ── Divider line ── */
 .splash-divider {
     width: 40px;
     height: 1px;
@@ -120,7 +111,6 @@
     animation: splashFadeUp 0.5s var(--ease-out-expo) 1.05s forwards;
 }
 
-/* ── T&C agreement block ── */
 .splash-tc-block {
     width: 100%;
     display: flex;
@@ -140,7 +130,6 @@
     user-select: none;
 }
 
-/* Hide native checkbox */
 .tc-checkbox-row input[type="checkbox"] {
     position: absolute;
     opacity: 0;
@@ -148,7 +137,6 @@
     height: 0;
 }
 
-/* Custom checkbox */
 .tc-box {
     flex-shrink: 0;
     width: 20px;
@@ -199,13 +187,11 @@
     border-bottom-color: var(--accent);
 }
 
-/* ── Splash CTA button ── */
 #splash-continue {
     width: 100%;
     max-width: 380px;
 }
 
-/* ── Shared fade-up ── */
 @keyframes splashFadeUp {
     from {
         opacity: 0;
@@ -218,10 +204,19 @@
     }
 }
 
-/* ── Progress dots: 4 dots now ── */
-/* (no extra CSS needed — JS controls them) */
+/* ══════════════════════════════════════════
+       SETUP — page-specific styles
+    ══════════════════════════════════════════ */
 
-/* ── Footer credit (used on setup page) ── */
+body {
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+}
+
+/* ── Footer ── */
 .setup-footer-credit {
     position: fixed;
     bottom: 20px;
@@ -244,18 +239,6 @@
     color: var(--accent);
 }
 
-/* ══════════════════════════════════════════
-       SETUP — page-specific styles
-    ══════════════════════════════════════════ */
-
-body {
-    overflow: hidden;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    height: 100vh;
-}
-
 /* ── Progress dots ── */
 .progress-track {
     position: fixed;
@@ -274,7 +257,7 @@ body {
     height: 6px;
     border-radius: 50%;
     background: var(--border);
-    transition: background 0.4s var(--ease-smooth), transform 0.4s var(--ease-spring), width 0.3s var(--ease-spring);
+    transition: background 0.4s var(--ease-smooth), transform 0.4s var(--ease-spring);
 }
 
 .dot.active {
@@ -284,11 +267,10 @@ body {
 
 .dot.done {
     background: var(--accent);
-    transform: scale(1);
     opacity: 0.5;
 }
 
-/* ── Logo lockup ── */
+/* ── Logo ── */
 .setup-logo {
     position: fixed;
     top: 22px;
@@ -313,12 +295,12 @@ body {
     letter-spacing: 0.5px;
 }
 
-/* ── Steps wrapper ── */
+/* ── Step wrapper ── */
 .step {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 28px;
+    gap: 24px;
     width: 100%;
     max-width: 440px;
     padding: 0 24px;
@@ -353,7 +335,7 @@ body {
 }
 
 .step-title {
-    font-size: 30px;
+    font-size: 28px;
     font-weight: 500;
     color: var(--text-primary);
     letter-spacing: -0.5px;
@@ -363,11 +345,11 @@ body {
 }
 
 .step-sub {
-    font-size: 13.5px;
+    font-size: 13px;
     color: var(--text-secondary);
     text-align: center;
     line-height: 1.7;
-    margin-top: -12px;
+    margin-top: -10px;
     max-width: 340px;
 }
 
@@ -382,15 +364,16 @@ body {
     background: var(--bg-input);
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
-    padding: 14px 18px;
+    padding: 13px 18px;
     font-family: var(--font-ui);
-    font-size: 16px;
+    font-size: 15px;
     font-weight: 500;
     color: var(--text-primary);
     outline: none;
     transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s;
     text-align: center;
     letter-spacing: 0.3px;
+    box-sizing: border-box;
 }
 
 .name-field input::placeholder {
@@ -408,7 +391,7 @@ body {
 .btn-primary {
     width: 100%;
     max-width: 380px;
-    height: 52px;
+    height: 48px;
     padding: 0 24px;
     border-radius: 100px;
     border: none;
@@ -443,38 +426,82 @@ body {
     transform: translateY(0) scale(0.98);
 }
 
-/* ── Provider grid ── */
-#provider-grid {
-    width: min(100%, 780px);
-    display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-    gap: 15px;
+/* ══════════════════════════════════════════
+       STEP 2 — Provider picker
+    ══════════════════════════════════════════ */
+
+#step-providers {
+    max-width: 900px !important;
+    max-height: 100vh;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 60px 0 64px;
+    gap: 20px !important;
 }
 
+/* ── Provider scroll row ── */
+#provider-grid {
+    width: 100%;
+    overflow-x: auto;
+    overflow-y: visible;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    mask-image: linear-gradient(to right,
+            transparent 0%,
+            black 7%,
+            black 93%,
+            transparent 100%);
+    -webkit-mask-image: linear-gradient(to right,
+            transparent 0%,
+            black 7%,
+            black 93%,
+            transparent 100%);
+    padding: 10px 0 12px;
+    cursor: grab;
+}
+
+#provider-grid:active {
+    cursor: grabbing;
+}
+
+#provider-grid::-webkit-scrollbar {
+    display: none;
+}
+
+.provider-row {
+    display: flex;
+    gap: 10px;
+    width: max-content;
+    padding: 0 60px;
+}
+
+/* ── Provider card ── */
 .provider-card {
     position: relative;
-    min-height: 50px;
-    padding: 14px 10px 12px;
-    background: linear-gradient(180deg, color-mix(in srgb, var(--bg-secondary) 92%, white 8%), var(--bg-secondary));
+    width: 86px;
+    flex-shrink: 0;
+    padding: 12px 8px 10px;
+    background: var(--bg-secondary);
     border: 1.5px solid var(--border);
-    border-radius: 22px;
+    border-radius: 20px;
     appearance: none;
     cursor: pointer;
     display: flex;
-    align-items: stretch;
+    align-items: center;
     justify-content: center;
     transition:
-        border-color 0.22s var(--ease-smooth),
-        background 0.22s var(--ease-smooth),
+        border-color 0.2s var(--ease-smooth),
+        background 0.2s var(--ease-smooth),
         transform 0.15s var(--ease-spring),
-        box-shadow 0.22s;
+        box-shadow 0.2s;
+    user-select: none;
 }
 
 .provider-card:hover {
-    border-color: color-mix(in srgb, var(--p-color) 60%, var(--border));
-    background: color-mix(in srgb, var(--p-color) 8%, var(--bg-secondary));
-    transform: translateY(-2px);
-    box-shadow: 0 16px 32px rgba(0, 0, 0, 0.12);
+    border-color: color-mix(in srgb, var(--p-color) 55%, var(--border));
+    background: color-mix(in srgb, var(--p-color) 7%, var(--bg-secondary));
+    transform: translateY(-3px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.09);
 }
 
 .provider-card:focus-visible {
@@ -485,10 +512,10 @@ body {
 
 .provider-card.selected {
     border-color: var(--p-color);
-    background: color-mix(in srgb, var(--p-color) 12%, var(--bg-secondary));
+    background: color-mix(in srgb, var(--p-color) 11%, var(--bg-secondary));
     box-shadow:
-        0 0 0 1px color-mix(in srgb, var(--p-color) 62%, transparent),
-        0 18px 36px color-mix(in srgb, var(--p-color) 18%, transparent);
+        0 0 0 1px color-mix(in srgb, var(--p-color) 55%, transparent),
+        0 12px 28px color-mix(in srgb, var(--p-color) 16%, transparent);
 }
 
 .p-card-stack {
@@ -496,67 +523,66 @@ body {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 8px;
+    gap: 7px;
 }
 
+/* ── Check badge ── */
 .p-check {
     position: absolute;
-    top: 10px;
-    right: 10px;
-    width: 22px;
-    height: 22px;
+    top: 7px;
+    right: 7px;
+    width: 18px;
+    height: 18px;
     border-radius: 50%;
-    border: 1.5px solid color-mix(in srgb, var(--border) 78%, transparent);
+    border: 1.5px solid color-mix(in srgb, var(--border) 70%, transparent);
     display: flex;
     align-items: center;
     justify-content: center;
-    background: color-mix(in srgb, var(--bg-primary) 82%, transparent);
-    transition: background 0.2s, border-color 0.2s, transform 0.3s var(--ease-spring);
+    background: color-mix(in srgb, var(--bg-primary) 80%, transparent);
+    transition: background 0.2s, border-color 0.2s, transform 0.25s var(--ease-spring);
 }
 
 .p-check svg {
-    width: 11px;
-    height: 11px;
+    width: 9px;
+    height: 9px;
     stroke: transparent;
-    transition: stroke 0.2s;
+    transition: stroke 0.15s;
 }
 
 .provider-card.selected .p-check {
     background: var(--p-color);
     border-color: var(--p-color);
-    transform: scale(1.08);
+    transform: scale(1.1);
 }
 
 .provider-card.selected .p-check svg {
     stroke: #fff;
 }
 
+/* ── Icon ── */
 .p-icon {
-    width: 36px;
-    height: 36px;
+    width: 38px;
+    height: 38px;
     display: flex;
     align-items: center;
     justify-content: center;
     overflow: hidden;
-}
-
-.provider-card[data-icon-frame='soft'] .p-icon,
-.provider-card[data-icon-frame='solid'] .p-icon {
-    border-radius: 14px;
-    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--p-color) 20%, transparent);
+    border-radius: 12px;
 }
 
 .provider-card[data-icon-frame='soft'] .p-icon {
-    background: color-mix(in srgb, var(--p-color) 12%, transparent);
+    background: color-mix(in srgb, var(--p-color) 13%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--p-color) 18%, transparent);
 }
 
 .provider-card[data-icon-frame='solid'] .p-icon {
     background: var(--p-color);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--p-color) 30%, transparent);
 }
 
 .p-icon-image {
-    width: calc(var(--p-icon-size, 30px) - 3px);
-    height: calc(var(--p-icon-size, 30px) - 3px);
+    width: calc(var(--p-icon-size, 28px) - 2px);
+    height: calc(var(--p-icon-size, 28px) - 2px);
     max-width: 100%;
     max-height: 100%;
     object-fit: contain;
@@ -568,15 +594,10 @@ body {
     display: none;
     align-items: center;
     justify-content: center;
-    font-size: 15px;
+    font-size: 13px;
     font-weight: 700;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.06em;
     color: var(--p-color);
-}
-
-.provider-card[data-provider='lmstudio'] .p-icon-fallback {
-    font-size: 18px;
-    letter-spacing: 0.1em;
 }
 
 .provider-card.icon-missing .p-icon-image {
@@ -588,7 +609,7 @@ body {
 }
 
 .p-name {
-    font-size: 13px;
+    font-size: 11.5px;
     font-weight: 600;
     color: var(--text-primary);
     text-align: center;
@@ -596,103 +617,87 @@ body {
 }
 
 .p-caption {
-    font-size: 11px;
+    font-size: 10px;
     color: var(--text-muted);
     text-align: center;
     letter-spacing: 0.02em;
 }
 
-/* ── Responsive layout ── */
-@media (max-width: 900px) {
-    #provider-grid {
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-    }
-}
+/* ══════════════════════════════════════════
+       API key fields
+    ══════════════════════════════════════════ */
 
-@media (max-width: 720px) {
-    #provider-grid {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 12px;
-    }
-
-    .provider-card {
-        min-height: 50px;
-    }
-
-    .p-icon {
-        width: 36px;
-        height: 36px;
-    }
-}
-
-@media (max-width: 640px) {
-    #provider-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 12px;
-    }
-
-    .provider-card {
-        min-height: 50px;
-        border-radius: 22px;
-    }
-
-    .p-icon {
-        width: 36px;
-        height: 36px;
-    }
-}
-
-/* ── API key fields ── */
 #keys-section {
-    width: 100%;
+    width: min(100%, 640px);
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 8px;
+    max-height: 340px;
+    overflow-y: auto;
+    padding: 0 24px 4px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+}
+
+#keys-section::-webkit-scrollbar {
+    width: 3px;
+}
+
+#keys-section::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+#keys-section::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 99px;
 }
 
 .keys-copy {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 4px;
+    margin-bottom: 4px;
 }
 
 .keys-heading {
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 600;
     letter-spacing: 1.5px;
     text-transform: uppercase;
     color: var(--text-muted);
     text-align: center;
+    margin: 0;
 }
 
 .keys-subheading {
     margin: 0;
-    font-size: 12.5px;
-    line-height: 1.6;
+    font-size: 12px;
+    line-height: 1.55;
     color: var(--text-muted);
     text-align: center;
 }
 
+/* ── Config card ── */
 .provider-config-card {
     display: flex;
     flex-direction: column;
-    gap: 12px;
-    padding: 14px;
-    border-radius: 18px;
-    background: color-mix(in srgb, var(--p-color) 8%, var(--bg-secondary));
-    border: 1px solid color-mix(in srgb, var(--p-color) 18%, var(--border));
-    animation: messageIn 0.3s var(--ease-out-expo) both;
+    gap: 8px;
+    padding: 11px 13px;
+    border-radius: 14px;
+    background: color-mix(in srgb, var(--p-color) 7%, var(--bg-secondary));
+    border: 1px solid color-mix(in srgb, var(--p-color) 16%, var(--border));
+    animation: messageIn 0.25s var(--ease-out-expo) both;
 }
 
 .provider-config-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
+    gap: 10px;
 }
 
 .provider-config-title {
-    font-size: 12px;
+    font-size: 11.5px;
     font-weight: 600;
     color: var(--p-color);
     display: flex;
@@ -701,41 +706,49 @@ body {
 }
 
 .provider-config-badge {
-    font-size: 10.5px;
+    font-size: 10px;
     font-weight: 600;
     color: var(--text-muted);
-    padding: 4px 8px;
+    padding: 3px 8px;
     border-radius: 999px;
-    background: color-mix(in srgb, var(--bg-primary) 72%, transparent);
-    border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
+    background: color-mix(in srgb, var(--bg-primary) 70%, transparent);
+    border: 1px solid color-mix(in srgb, var(--border) 75%, transparent);
 }
 
 .provider-config-fields {
     display: grid;
-    gap: 10px;
+    gap: 8px;
 }
 
 .provider-config-fields--multi {
     grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+@media (max-width: 640px) {
+    .provider-config-fields--multi {
+        grid-template-columns: 1fr;
+    }
+}
+
 .config-field {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 4px;
 }
 
 .config-field-label {
-    font-size: 11.5px;
+    font-size: 10.5px;
     font-weight: 600;
     color: var(--text-secondary);
+    letter-spacing: 0.02em;
 }
 
 .key-dot {
-    width: 6px;
-    height: 6px;
+    width: 5px;
+    height: 5px;
     border-radius: 50%;
     background: var(--p-color);
+    flex-shrink: 0;
 }
 
 .key-input-wrap {
@@ -744,15 +757,17 @@ body {
 
 .key-input {
     width: 100%;
+    height: 34px;
     background: var(--bg-input);
     border: 1px solid var(--border);
-    border-radius: var(--radius-md);
-    padding: 10px 40px 10px 14px;
+    border-radius: 8px;
+    padding: 0 34px 0 10px;
     font-family: var(--font-mono);
-    font-size: 12.5px;
+    font-size: 11.5px;
     color: var(--text-primary);
     outline: none;
-    transition: border-color 0.2s, box-shadow 0.2s;
+    transition: border-color 0.18s, box-shadow 0.18s;
+    box-sizing: border-box;
 }
 
 .key-input::placeholder {
@@ -761,12 +776,12 @@ body {
 
 .key-input:focus {
     border-color: var(--p-color);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--p-color) 18%, transparent);
+    box-shadow: 0 0 0 2.5px color-mix(in srgb, var(--p-color) 16%, transparent);
 }
 
 .key-eye {
     position: absolute;
-    right: 10px;
+    right: 8px;
     top: 50%;
     transform: translateY(-50%);
     background: transparent;
@@ -775,9 +790,9 @@ body {
     color: var(--text-muted);
     display: flex;
     align-items: center;
-    padding: 4px;
+    padding: 3px;
     border-radius: 4px;
-    transition: color 0.15s;
+    transition: color 0.12s;
 }
 
 .key-eye:hover {
@@ -785,24 +800,27 @@ body {
 }
 
 .key-eye svg {
-    width: 14px;
-    height: 14px;
+    width: 13px;
+    height: 13px;
 }
 
 .provider-config-hint {
     margin: 0;
-    font-size: 11.5px;
+    font-size: 10.5px;
     line-height: 1.5;
     color: var(--text-muted);
 }
 
-/* ── Done screen ── */
+/* ══════════════════════════════════════════
+       STEP 3 — Done
+    ══════════════════════════════════════════ */
+
 .done-anim {
-    width: 72px;
-    height: 72px;
+    width: 68px;
+    height: 68px;
     border-radius: 50%;
     background: var(--accent-dim);
-    border: 1.5px solid color-mix(in srgb, var(--accent) 30%, transparent);
+    border: 1.5px solid color-mix(in srgb, var(--accent) 28%, transparent);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -811,12 +829,12 @@ body {
 }
 
 .done-anim svg {
-    width: 36px;
-    height: 36px;
+    width: 34px;
+    height: 34px;
 }
 
 #done-title {
-    font-size: 26px;
+    font-size: 24px;
     font-weight: 500;
     color: var(--text-primary);
     letter-spacing: -0.3px;
@@ -829,64 +847,28 @@ body {
     text-align: center;
 }
 
-#step-providers {
-    max-height: 100vh;
-    overflow-y: auto;
-    padding: 60px 24px 56px;
-    /* 56px bottom clears the fixed footer */
-}
+/* ══════════════════════════════════════════
+       Shared keyframes
+    ══════════════════════════════════════════ */
 
-#keys-section {
-    width: 100%;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    max-height: 360px;
-    /* ← shows ~3 keys comfortably */
-    overflow-y: auto;
-    padding-right: 4px;
-    /* prevents scrollbar overlapping inputs */
-}
-
-@media (max-width: 640px) {
-    .provider-config-fields--multi {
-        grid-template-columns: 1fr;
-    }
-}
-
-/* Optional: thin styled scrollbar */
-#keys-section::-webkit-scrollbar {
-    width: 4px;
-}
-
-#keys-section::-webkit-scrollbar-track {
-    background: transparent;
-}
-
-#keys-section::-webkit-scrollbar-thumb {
-    background: var(--border);
-    border-radius: 99px;
-}
-
-/* reuse app keyframes */
 @keyframes fadeIn {
     from {
-        opacity: 0
+        opacity: 0;
     }
 
     to {
-        opacity: 1
+        opacity: 1;
     }
 }
 
 @keyframes messageIn {
     from {
         opacity: 0;
-        transform: translateY(8px)
+        transform: translateY(6px);
     }
 
     to {
         opacity: 1;
-        transform: translateY(0)
+        transform: translateY(0);
     }
 }

@@ -10,10 +10,13 @@ const EXTERNAL = app.isPackaged ? process.resourcesPath : ROOT;
 export const Paths = {
   ROOT,
 
+  // Config
+  USER_FILE: path.join(EXTERNAL, 'Config', 'User.json'),
+  MODELS_FILE: path.join(EXTERNAL, 'Config', 'Models.json'),
+  WINDOW_STATE_FILE: path.join(EXTERNAL, 'Config', 'WindowState.json'),
+
   // Data
   DATA_DIR: path.join(EXTERNAL, 'Data'),
-  USER_FILE: path.join(EXTERNAL, 'Data', 'User.json'),
-  MODELS_FILE: path.join(EXTERNAL, 'Data', 'Models.json'),
   CHATS_DIR: path.join(EXTERNAL, 'Data', 'Chats'),
   PROJECTS_DIR: path.join(EXTERNAL, 'Data', 'Projects'),
   AUTOMATIONS_FILE: path.join(EXTERNAL, 'Data', 'Automations.json'),
@@ -24,7 +27,6 @@ export const Paths = {
   AGENTS_FILE: path.join(EXTERNAL, 'Data', 'Agents.json'),
   CHANNELS_FILE: path.join(EXTERNAL, 'Data', 'Channels.json'),
   MCP_FILE: path.join(EXTERNAL, 'Data', 'MCPServers.json'),
-  WINDOW_STATE_FILE: path.join(EXTERNAL, 'Data', 'WindowState.json'),
   FEATURES_DATA_DIR: path.join(EXTERNAL, 'Data', 'Features'),
 
   // Instructions
