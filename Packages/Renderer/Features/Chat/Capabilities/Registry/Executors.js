@@ -21,10 +21,14 @@ import * as SearchExecutor from '../Search/Executor.js';
 import * as DictionaryExecutor from '../Dictionary/Executor.js';
 import * as DateTimeExecutor from '../DateTime/Executor.js';
 import * as PasswordExecutor from '../Password/Executor.js';
+import * as DriveExecutor from '../Drive/Executor.js';
+import * as CalendarExecutor from '../Calendar/Executor.js';
 
 const EXECUTORS = [
   GmailExecutor,
   GithubExecutor,
+  DriveExecutor,
+  CalendarExecutor,
   WeatherExecutor,
   CryptoExecutor,
   FinanceExecutor,

@@ -21,17 +21,22 @@ import { SEARCH_TOOLS } from '../Search/Tools.js';
 import { DICTIONARY_TOOLS } from '../Dictionary/Tools.js';
 import { DATETIME_TOOLS } from '../DateTime/Tools.js';
 import { PASSWORD_TOOLS } from '../Password/Tools.js';
+import { DRIVE_TOOLS } from '../Drive/Tools.js';
+import { CALENDAR_TOOLS } from '../Calendar/Tools.js';
 
 export {
   GMAIL_TOOLS, GITHUB_TOOLS, WEATHER_TOOLS, CRYPTO_TOOLS, FINANCE_TOOLS, PHOTO_TOOLS,
   WIKI_TOOLS, GEO_TOOLS, FUN_TOOLS, JOKE_TOOLS, QUOTE_TOOLS, COUNTRY_TOOLS,
   ASTRONOMY_TOOLS, HACKERNEWS_TOOLS, URL_TOOLS, TERMINAL_TOOLS, REVIEW_TOOLS,
   UTILITY_TOOLS, SEARCH_TOOLS, DICTIONARY_TOOLS, DATETIME_TOOLS, PASSWORD_TOOLS,
+  DRIVE_TOOLS, CALENDAR_TOOLS,
 };
 
 export const STATIC_TOOLS = [
   ...GMAIL_TOOLS,
   ...GITHUB_TOOLS,
+  ...DRIVE_TOOLS,
+  ...CALENDAR_TOOLS,
   ...WEATHER_TOOLS,
   ...CRYPTO_TOOLS,
   ...FINANCE_TOOLS,
@@ -57,32 +62,53 @@ export const STATIC_TOOLS = [
 // Legacy export retained for existing imports; dynamic MCP tools are layered in via getAvailableTools().
 export const TOOLS = STATIC_TOOLS;
 
+/*
+ * Maps tool category → connector name in ConnectorEngine.
+ *
+ * IMPORTANT: All Google services (Gmail, Drive, Calendar) are now served by
+ * the unified 'google' connector. The old standalone 'gmail' connector key
+ * no longer exists — this was the root cause of Gmail tools being silently
+ * filtered out in chat.
+ *
+ * null means no connector required — tool is always available.
+ */
 const CATEGORY_TO_CONNECTOR = {
-  gmail: 'gmail',
+  // Google Workspace — all three services gate on the unified 'google' connector
+  gmail:    'google',
+  drive:    'google',
+  calendar: 'google',
+
+  // GitHub
   github: 'github',
-  open_meteo: 'open_meteo',
-  coingecko: 'coingecko',
+  github_review: 'github',
+
+  // Free APIs
+  open_meteo:    'open_meteo',
+  coingecko:     'coingecko',
   exchange_rate: 'exchange_rate',
-  treasury: 'treasury',
-  fred: 'fred',
-  openweathermap: 'openweathermap',
-  unsplash: 'unsplash',
-  wikipedia: 'wikipedia',
-  ipgeo: 'ipgeo',
-  funfacts: 'funfacts',
-  jokeapi: 'jokeapi',
-  quotes: 'quotes',
+  treasury:      'treasury',
+  fred:          'fred',
+  openweathermap:'openweathermap',
+  unsplash:      'unsplash',
+  wikipedia:     'wikipedia',
+  ipgeo:         'ipgeo',
+  funfacts:      'funfacts',
+  jokeapi:       'jokeapi',
+  quotes:        'quotes',
   restcountries: 'restcountries',
-  nasa: 'nasa',
-  hackernews: 'hackernews',
-  cleanuri: 'cleanuri',
-  // New categories — all free, no connector required
-  search: null,
+  nasa:          'nasa',
+  hackernews:    'hackernews',
+  cleanuri:      'cleanuri',
+
+  // No connector required — always available
+  search:     null,
   dictionary: null,
-  translate: null,
-  news: null,
-  datetime: null,
-  security: null,
+  translate:  null,
+  news:       null,
+  datetime:   null,
+  security:   null,
+  utility:    null,
+  terminal:   null,
 };
 
 const WORKSPACE_SCOPED_TOOL_NAMES = new Set([
