@@ -3,8 +3,8 @@ import fs from 'fs';
 import path from 'path';
 import { loadPage } from '../Core/Window.js';
 import Paths from '../Core/Paths.js';
+import { wrapHandler } from './IPCWrapper.js';
 
-/* ── Helpers ──────────────────────────────── */
 function load() {
   try {
     if (fs.existsSync(Paths.USAGE_FILE))
@@ -19,38 +19,28 @@ function persist(data) {
   fs.writeFileSync(Paths.USAGE_FILE, JSON.stringify(data, null, 2), 'utf-8');
 }
 
-/* ── Registration ─────────────────────────── */
 export function register() {
-  /* Navigate to Usage page */
   ipcMain.handle('launch-usage', () => {
     loadPage(Paths.USAGE_PAGE);
     return { ok: true };
   });
 
-  /* Record one API call's token usage */
-  ipcMain.handle('track-usage', (_e, record) => {
-    try {
-      const data = load();
-      data.records.push({
-        timestamp: new Date().toISOString(),
-        provider: record.provider ?? 'unknown',
-        model: record.model ?? 'unknown',
-        modelName: record.modelName ?? record.model ?? 'unknown',
-        inputTokens: record.inputTokens ?? 0,
-        outputTokens: record.outputTokens ?? 0,
-        chatId: record.chatId ?? null,
-      });
-      // Keep last 20 000 records (~ months of heavy use)
-      if (data.records.length > 20_000)
-        data.records = data.records.slice(-20_000);
-      persist(data);
-      return { ok: true };
-    } catch (err) {
-      return { ok: false, error: err.message };
-    }
-  });
+  ipcMain.handle('track-usage', wrapHandler((record) => {
+    const data = load();
+    data.records.push({
+      timestamp: new Date().toISOString(),
+      provider: record.provider ?? 'unknown',
+      model: record.model ?? 'unknown',
+      modelName: record.modelName ?? record.model ?? 'unknown',
+      inputTokens: record.inputTokens ?? 0,
+      outputTokens: record.outputTokens ?? 0,
+      chatId: record.chatId ?? null,
+    });
+    if (data.records.length > 20_000)
+      data.records = data.records.slice(-20_000);
+    persist(data);
+  }));
 
-  /* Return all records */
   ipcMain.handle('get-usage', () => {
     try {
       const { records } = load();
@@ -60,13 +50,7 @@ export function register() {
     }
   });
 
-  /* Wipe all records */
-  ipcMain.handle('clear-usage', () => {
-    try {
-      persist({ records: [] });
-      return { ok: true };
-    } catch (err) {
-      return { ok: false, error: err.message };
-    }
-  });
+  ipcMain.handle('clear-usage', wrapHandler(() => {
+    persist({ records: [] });
+  }));
 }

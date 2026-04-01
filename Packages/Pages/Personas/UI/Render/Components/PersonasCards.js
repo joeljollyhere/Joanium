@@ -1,13 +1,6 @@
-/**
- * HTML-escape a value for safe innerHTML injection.
- */
-export function escapeHtml(value) {
-  return String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
+import { escapeHtml } from '../../../../../System/Utils.js';
+
+export { escapeHtml };
 
 /**
  * Derive 1–2 character initials from a persona name.

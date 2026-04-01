@@ -1,10 +1,7 @@
+import { escapeHtml } from '../../../../../System/Utils.js';
+
 /** HTML-escape a value so it is safe to inject into innerHTML. */
-export function esc(value) {
-  return String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
-}
+export const esc = escapeHtml;
 
 /** Human-readable relative time string (e.g. "3m ago", "just now"). */
 export function timeAgo(iso) {

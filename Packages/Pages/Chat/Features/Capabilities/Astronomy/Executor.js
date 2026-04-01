@@ -1,13 +1,11 @@
+import { createExecutor } from '../Shared/createExecutor.js';
 import { safeJson } from '../Shared/Utils.js';
 
-const HANDLED = new Set(['get_apod', 'get_iss_location']);
-
-export function handles(toolName) { return HANDLED.has(toolName); }
-
-export async function execute(toolName, params, onStage = () => { }) {
-    switch (toolName) {
-
-        case 'get_apod': {
+export const { handles, execute } = createExecutor({
+    name: 'AstronomyExecutor',
+    tools: ['get_apod', 'get_iss_location'],
+    handlers: {
+        get_apod: async (params, onStage) => {
             const { date } = params;
             onStage(`🔭 Fetching NASA Astronomy Picture of the Day…`);
 
@@ -49,9 +47,9 @@ export async function execute(toolName, params, onStage = () => { }) {
             lines.push(`Source: NASA APOD (apod.nasa.gov)`);
 
             return lines.join('\n');
-        }
+        },
 
-        case 'get_iss_location': {
+        get_iss_location: async (params, onStage) => {
             onStage(`🛸 Tracking the ISS…`);
 
             // Open Notify API — free, no key
@@ -102,9 +100,6 @@ export async function execute(toolName, params, onStage = () => { }) {
                 `🗺️ Track live: https://spotthestation.nasa.gov/tracking_map.cfm`,
                 `Source: Open Notify API`,
             ].filter(Boolean).join('\n');
-        }
-
-        default:
-            throw new Error(`AstronomyExecutor: unknown tool "${toolName}"`);
-    }
-}
+        },
+    },
+});

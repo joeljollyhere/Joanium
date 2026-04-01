@@ -607,4 +607,9 @@ export function createJobsController({
       job.output.method = event.target.value;
     });
   }
+
+  return {
+    renderJobsList,
+    cleanup() {},
+  };
 }

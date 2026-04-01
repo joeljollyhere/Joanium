@@ -1,7 +1,8 @@
+import { createModal } from '../System/ModalFactory.js';
+
 const SPONSOR_URL = 'https://github.com/sponsors/withinjoel';
 const AUTHOR_URL = 'https://joeljolly.vercel.app';
 
-// HTML TEMPLATE
 function buildHTML() {
   return /* html */`
     <div id="about-modal-backdrop">
@@ -52,7 +53,6 @@ function buildHTML() {
   `;
 }
 
-// HELPERS
 function openExternal(url) {
   const a = Object.assign(document.createElement('a'), {
     href: url, target: '_blank', rel: 'noopener noreferrer',
@@ -60,55 +60,30 @@ function openExternal(url) {
   a.click();
 }
 
-// MAIN EXPORT
 export function initAboutModal() {
+  const modal = createModal({
+    backdropId: 'about-modal-backdrop',
+    html: buildHTML(),
+    closeBtnSelector: '#about-modal-close',
+    onInit(backdrop) {
+      const versionEl = backdrop.querySelector('#about-version');
+      const sponsorBtn = backdrop.querySelector('#about-sponsor-btn');
+      const authorLink = backdrop.querySelector('#about-author-link');
 
-  // 1. Inject HTML (only once)
-  if (!document.getElementById('about-modal-backdrop')) {
-    const wrap = document.createElement('div');
-    wrap.innerHTML = buildHTML();
-    document.body.appendChild(wrap.firstElementChild);
-  }
+      (async () => {
+        try {
+          const v = await window.electronAPI?.getAppVersion?.();
+          if (v && versionEl) versionEl.textContent = `v${v}`;
+        } catch { /* keep default */ }
+      })();
 
-  // 2. Element refs
-  const backdrop = document.getElementById('about-modal-backdrop');
-  const closeBtn = document.getElementById('about-modal-close');
-  const versionEl = document.getElementById('about-version');
-  const sponsorBtn = document.getElementById('about-sponsor-btn');
-  const authorLink = document.getElementById('about-author-link');
+      if (sponsorBtn) sponsorBtn.href = SPONSOR_URL;
+      if (authorLink) authorLink.href = AUTHOR_URL;
 
-  // 3. Hydrate dynamic values
-  // Try Electron API for version; fall back to DOM meta or hardcoded
-  (async () => {
-    try {
-      const v = await window.electronAPI?.getAppVersion?.();
-      if (v && versionEl) versionEl.textContent = `v${v}`;
-    } catch { /* keep default */ }
-  })();
-
-  if (sponsorBtn) sponsorBtn.href = SPONSOR_URL;
-  if (authorLink) authorLink.href = AUTHOR_URL;
-
-  // 4. Wire events
-  sponsorBtn?.addEventListener('click', e => { e.preventDefault(); openExternal(SPONSOR_URL); });
-  authorLink?.addEventListener('click', e => { e.preventDefault(); openExternal(AUTHOR_URL); });
-
-  closeBtn?.addEventListener('click', close);
-  backdrop?.addEventListener('click', e => { if (e.target === backdrop) close(); });
-  document.addEventListener('keydown', e => {
-    if (e.key === 'Escape' && backdrop?.classList.contains('open')) close();
+      sponsorBtn?.addEventListener('click', e => { e.preventDefault(); openExternal(SPONSOR_URL); });
+      authorLink?.addEventListener('click', e => { e.preventDefault(); openExternal(AUTHOR_URL); });
+    },
   });
 
-  // 5. Public API
-  function open() {
-    backdrop?.classList.add('open');
-    document.body.classList.add('modal-open');
-  }
-
-  function close() {
-    backdrop?.classList.remove('open');
-    document.body.classList.remove('modal-open');
-  }
-
-  return { open, close };
+  return { open: modal.open, close: modal.close };
 }

@@ -2,27 +2,22 @@ import { ipcMain } from 'electron';
 import * as UserService from '../Services/UserService.js';
 import { loadPage } from '../Core/Window.js';
 import Paths from '../Core/Paths.js';
+import { wrapHandler } from './IPCWrapper.js';
 
 export function register() {
-  // Persist full user object written by the setup wizard
-  ipcMain.handle('save-user', (_e, userData) => {
-    try { return { ok: true, user: UserService.writeUser(userData) }; }
-    catch (err) { return { ok: false, error: err.message }; }
-  });
+  ipcMain.handle('save-user', wrapHandler((userData) => {
+    return { user: UserService.writeUser(userData) };
+  }));
 
-  // Persist API keys collected during setup
-  ipcMain.handle('save-api-keys', (_e, keysMap) => {
-    try { return { ok: true, user: UserService.saveApiKeys(keysMap) }; }
-    catch (err) { return { ok: false, error: err.message }; }
-  });
+  ipcMain.handle('save-api-keys', wrapHandler((keysMap) => {
+    return { user: UserService.saveApiKeys(keysMap) };
+  }));
 
-  ipcMain.handle('save-provider-configs', (_e, configMap) => {
-    try { return { ok: true, user: UserService.saveProviderConfigurations(configMap) }; }
-    catch (err) { return { ok: false, error: err.message }; }
-  });
+  ipcMain.handle('save-provider-configs', wrapHandler((configMap) => {
+    return { user: UserService.saveProviderConfigurations(configMap) };
+  }));
 
-  // ── Page navigation ────────────────────────────────────────────────
-
+  // These handlers need the event object for sender.send(), so they use the raw pattern
   ipcMain.handle('launch-main', () => {
     loadPage(Paths.INDEX_PAGE);
     return { ok: true };

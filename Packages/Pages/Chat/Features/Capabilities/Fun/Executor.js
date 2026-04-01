@@ -1,13 +1,11 @@
+import { createExecutor } from '../Shared/createExecutor.js';
 import { safeJson } from '../Shared/Utils.js';
 
-const HANDLED = new Set(['get_random_fact', 'get_number_fact']);
-
-export function handles(toolName) { return HANDLED.has(toolName); }
-
-export async function execute(toolName, params, onStage = () => { }) {
-    switch (toolName) {
-
-        case 'get_random_fact': {
+export const { handles, execute } = createExecutor({
+    name: 'FunExecutor',
+    tools: ['get_random_fact', 'get_number_fact'],
+    handlers: {
+        get_random_fact: async (params, onStage) => {
             onStage(`🎲 Getting a random fact…`);
 
             const data = await safeJson(
@@ -26,9 +24,9 @@ export async function execute(toolName, params, onStage = () => { }) {
                 data.source_url ? `🔗 ${data.source_url}` : '',
                 `Source: Useless Facts API`,
             ].filter(Boolean).join('\n');
-        }
+        },
 
-        case 'get_number_fact': {
+        get_number_fact: async (params, onStage) => {
             const { number, type = 'trivia' } = params;
             if (!number) throw new Error('Missing required param: number (e.g. "42", "1969", "3/14" for a date)');
 
@@ -62,9 +60,6 @@ export async function execute(toolName, params, onStage = () => { }) {
                 data.found === false ? '⚠️ This is a default fact — try a more common number.' : '',
                 `Source: Numbers API (numbersapi.com)`,
             ].filter(Boolean).join('\n');
-        }
-
-        default:
-            throw new Error(`FunExecutor: unknown tool "${toolName}"`);
-    }
-}
+        },
+    },
+});

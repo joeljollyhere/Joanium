@@ -1,15 +1,4 @@
-const HANDLED = new Set([
-  'calculate_expression',
-  'convert_units',
-  'get_time_in_timezone',
-  'generate_uuid',
-  'hash_text',
-  'encode_base64',
-  'decode_base64',
-  'format_json',
-  'convert_text_case',
-  'get_text_stats',
-]);
+import { createExecutor } from '../Shared/createExecutor.js';
 
 const HASH_ALGORITHMS = {
   sha1: 'SHA-1',
@@ -66,224 +55,6 @@ for (const unit of LINEAR_UNITS) {
 for (const unit of TEMPERATURE_UNITS) {
   for (const alias of [unit.canonical, ...unit.aliases]) {
     TEMPERATURE_LOOKUP.set(normalizeUnitKey(alias), unit);
-  }
-}
-
-export function handles(toolName) {
-  return HANDLED.has(toolName);
-}
-
-export async function execute(toolName, params, onStage = () => {}) {
-  switch (toolName) {
-    case 'calculate_expression': {
-      const expression = String(params.expression ?? '').trim();
-      if (!expression) throw new Error('Missing required param: expression');
-
-      onStage(`Calculating ${expression}`);
-      const precision = clampInteger(params.precision, 6, 0, 12);
-      const result = evaluateExpression(expression);
-
-      return [
-        `Expression: ${expression}`,
-        `Result: ${formatNumber(result, precision)}`,
-      ].join('\n');
-    }
-
-    case 'convert_units': {
-      const value = Number(params.value);
-      const fromUnitInput = String(params.from_unit ?? '').trim();
-      const toUnitInput = String(params.to_unit ?? '').trim();
-
-      if (!Number.isFinite(value)) throw new Error('Missing or invalid required param: value');
-      if (!fromUnitInput) throw new Error('Missing required param: from_unit');
-      if (!toUnitInput) throw new Error('Missing required param: to_unit');
-
-      onStage(`Converting ${value} ${fromUnitInput} to ${toUnitInput}`);
-      const precision = clampInteger(params.precision, 6, 0, 12);
-      const conversion = convertUnits(value, fromUnitInput, toUnitInput);
-
-      return [
-        `Category: ${conversion.category}`,
-        `Input: ${formatNumber(value, precision)} ${conversion.fromLabel} (${conversion.fromCanonical})`,
-        `Output: ${formatNumber(conversion.value, precision)} ${conversion.toLabel} (${conversion.toCanonical})`,
-      ].join('\n');
-    }
-
-    case 'get_time_in_timezone': {
-      const timezone = String(params.timezone ?? '').trim();
-      if (!timezone) throw new Error('Missing required param: timezone');
-
-      onStage(`Looking up current time in ${timezone}`);
-      const locale = resolveLocale(params.locale);
-      const resolvedTimezone = resolveTimezone(timezone);
-      const now = new Date();
-
-      const formatted = new Intl.DateTimeFormat(locale, {
-        timeZone: resolvedTimezone,
-        weekday: 'long',
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-        hour: 'numeric',
-        minute: '2-digit',
-        second: '2-digit',
-        timeZoneName: 'short',
-      }).format(now);
-
-      const isoLike = new Intl.DateTimeFormat('en-CA', {
-        timeZone: resolvedTimezone,
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        hourCycle: 'h23',
-      }).format(now).replace(',', '');
-
-      const offset = new Intl.DateTimeFormat('en-US', {
-        timeZone: resolvedTimezone,
-        timeZoneName: 'shortOffset',
-        hour: '2-digit',
-      }).formatToParts(now).find(part => part.type === 'timeZoneName')?.value ?? 'UTC';
-
-      return [
-        `Timezone: ${resolvedTimezone}`,
-        `Current local time: ${formatted}`,
-        `ISO-like local time: ${isoLike}`,
-        `UTC offset: ${offset}`,
-      ].join('\n');
-    }
-
-    case 'generate_uuid': {
-      const count = clampInteger(params.count, 1, 1, 20);
-      const uppercase = toBoolean(params.uppercase);
-      onStage(`Generating ${count} UUID${count === 1 ? '' : 's'}`);
-
-      const values = Array.from({ length: count }, () => {
-        const value = createUuidV4();
-        return uppercase ? value.toUpperCase() : value;
-      });
-
-      return [
-        `Generated ${count} UUID${count === 1 ? '' : 's'}:`,
-        '',
-        ...values.map(value => `- ${value}`),
-      ].join('\n');
-    }
-
-    case 'hash_text': {
-      if (params.text == null) throw new Error('Missing required param: text');
-
-      const text = String(params.text);
-      const algorithmKey = String(params.algorithm ?? 'sha256').trim().toLowerCase();
-      const algorithm = HASH_ALGORITHMS[algorithmKey];
-      if (!algorithm) {
-        throw new Error('Invalid algorithm. Use one of: sha1, sha256, sha384, sha512');
-      }
-
-      onStage(`Hashing text with ${algorithm}`);
-      const digest = await hashText(text, algorithm);
-
-      return [
-        `Algorithm: ${algorithm}`,
-        `Characters: ${text.length}`,
-        `Hash:`,
-        '```text',
-        digest,
-        '```',
-      ].join('\n');
-    }
-
-    case 'encode_base64': {
-      if (params.text == null) throw new Error('Missing required param: text');
-
-      const text = String(params.text);
-      onStage('Encoding text as Base64');
-      const encoded = encodeBase64(text);
-
-      return [
-        `Input characters: ${text.length}`,
-        `Base64 output:`,
-        '```text',
-        encoded,
-        '```',
-      ].join('\n');
-    }
-
-    case 'decode_base64': {
-      const base64 = String(params.base64 ?? '').trim();
-      if (!base64) throw new Error('Missing required param: base64');
-
-      onStage('Decoding Base64 text');
-      const decoded = decodeBase64(base64);
-
-      return [
-        `Decoded characters: ${decoded.length}`,
-        'Decoded text:',
-        '```text',
-        decoded,
-        '```',
-      ].join('\n');
-    }
-
-    case 'format_json': {
-      if (params.json == null) throw new Error('Missing required param: json');
-
-      onStage('Formatting JSON');
-      const indent = clampInteger(params.indent, 2, 0, 8);
-      const sortKeys = toBoolean(params.sort_keys);
-      const parsed = typeof params.json === 'string' ? JSON.parse(params.json) : params.json;
-      const normalized = sortKeys ? sortJsonValue(parsed) : parsed;
-      const formatted = JSON.stringify(normalized, null, indent);
-
-      return [
-        `JSON is valid.${sortKeys ? ' Keys were sorted recursively.' : ''}`,
-        '```json',
-        formatted,
-        '```',
-      ].join('\n');
-    }
-
-    case 'convert_text_case': {
-      if (params.text == null) throw new Error('Missing required param: text');
-
-      const text = String(params.text);
-      const targetCase = String(params.target_case ?? '').trim().toLowerCase();
-      if (!targetCase) throw new Error('Missing required param: target_case');
-
-      onStage(`Converting text to ${targetCase} case`);
-      const converted = convertTextCase(text, targetCase);
-
-      return [
-        `Target case: ${targetCase}`,
-        '```text',
-        converted,
-        '```',
-      ].join('\n');
-    }
-
-    case 'get_text_stats': {
-      if (params.text == null) throw new Error('Missing required param: text');
-
-      const text = String(params.text);
-      onStage('Analyzing text statistics');
-      const stats = getTextStats(text);
-
-      return [
-        `Characters: ${stats.characters}`,
-        `Characters (no spaces): ${stats.charactersNoSpaces}`,
-        `Words: ${stats.words}`,
-        `Lines: ${stats.lines}`,
-        `Sentences: ${stats.sentences}`,
-        `Paragraphs: ${stats.paragraphs}`,
-        `Average word length: ${stats.averageWordLength}`,
-        `Estimated reading time: ${stats.readingTimeMinutes} min`,
-      ].join('\n');
-    }
-
-    default:
-      throw new Error(`UtilityExecutor: unknown tool "${toolName}"`);
   }
 }
 
@@ -769,3 +540,227 @@ function getTextStats(text) {
     readingTimeMinutes,
   };
 }
+
+export const { handles, execute } = createExecutor({
+  name: 'UtilityExecutor',
+  tools: [
+    'calculate_expression',
+    'convert_units',
+    'get_time_in_timezone',
+    'generate_uuid',
+    'hash_text',
+    'encode_base64',
+    'decode_base64',
+    'format_json',
+    'convert_text_case',
+    'get_text_stats',
+  ],
+  handlers: {
+    calculate_expression: async (params, onStage) => {
+      const expression = String(params.expression ?? '').trim();
+      if (!expression) throw new Error('Missing required param: expression');
+
+      onStage(`Calculating ${expression}`);
+      const precision = clampInteger(params.precision, 6, 0, 12);
+      const result = evaluateExpression(expression);
+
+      return [
+        `Expression: ${expression}`,
+        `Result: ${formatNumber(result, precision)}`,
+      ].join('\n');
+    },
+
+    convert_units: async (params, onStage) => {
+      const value = Number(params.value);
+      const fromUnitInput = String(params.from_unit ?? '').trim();
+      const toUnitInput = String(params.to_unit ?? '').trim();
+
+      if (!Number.isFinite(value)) throw new Error('Missing or invalid required param: value');
+      if (!fromUnitInput) throw new Error('Missing required param: from_unit');
+      if (!toUnitInput) throw new Error('Missing required param: to_unit');
+
+      onStage(`Converting ${value} ${fromUnitInput} to ${toUnitInput}`);
+      const precision = clampInteger(params.precision, 6, 0, 12);
+      const conversion = convertUnits(value, fromUnitInput, toUnitInput);
+
+      return [
+        `Category: ${conversion.category}`,
+        `Input: ${formatNumber(value, precision)} ${conversion.fromLabel} (${conversion.fromCanonical})`,
+        `Output: ${formatNumber(conversion.value, precision)} ${conversion.toLabel} (${conversion.toCanonical})`,
+      ].join('\n');
+    },
+
+    get_time_in_timezone: async (params, onStage) => {
+      const timezone = String(params.timezone ?? '').trim();
+      if (!timezone) throw new Error('Missing required param: timezone');
+
+      onStage(`Looking up current time in ${timezone}`);
+      const locale = resolveLocale(params.locale);
+      const resolvedTimezone = resolveTimezone(timezone);
+      const now = new Date();
+
+      const formatted = new Intl.DateTimeFormat(locale, {
+        timeZone: resolvedTimezone,
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        second: '2-digit',
+        timeZoneName: 'short',
+      }).format(now);
+
+      const isoLike = new Intl.DateTimeFormat('en-CA', {
+        timeZone: resolvedTimezone,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hourCycle: 'h23',
+      }).format(now).replace(',', '');
+
+      const offset = new Intl.DateTimeFormat('en-US', {
+        timeZone: resolvedTimezone,
+        timeZoneName: 'shortOffset',
+        hour: '2-digit',
+      }).formatToParts(now).find(part => part.type === 'timeZoneName')?.value ?? 'UTC';
+
+      return [
+        `Timezone: ${resolvedTimezone}`,
+        `Current local time: ${formatted}`,
+        `ISO-like local time: ${isoLike}`,
+        `UTC offset: ${offset}`,
+      ].join('\n');
+    },
+
+    generate_uuid: async (params, onStage) => {
+      const count = clampInteger(params.count, 1, 1, 20);
+      const uppercase = toBoolean(params.uppercase);
+      onStage(`Generating ${count} UUID${count === 1 ? '' : 's'}`);
+
+      const values = Array.from({ length: count }, () => {
+        const value = createUuidV4();
+        return uppercase ? value.toUpperCase() : value;
+      });
+
+      return [
+        `Generated ${count} UUID${count === 1 ? '' : 's'}:`,
+        '',
+        ...values.map(value => `- ${value}`),
+      ].join('\n');
+    },
+
+    hash_text: async (params, onStage) => {
+      if (params.text == null) throw new Error('Missing required param: text');
+
+      const text = String(params.text);
+      const algorithmKey = String(params.algorithm ?? 'sha256').trim().toLowerCase();
+      const algorithm = HASH_ALGORITHMS[algorithmKey];
+      if (!algorithm) {
+        throw new Error('Invalid algorithm. Use one of: sha1, sha256, sha384, sha512');
+      }
+
+      onStage(`Hashing text with ${algorithm}`);
+      const digest = await hashText(text, algorithm);
+
+      return [
+        `Algorithm: ${algorithm}`,
+        `Characters: ${text.length}`,
+        `Hash:`,
+        '```text',
+        digest,
+        '```',
+      ].join('\n');
+    },
+
+    encode_base64: async (params, onStage) => {
+      if (params.text == null) throw new Error('Missing required param: text');
+
+      const text = String(params.text);
+      onStage('Encoding text as Base64');
+      const encoded = encodeBase64(text);
+
+      return [
+        `Input characters: ${text.length}`,
+        `Base64 output:`,
+        '```text',
+        encoded,
+        '```',
+      ].join('\n');
+    },
+
+    decode_base64: async (params, onStage) => {
+      const base64 = String(params.base64 ?? '').trim();
+      if (!base64) throw new Error('Missing required param: base64');
+
+      onStage('Decoding Base64 text');
+      const decoded = decodeBase64(base64);
+
+      return [
+        `Decoded characters: ${decoded.length}`,
+        'Decoded text:',
+        '```text',
+        decoded,
+        '```',
+      ].join('\n');
+    },
+
+    format_json: async (params, onStage) => {
+      if (params.json == null) throw new Error('Missing required param: json');
+
+      onStage('Formatting JSON');
+      const indent = clampInteger(params.indent, 2, 0, 8);
+      const sortKeys = toBoolean(params.sort_keys);
+      const parsed = typeof params.json === 'string' ? JSON.parse(params.json) : params.json;
+      const normalized = sortKeys ? sortJsonValue(parsed) : parsed;
+      const formatted = JSON.stringify(normalized, null, indent);
+
+      return [
+        `JSON is valid.${sortKeys ? ' Keys were sorted recursively.' : ''}`,
+        '```json',
+        formatted,
+        '```',
+      ].join('\n');
+    },
+
+    convert_text_case: async (params, onStage) => {
+      if (params.text == null) throw new Error('Missing required param: text');
+
+      const text = String(params.text);
+      const targetCase = String(params.target_case ?? '').trim().toLowerCase();
+      if (!targetCase) throw new Error('Missing required param: target_case');
+
+      onStage(`Converting text to ${targetCase} case`);
+      const converted = convertTextCase(text, targetCase);
+
+      return [
+        `Target case: ${targetCase}`,
+        '```text',
+        converted,
+        '```',
+      ].join('\n');
+    },
+
+    get_text_stats: async (params, onStage) => {
+      if (params.text == null) throw new Error('Missing required param: text');
+
+      const text = String(params.text);
+      onStage('Analyzing text statistics');
+      const stats = getTextStats(text);
+
+      return [
+        `Characters: ${stats.characters}`,
+        `Characters (no spaces): ${stats.charactersNoSpaces}`,
+        `Words: ${stats.words}`,
+        `Lines: ${stats.lines}`,
+        `Sentences: ${stats.sentences}`,
+        `Paragraphs: ${stats.paragraphs}`,
+        `Average word length: ${stats.averageWordLength}`,
+        `Estimated reading time: ${stats.readingTimeMinutes} min`,
+      ].join('\n');
+    },
+  },
+});

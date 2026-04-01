@@ -1,13 +1,11 @@
+import { createExecutor } from '../Shared/createExecutor.js';
 import { fmt, fmtBig, safeJson } from '../Shared/Utils.js';
 
-const HANDLED = new Set(['get_crypto_price', 'get_crypto_trending']);
-
-export function handles(toolName) { return HANDLED.has(toolName); }
-
-export async function execute(toolName, params, onStage = () => { }) {
-    switch (toolName) {
-
-        case 'get_crypto_price': {
+export const { handles, execute } = createExecutor({
+    name: 'CryptoExecutor',
+    tools: ['get_crypto_price', 'get_crypto_trending'],
+    handlers: {
+        get_crypto_price: async (params, onStage) => {
             const { coin, vs_currency = 'usd' } = params;
             if (!coin) throw new Error('Missing required param: coin (e.g. "bitcoin", "ethereum", "BTC")');
             onStage(`🔍 Searching for ${coin}…`);
@@ -50,9 +48,9 @@ export async function execute(toolName, params, onStage = () => { }) {
             if (vs_currency !== 'inr' && d.inr) lines.push(`INR: ₹${fmt(d.inr, 0)}`);
             lines.push(``, `Last updated: ${lastUpdated}`, `Source: CoinGecko`);
             return lines.join('\n');
-        }
+        },
 
-        case 'get_crypto_trending': {
+        get_crypto_trending: async (params, onStage) => {
             onStage(`🔥 Fetching trending coins…`);
             const data = await safeJson('https://api.coingecko.com/api/v3/search/trending');
             const trending = data.coins?.slice(0, 7) ?? [];
@@ -62,9 +60,6 @@ export async function execute(toolName, params, onStage = () => { }) {
                 return `${i + 1}. ${c.name} (${c.symbol}) — Rank #${c.market_cap_rank ?? '?'}`;
             });
             return `🔥 Trending on CoinGecko right now:\n\n${lines.join('\n')}\n\nSource: CoinGecko`;
-        }
-
-        default:
-            throw new Error(`CryptoExecutor: unknown tool "${toolName}"`);
-    }
-}
+        },
+    },
+});

@@ -1,7 +1,7 @@
 import { state } from '../System/State.js';
 import { escapeHtml, timeAgo } from '../System/Utils.js';
+import { createModal } from '../System/ModalFactory.js';
 
-// HTML TEMPLATE
 function buildHTML() {
   return /* html */`
     <div id="library-modal-backdrop">
@@ -44,27 +44,14 @@ function buildHTML() {
   `;
 }
 
-// HELPERS
 function currentChatScope() {
   return state.activeProject ? { projectId: state.activeProject.id } : {};
 }
 
-// MAIN EXPORT
 export function initLibraryModal({ onChatSelect = () => {} } = {}) {
-
-  // 1. Inject HTML (only once)
-  if (!document.getElementById('library-modal-backdrop')) {
-    const wrap = document.createElement('div');
-    wrap.innerHTML = buildHTML();
-    document.body.appendChild(wrap.firstElementChild);
-  }
-
-  // 2. Element refs (resolved after injection)
-  const backdrop    = () => document.getElementById('library-modal-backdrop');
-  const closeBtn    = () => document.getElementById('library-close');
-  const titleEl     = () => document.getElementById('library-modal-title');
   const searchInput = () => document.getElementById('library-search');
-  const chatListEl  = () => document.getElementById('chat-list');
+  const chatListEl = () => document.getElementById('chat-list');
+  const titleEl = () => document.getElementById('library-modal-title');
 
   function syncHeader() {
     const title = titleEl();
@@ -74,11 +61,10 @@ export function initLibraryModal({ onChatSelect = () => {} } = {}) {
       : 'Revisit your chats';
   }
 
-  // 3. Render
   function renderChatList(chats, filter = '') {
-    const list  = chatListEl();
+    const list = chatListEl();
     if (!list) return;
-    const query    = filter.toLowerCase().trim();
+    const query = filter.toLowerCase().trim();
     const filtered = query
       ? chats.filter(c => (c.title || '').toLowerCase().includes(query))
       : chats;
@@ -95,9 +81,8 @@ export function initLibraryModal({ onChatSelect = () => {} } = {}) {
     }
 
     list.innerHTML = '';
-
     filtered.forEach(chat => {
-      const item     = document.createElement('div');
+      const item = document.createElement('div');
       item.className = 'lp-item';
       item.dataset.id = escapeHtml(chat.id);
 
@@ -141,68 +126,44 @@ export function initLibraryModal({ onChatSelect = () => {} } = {}) {
     }
   }
 
-  // 4. Wire events
-  function wireEvents() {
-    closeBtn()?.addEventListener('click', close);
+  const modal = createModal({
+    backdropId: 'library-modal-backdrop',
+    html: buildHTML(),
+    closeBtnSelector: '#library-close',
+    onInit(backdrop) {
+      searchInput()?.addEventListener('input', async () => {
+        const chats = (await window.electronAPI?.getChats(currentChatScope())) ?? [];
+        renderChatList(chats, searchInput()?.value ?? '');
+      });
 
-    backdrop()?.addEventListener('click', e => {
-      if (e.target === backdrop()) close();
-    });
+      const chatList = chatListEl();
+      chatList?.addEventListener('click', e => {
+        const item = e.target.closest('.lp-item');
+        if (item && !e.target.closest('.lp-delete-btn')) {
+          onChatSelect(item.dataset.id);
+          modal.close();
+        }
+      });
 
-    searchInput()?.addEventListener('input', async () => {
-      const chats = (await window.electronAPI?.getChats(currentChatScope())) ?? [];
-      renderChatList(chats, searchInput()?.value ?? '');
-    });
+      window.addEventListener('ow:project-changed', () => {
+        syncHeader();
+        if (modal.isOpen()) refreshChatList();
+      });
+    },
+  });
 
-    chatListEl()?.addEventListener('click', e => {
-      const item = e.target.closest('.lp-item');
-      if (item && !e.target.closest('.lp-delete-btn')) {
-        onChatSelect(item.dataset.id);
-        close();
-      }
-    });
-
-    document.addEventListener('keydown', e => {
-      if (e.key === 'Escape' && isOpen()) close();
-    });
-
-    window.addEventListener('ow:project-changed', () => {
-      syncHeader();
-      if (isOpen()) refreshChatList();
-    });
-  }
-
-  wireEvents();
-
-  // 5. Sync body class helper
-  function syncBodyClass() {
-    const hasOpen = Boolean(
-      document.querySelector(
-        '#settings-modal-backdrop.open, #library-modal-backdrop.open, #projects-modal-backdrop.open'
-      )
-    );
-    document.body.classList.toggle('modal-open', hasOpen);
-  }
-
-  // 6. Public API
   async function open() {
     syncHeader();
     document.querySelector('[data-view="library"]')?.classList.add('active');
-    backdrop()?.classList.add('open');
-    syncBodyClass();
+    modal.open();
     await refreshChatList();
     requestAnimationFrame(() => searchInput()?.focus());
   }
 
   function close() {
-    backdrop()?.classList.remove('open');
     document.querySelector('[data-view="library"]')?.classList.remove('active');
-    syncBodyClass();
+    modal.close();
   }
 
-  function isOpen() {
-    return backdrop()?.classList.contains('open') ?? false;
-  }
-
-  return { open, close, isOpen };
+  return { open, close, isOpen: modal.isOpen };
 }

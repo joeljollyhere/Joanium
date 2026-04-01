@@ -1,4 +1,5 @@
 import { state } from '../System/State.js';
+import { createModal } from '../System/ModalFactory.js';
 import { loadConnectorsPanel } from '../Pages/Shared/Connectors/index.js';
 import { loadMCPPanel } from '../Pages/Shared/MCP/index.js';
 import { loadChannelsPanel } from '../Pages/Channels/Features/index.js';
@@ -114,183 +115,114 @@ function buildHTML() {
 }
 
 function buildProviderCatalog(providers) {
-  const knownProviders = new Set(PROVIDERS.map((provider) => provider.id));
+  const knownProviders = new Set(PROVIDERS.map((p) => p.id));
   const catalog = Array.isArray(providers) ? [...providers] : [];
-
-  PROVIDERS.forEach((definition) => {
-    if (!catalog.some((provider) => provider.provider === definition.id)) {
-      catalog.push({
-        provider: definition.id,
-        label: definition.label,
-        api: null,
-        settings: {},
-        configured: false,
-        models: {},
-      });
+  PROVIDERS.forEach((def) => {
+    if (!catalog.some((p) => p.provider === def.id)) {
+      catalog.push({ provider: def.id, label: def.label, api: null, settings: {}, configured: false, models: {} });
     }
   });
-
-  return catalog.filter((provider) => knownProviders.has(provider.provider));
+  return catalog.filter((p) => knownProviders.has(p.provider));
 }
 
-function getProviderDefinition(providerId) {
-  return PROVIDERS_BY_ID[providerId] ?? null;
-}
+function getProviderDefinition(providerId) { return PROVIDERS_BY_ID[providerId] ?? null; }
+function getSavedProviderConfig(r) { return { apiKey: String(r.api ?? ''), endpoint: String(r.settings?.endpoint ?? ''), modelId: String(r.settings?.modelId ?? '') }; }
+function isProviderConfigured(r) { return Boolean(r?.configured); }
 
-function getSavedProviderConfig(providerRecord) {
-  return {
-    apiKey: String(providerRecord.api ?? ''),
-    endpoint: String(providerRecord.settings?.endpoint ?? ''),
-    modelId: String(providerRecord.settings?.modelId ?? ''),
-  };
-}
-
-function isProviderConfigured(providerRecord) {
-  return Boolean(providerRecord?.configured);
-}
-
-function getEffectiveProviderConfig(providerRecord, pendingConfig = {}) {
-  const definition = getProviderDefinition(providerRecord.provider);
-  const saved = getSavedProviderConfig(providerRecord);
+function getEffectiveProviderConfig(r, pending = {}) {
+  const def = getProviderDefinition(r.provider);
+  const saved = getSavedProviderConfig(r);
   const effective = { ...saved };
-
-  definition?.fields?.forEach((field) => {
-    if (field.type !== 'password' && !effective[field.key] && field.defaultValue != null) {
-      effective[field.key] = field.defaultValue;
-    }
-  });
-
-  Object.entries(pendingConfig ?? {}).forEach(([key, value]) => {
-    effective[key] = String(value ?? '');
-  });
-
+  def?.fields?.forEach((f) => { if (f.type !== 'password' && !effective[f.key] && f.defaultValue != null) effective[f.key] = f.defaultValue; });
+  Object.entries(pending ?? {}).forEach(([k, v]) => { effective[k] = String(v ?? ''); });
   return effective;
 }
 
-function providerHasDraftChanges(pendingConfig = {}) {
-  return Object.keys(pendingConfig ?? {}).length > 0;
+function providerHasDraftChanges(pending = {}) { return Object.keys(pending ?? {}).length > 0; }
+function providerIsComplete(r, config) {
+  const def = getProviderDefinition(r.provider);
+  if (!def) return false;
+  return def.fields.every((f) => !f.required || String(config[f.key] ?? '').trim().length >= (f.minLength ?? 1));
 }
 
-function providerIsComplete(providerRecord, config) {
-  const definition = getProviderDefinition(providerRecord.provider);
-  if (!definition) return false;
-
-  return definition.fields.every((field) => {
-    if (!field.required) return true;
-    return String(config[field.key] ?? '').trim().length >= (field.minLength ?? 1);
-  });
-}
-
-function providerStatus(providerRecord, config, isDeleting, hasDraft) {
-  if (isDeleting) {
-    return { tone: 'removing', label: 'Removing' };
-  }
-  if (providerIsComplete(providerRecord, config)) {
-    return {
-      tone: isProviderConfigured(providerRecord) ? 'active' : 'draft',
-      label: isProviderConfigured(providerRecord) ? 'Connected' : 'Ready to save',
-    };
-  }
-  if (hasDraft) {
-    return { tone: 'incomplete', label: 'Needs required fields' };
-  }
+function providerStatus(r, config, isDeleting, hasDraft) {
+  if (isDeleting) return { tone: 'removing', label: 'Removing' };
+  if (providerIsComplete(r, config)) return { tone: isProviderConfigured(r) ? 'active' : 'draft', label: isProviderConfigured(r) ? 'Connected' : 'Ready to save' };
+  if (hasDraft) return { tone: 'incomplete', label: 'Needs required fields' };
   return { tone: 'inactive', label: 'Not connected' };
 }
 
-function sortProviderCatalog(catalog, settingsState) {
-  return [...catalog].sort((left, right) => {
-    const leftConfigured = Number(
-      isProviderConfigured(left) || settingsState.pendingDeletes.has(left.provider),
-    );
-    const rightConfigured = Number(
-      isProviderConfigured(right) || settingsState.pendingDeletes.has(right.provider),
-    );
-
-    if (leftConfigured !== rightConfigured) return rightConfigured - leftConfigured;
-
-    return (
-      (PROVIDER_ORDER.get(left.provider) ?? Number.MAX_SAFE_INTEGER) -
-      (PROVIDER_ORDER.get(right.provider) ?? Number.MAX_SAFE_INTEGER)
-    );
+function sortProviderCatalog(catalog, ss) {
+  return [...catalog].sort((l, r) => {
+    const lc = Number(isProviderConfigured(l) || ss.pendingDeletes.has(l.provider));
+    const rc = Number(isProviderConfigured(r) || ss.pendingDeletes.has(r.provider));
+    if (lc !== rc) return rc - lc;
+    return (PROVIDER_ORDER.get(l.provider) ?? Number.MAX_SAFE_INTEGER) - (PROVIDER_ORDER.get(r.provider) ?? Number.MAX_SAFE_INTEGER);
   });
 }
 
 export function initSettingsModal() {
-  if (!document.getElementById('settings-modal-backdrop')) {
-    const wrapper = document.createElement('div');
-    wrapper.innerHTML = buildHTML();
-    document.body.appendChild(wrapper.firstElementChild);
-  }
-
-  const settingsState = {
-    activeTab: 'user',
-    providerCatalog: [],
-    pendingProviderConfigs: {},
-    pendingDeletes: new Set(),
-  };
-
   const $ = (id) => document.getElementById(id);
   const $$ = (selector) => Array.from(document.querySelectorAll(selector));
 
-  const backdrop = () => $('settings-modal-backdrop');
-  const closeBtn = () => $('settings-modal-close');
-  const saveBtn = () => $('settings-save');
-  const saveFeedback = () => $('settings-save-feedback');
-  const nameInput = () => $('settings-user-name');
-  const memoryInput = () => $('settings-memory');
-  const instructionsInput = () => $('settings-custom-instructions');
-  const providersList = () => $('settings-providers-list');
+  const ss = { activeTab: 'user', providerCatalog: [], pendingProviderConfigs: {}, pendingDeletes: new Set() };
 
-  const tabs = () => $$('[data-settings-tab]');
-  const panels = () => $$('[data-settings-panel]');
+  const modal = createModal({
+    backdropId: 'settings-modal-backdrop',
+    html: buildHTML(),
+    closeBtnSelector: '#settings-modal-close',
+    onInit(backdrop) {
+      $$('[data-settings-tab]').forEach((btn) => {
+        btn.addEventListener('click', () => { switchTab(btn.dataset.settingsTab); focusActiveTab(); });
+      });
 
-  function setFeedback(message = '', tone = 'info') {
-    const element = saveFeedback();
-    if (!element) return;
-    element.textContent = message;
-    element.className = message ? `settings-feedback ${tone}` : 'settings-feedback';
+      $('settings-save')?.addEventListener('click', () => {
+        if (ss.activeTab === 'user') void saveUserTab();
+        if (ss.activeTab === 'providers') void saveProvidersTab();
+      });
+
+      document.addEventListener('keydown', (e) => {
+        const isSave = (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's';
+        if (isSave && modal.isOpen()) {
+          e.preventDefault();
+          if (ss.activeTab === 'user') void saveUserTab();
+          if (ss.activeTab === 'providers') void saveProvidersTab();
+        }
+      });
+    },
+  });
+
+  function setFeedback(msg = '', tone = 'info') {
+    const el = $('settings-save-feedback');
+    if (!el) return;
+    el.textContent = msg;
+    el.className = msg ? `settings-feedback ${tone}` : 'settings-feedback';
   }
 
   function providerTabHasChanges() {
-    return settingsState.pendingDeletes.size > 0 ||
-      Object.values(settingsState.pendingProviderConfigs).some((config) => providerHasDraftChanges(config));
+    return ss.pendingDeletes.size > 0 || Object.values(ss.pendingProviderConfigs).some(providerHasDraftChanges);
   }
 
   function updateSaveButton() {
-    const button = saveBtn();
-    if (!button) return;
-
-    if (settingsState.activeTab === 'user') {
-      button.textContent = 'Save changes';
-      button.disabled = false;
-      return;
-    }
-
-    if (settingsState.activeTab === 'providers') {
-      button.textContent = 'Save provider changes';
-      button.disabled = !providerTabHasChanges();
-      return;
-    }
-
-    button.textContent = 'No changes to save';
-    button.disabled = true;
+    const btn = $('settings-save');
+    if (!btn) return;
+    if (ss.activeTab === 'user') { btn.textContent = 'Save changes'; btn.disabled = false; return; }
+    if (ss.activeTab === 'providers') { btn.textContent = 'Save provider changes'; btn.disabled = !providerTabHasChanges(); return; }
+    btn.textContent = 'No changes to save'; btn.disabled = true;
   }
 
   function switchTab(tabId) {
-    settingsState.activeTab = tabId;
-
-    tabs().forEach((button) => {
-      const active = button.dataset.settingsTab === tabId;
-      button.classList.toggle('active', active);
-      button.setAttribute('aria-selected', String(active));
+    ss.activeTab = tabId;
+    $$('[data-settings-tab]').forEach((b) => {
+      const active = b.dataset.settingsTab === tabId;
+      b.classList.toggle('active', active);
+      b.setAttribute('aria-selected', String(active));
     });
-
-    panels().forEach((panel) => {
-      const active = panel.dataset.settingsPanel === tabId;
-      panel.classList.toggle('active', active);
-      panel.hidden = !active;
+    $$('[data-settings-panel]').forEach((p) => {
+      const active = p.dataset.settingsPanel === tabId;
+      p.classList.toggle('active', active);
+      p.hidden = !active;
     });
-
     setFeedback();
     updateSaveButton();
     if (tabId === 'connectors') loadConnectorsPanel();
@@ -299,402 +231,211 @@ export function initSettingsModal() {
   }
 
   function focusActiveTab() {
-    if (settingsState.activeTab === 'providers') {
-      providersList()?.querySelector('input')?.focus();
-      return;
-    }
-    if (settingsState.activeTab === 'mcp') {
-      document.getElementById('mcp-add-btn')?.focus();
-      return;
-    }
-    if (settingsState.activeTab === 'user') nameInput()?.focus();
-  }
-
-  function syncBodyClass() {
-    const hasOpen = Boolean(document.querySelector('#settings-modal-backdrop.open, #library-modal-backdrop.open'));
-    document.body.classList.toggle('modal-open', hasOpen);
+    if (ss.activeTab === 'providers') { $('settings-providers-list')?.querySelector('input')?.focus(); return; }
+    if (ss.activeTab === 'mcp') { $('mcp-add-btn')?.focus(); return; }
+    if (ss.activeTab === 'user') $('settings-user-name')?.focus();
   }
 
   function applyUserProfile(user = {}) {
     const rawName = String(user?.name ?? '').trim();
     const displayName = rawName || 'User';
     const firstName = displayName.split(/\s+/)[0];
-
     state.userName = rawName;
     state.userInitials = getInitials(displayName);
-
-    const welcomeTitle = document.querySelector('.welcome-title');
-    if (welcomeTitle) welcomeTitle.textContent = rawName ? `Welcome, ${firstName}` : 'Welcome';
-
-    window.dispatchEvent(new CustomEvent('ow:user-profile-updated', {
-      detail: { name: displayName, initials: state.userInitials },
-    }));
+    const wt = document.querySelector('.welcome-title');
+    if (wt) wt.textContent = rawName ? `Welcome, ${firstName}` : 'Welcome';
+    window.dispatchEvent(new CustomEvent('ow:user-profile-updated', { detail: { name: displayName, initials: state.userInitials } }));
   }
 
-  function renderProviderField(providerRecord, field, savedConfig, effectiveConfig, disabled) {
+  function renderProviderField(r, field, savedConfig, effectiveConfig, disabled) {
     const wrapper = document.createElement('label');
     wrapper.className = 'spr-field';
-
     const label = document.createElement('span');
     label.className = 'spr-field-label';
     label.textContent = field.label;
-
     const inputWrap = document.createElement('div');
     inputWrap.className = 'key-input-wrap spr-key-wrap';
-
     const input = document.createElement('input');
     input.className = 'key-input spr-key-input';
     input.type = field.type === 'password' ? 'password' : 'text';
-    input.placeholder = field.type === 'password' && savedConfig.apiKey
-      ? '••••••••  (saved)'
-      : field.placeholder;
-    input.autocomplete = 'off';
-    input.spellcheck = false;
-    input.disabled = disabled;
-    input.value = field.type === 'password'
-      ? String(settingsState.pendingProviderConfigs[providerRecord.provider]?.[field.key] ?? '')
-      : String(effectiveConfig[field.key] ?? '');
+    input.placeholder = field.type === 'password' && savedConfig.apiKey ? '••••••••  (saved)' : field.placeholder;
+    input.autocomplete = 'off'; input.spellcheck = false; input.disabled = disabled;
+    input.value = field.type === 'password' ? String(ss.pendingProviderConfigs[r.provider]?.[field.key] ?? '') : String(effectiveConfig[field.key] ?? '');
     input.addEventListener('input', () => {
-      const pending = { ...(settingsState.pendingProviderConfigs[providerRecord.provider] ?? {}) };
+      const pending = { ...(ss.pendingProviderConfigs[r.provider] ?? {}) };
       const trimmed = input.value.trim();
-
-      if (field.type === 'password' && !trimmed && savedConfig.apiKey) {
-        delete pending[field.key];
-      } else {
-        pending[field.key] = input.value;
-      }
-
-      if (Object.keys(pending).length > 0) settingsState.pendingProviderConfigs[providerRecord.provider] = pending;
-      else delete settingsState.pendingProviderConfigs[providerRecord.provider];
-
-      if (trimmed) settingsState.pendingDeletes.delete(providerRecord.provider);
+      if (field.type === 'password' && !trimmed && savedConfig.apiKey) delete pending[field.key];
+      else pending[field.key] = input.value;
+      if (Object.keys(pending).length > 0) ss.pendingProviderConfigs[r.provider] = pending;
+      else delete ss.pendingProviderConfigs[r.provider];
+      if (trimmed) ss.pendingDeletes.delete(r.provider);
       renderProviders();
     });
     inputWrap.appendChild(input);
-
     if (field.type === 'password') {
-      const eyeButton = document.createElement('button');
-      eyeButton.type = 'button';
-      eyeButton.className = 'key-eye';
-      eyeButton.title = 'Show or hide';
-      eyeButton.innerHTML = `
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke-width="1.8"/>
-          <circle cx="12" cy="12" r="3" stroke-width="1.8"/>
-        </svg>
-      `;
-      eyeButton.disabled = disabled;
-      eyeButton.addEventListener('click', () => {
-        input.type = input.type === 'password' ? 'text' : 'password';
-      });
-      inputWrap.appendChild(eyeButton);
+      const eye = document.createElement('button');
+      eye.type = 'button'; eye.className = 'key-eye'; eye.title = 'Show or hide';
+      eye.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke-width="1.8"/><circle cx="12" cy="12" r="3" stroke-width="1.8"/></svg>`;
+      eye.disabled = disabled;
+      eye.addEventListener('click', () => { input.type = input.type === 'password' ? 'text' : 'password'; });
+      inputWrap.appendChild(eye);
     }
-
     wrapper.append(label, inputWrap);
     return wrapper;
   }
 
   function renderProviders() {
-    const list = providersList();
+    const list = $('settings-providers-list');
     if (!list) return;
-
-    const catalog = sortProviderCatalog(settingsState.providerCatalog, settingsState);
-    if (!catalog.length) {
-      list.innerHTML = '<div class="settings-empty-card">No providers available.</div>';
-      updateSaveButton();
-      return;
-    }
-
+    const catalog = sortProviderCatalog(ss.providerCatalog, ss);
+    if (!catalog.length) { list.innerHTML = '<div class="settings-empty-card">No providers available.</div>'; updateSaveButton(); return; }
     list.innerHTML = '';
-
-    catalog.forEach((providerRecord) => {
-      const definition = getProviderDefinition(providerRecord.provider);
-      if (!definition) return;
-
-      const savedConfig = getSavedProviderConfig(providerRecord);
-      const pendingConfig = settingsState.pendingProviderConfigs[providerRecord.provider] ?? {};
-      const effectiveConfig = getEffectiveProviderConfig(providerRecord, pendingConfig);
-      const isDeleting = settingsState.pendingDeletes.has(providerRecord.provider);
+    catalog.forEach((r) => {
+      const def = getProviderDefinition(r.provider);
+      if (!def) return;
+      const savedConfig = getSavedProviderConfig(r);
+      const pendingConfig = ss.pendingProviderConfigs[r.provider] ?? {};
+      const effectiveConfig = getEffectiveProviderConfig(r, pendingConfig);
+      const isDeleting = ss.pendingDeletes.has(r.provider);
       const hasDraft = providerHasDraftChanges(pendingConfig);
-      const hasAnyConfig = isProviderConfigured(providerRecord) || hasDraft;
-      const status = providerStatus(providerRecord, effectiveConfig, isDeleting, hasDraft);
+      const hasAnyConfig = isProviderConfigured(r) || hasDraft;
+      const status = providerStatus(r, effectiveConfig, isDeleting, hasDraft);
 
       const row = document.createElement('div');
       row.className = `spr-row${status.tone === 'active' ? ' spr-row--active' : ''}${isDeleting ? ' spr-row--deleting' : ''}`;
-      row.style.setProperty('--p-color', definition.color);
+      row.style.setProperty('--p-color', def.color);
 
-      const main = document.createElement('div');
-      main.className = 'spr-main';
+      const main = document.createElement('div'); main.className = 'spr-main';
+      const summary = document.createElement('div'); summary.className = 'spr-summary';
+      const icon = document.createElement('div'); icon.className = 'spr-icon';
+      icon.innerHTML = `<img class="spr-icon-img" src="${def.iconPath || 'data:,'}" alt="" /><span class="spr-icon-fallback">${def.fallback}</span>`;
+      if (!def.iconPath) icon.classList.add('icon-missing');
+      const img = icon.querySelector('.spr-icon-img');
+      img?.addEventListener('error', () => icon.classList.add('icon-missing'));
+      img?.addEventListener('load', () => icon.classList.remove('icon-missing'));
 
-      const summary = document.createElement('div');
-      summary.className = 'spr-summary';
-
-      const icon = document.createElement('div');
-      icon.className = 'spr-icon';
-      icon.innerHTML = `
-        <img class="spr-icon-img" src="${definition.iconPath || 'data:,'}" alt="" />
-        <span class="spr-icon-fallback">${definition.fallback}</span>
-      `;
-      if (!definition.iconPath) icon.classList.add('icon-missing');
-      const image = icon.querySelector('.spr-icon-img');
-      image?.addEventListener('error', () => icon.classList.add('icon-missing'));
-      image?.addEventListener('load', () => icon.classList.remove('icon-missing'));
-
-      const info = document.createElement('div');
-      info.className = 'spr-info';
-      info.innerHTML = `
-        <div class="spr-provider-name">${providerRecord.label ?? definition.label}</div>
-        <div class="spr-provider-copy">${definition.company || definition.caption}</div>
-      `;
+      const info = document.createElement('div'); info.className = 'spr-info';
+      info.innerHTML = `<div class="spr-provider-name">${r.label ?? def.label}</div><div class="spr-provider-copy">${def.company || def.caption}</div>`;
 
       const badge = document.createElement('span');
-      badge.className = `spr-status spr-status--${status.tone}`;
-      badge.textContent = status.label;
-
+      badge.className = `spr-status spr-status--${status.tone}`; badge.textContent = status.label;
       summary.append(icon, info, badge);
 
       const fields = document.createElement('div');
-      fields.className = `spr-fields${definition.fields.length > 1 ? ' spr-fields--multi' : ''}`;
-      definition.fields.forEach((field) => {
-        fields.appendChild(renderProviderField(providerRecord, field, savedConfig, effectiveConfig, isDeleting));
-      });
-
+      fields.className = `spr-fields${def.fields.length > 1 ? ' spr-fields--multi' : ''}`;
+      def.fields.forEach((f) => fields.appendChild(renderProviderField(r, f, savedConfig, effectiveConfig, isDeleting)));
       main.append(summary, fields);
 
-      if (definition.hint) {
-        const hint = document.createElement('p');
-        hint.className = 'spr-hint';
-        hint.textContent = definition.hint;
-        main.appendChild(hint);
-      }
+      if (def.hint) { const h = document.createElement('p'); h.className = 'spr-hint'; h.textContent = def.hint; main.appendChild(h); }
 
-      const actions = document.createElement('div');
-      actions.className = 'spr-actions';
-
-      const deleteButton = document.createElement('button');
-      deleteButton.type = 'button';
-      deleteButton.className = isDeleting ? 'spr-undo-btn' : 'spr-delete-btn';
-      deleteButton.title = isDeleting ? 'Undo removal' : 'Remove configuration';
-      deleteButton.hidden = !isDeleting && !hasAnyConfig;
-      deleteButton.innerHTML = isDeleting
+      const actions = document.createElement('div'); actions.className = 'spr-actions';
+      const delBtn = document.createElement('button');
+      delBtn.type = 'button';
+      delBtn.className = isDeleting ? 'spr-undo-btn' : 'spr-delete-btn';
+      delBtn.title = isDeleting ? 'Undo removal' : 'Remove configuration';
+      delBtn.hidden = !isDeleting && !hasAnyConfig;
+      delBtn.innerHTML = isDeleting
         ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 14l-4-4 4-4M5 10h11a4 4 0 010 8h-1" stroke-linecap="round" stroke-linejoin="round"/></svg> Undo`
         : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
-      deleteButton.addEventListener('click', () => {
-        if (isDeleting) {
-          settingsState.pendingDeletes.delete(providerRecord.provider);
-        } else {
-          settingsState.pendingDeletes.add(providerRecord.provider);
-          delete settingsState.pendingProviderConfigs[providerRecord.provider];
-        }
+      delBtn.addEventListener('click', () => {
+        if (isDeleting) { ss.pendingDeletes.delete(r.provider); } else { ss.pendingDeletes.add(r.provider); delete ss.pendingProviderConfigs[r.provider]; }
         renderProviders();
       });
-
-      actions.appendChild(deleteButton);
+      actions.appendChild(delBtn);
       row.append(main, actions);
       list.appendChild(row);
     });
-
     updateSaveButton();
   }
 
   async function hydrateModal() {
-    setFeedback();
-    settingsState.pendingDeletes.clear();
-    settingsState.pendingProviderConfigs = {};
-
+    setFeedback(); ss.pendingDeletes.clear(); ss.pendingProviderConfigs = {};
     const [user, customInstructions, memory, providers] = await Promise.all([
-      window.electronAPI?.getUser?.(),
-      window.electronAPI?.getCustomInstructions?.(),
-      window.electronAPI?.getMemory?.(),
-      window.electronAPI?.getModels?.(),
+      window.electronAPI?.getUser?.(), window.electronAPI?.getCustomInstructions?.(),
+      window.electronAPI?.getMemory?.(), window.electronAPI?.getModels?.(),
     ]);
-
     applyUserProfile(user ?? {});
-    settingsState.providerCatalog = buildProviderCatalog(providers);
-
-    if (nameInput()) nameInput().value = user?.name ?? '';
-    if (memoryInput()) memoryInput().value = memory ?? '';
-    if (instructionsInput()) instructionsInput().value = customInstructions ?? '';
-
-    renderProviders();
-    updateSaveButton();
+    ss.providerCatalog = buildProviderCatalog(providers);
+    if ($('settings-user-name')) $('settings-user-name').value = user?.name ?? '';
+    if ($('settings-memory')) $('settings-memory').value = memory ?? '';
+    if ($('settings-custom-instructions')) $('settings-custom-instructions').value = customInstructions ?? '';
+    renderProviders(); updateSaveButton();
   }
 
   async function saveUserTab() {
-    const nextName = nameInput()?.value.trim() ?? '';
-    const nextMemory = memoryInput()?.value ?? '';
-    const nextInstructions = instructionsInput()?.value ?? '';
-
-    if (nextName.length < 2) {
-      setFeedback('Enter a name with at least 2 characters.', 'error');
-      nameInput()?.focus();
-      return;
-    }
-
-    saveBtn().disabled = true;
-    setFeedback('Saving...', 'info');
-
+    const nextName = $('settings-user-name')?.value.trim() ?? '';
+    const nextMemory = $('settings-memory')?.value ?? '';
+    const nextInstructions = $('settings-custom-instructions')?.value ?? '';
+    if (nextName.length < 2) { setFeedback('Enter a name with at least 2 characters.', 'error'); $('settings-user-name')?.focus(); return; }
+    $('settings-save').disabled = true; setFeedback('Saving...', 'info');
     try {
       const [profileResult, instructionsResult, memoryResult] = await Promise.all([
         window.electronAPI?.saveUserProfile?.({ name: nextName }),
         window.electronAPI?.saveCustomInstructions?.(nextInstructions),
         window.electronAPI?.saveMemory?.(nextMemory),
       ]);
-
       if (!profileResult?.ok) throw new Error(profileResult?.error ?? 'Could not save profile.');
       if (!instructionsResult?.ok) throw new Error(instructionsResult?.error ?? 'Could not save custom instructions.');
       if (!memoryResult?.ok) throw new Error(memoryResult?.error ?? 'Could not save memory.');
-
       applyUserProfile(profileResult.user ?? { name: nextName });
       setFeedback('Changes saved.', 'success');
       window.dispatchEvent(new CustomEvent('ow:settings-saved'));
-    } catch (error) {
-      console.error('[SettingsModal] Save user error:', error);
-      setFeedback(error.message || 'Could not save.', 'error');
-    } finally {
-      updateSaveButton();
-    }
+    } catch (err) { setFeedback(err.message || 'Could not save.', 'error'); }
+    finally { updateSaveButton(); }
   }
 
   async function saveProvidersTab() {
     const changes = {};
-
-    for (const providerRecord of settingsState.providerCatalog) {
-      const providerId = providerRecord.provider;
-      if (settingsState.pendingDeletes.has(providerId)) {
-        changes[providerId] = null;
-        continue;
-      }
-
-      const pendingConfig = settingsState.pendingProviderConfigs[providerId];
+    for (const r of ss.providerCatalog) {
+      const pid = r.provider;
+      if (ss.pendingDeletes.has(pid)) { changes[pid] = null; continue; }
+      const pendingConfig = ss.pendingProviderConfigs[pid];
       if (!providerHasDraftChanges(pendingConfig)) continue;
-
-      const effectiveConfig = getEffectiveProviderConfig(providerRecord, pendingConfig);
-      if (!providerIsComplete(providerRecord, effectiveConfig)) {
-        setFeedback(`Finish the required fields for ${providerRecord.label ?? providerId}.`, 'error');
-        renderProviders();
-        return;
-      }
-
-      const definition = getProviderDefinition(providerId);
-      const savedConfig = getSavedProviderConfig(providerRecord);
+      const effectiveConfig = getEffectiveProviderConfig(r, pendingConfig);
+      if (!providerIsComplete(r, effectiveConfig)) { setFeedback(`Finish the required fields for ${r.label ?? pid}.`, 'error'); renderProviders(); return; }
+      const def = getProviderDefinition(pid);
+      const savedConfig = getSavedProviderConfig(r);
       const payload = {};
-
-      definition.fields.forEach((field) => {
-        const pendingValue = pendingConfig[field.key];
-        if (pendingValue != null) {
-          payload[field.key] = String(pendingValue).trim();
-          return;
-        }
-
-        if (!savedConfig[field.key] && effectiveConfig[field.key]) {
-          payload[field.key] = String(effectiveConfig[field.key]).trim();
-        }
+      def.fields.forEach((f) => {
+        const pv = pendingConfig[f.key];
+        if (pv != null) { payload[f.key] = String(pv).trim(); return; }
+        if (!savedConfig[f.key] && effectiveConfig[f.key]) payload[f.key] = String(effectiveConfig[f.key]).trim();
       });
-
-      if (Object.keys(payload).length > 0) changes[providerId] = payload;
+      if (Object.keys(payload).length > 0) changes[pid] = payload;
     }
-
-    if (!Object.keys(changes).length) {
-      setFeedback('No provider changes to save.', 'error');
-      return;
-    }
-
-    saveBtn().disabled = true;
-    setFeedback('Saving provider settings...', 'info');
-
+    if (!Object.keys(changes).length) { setFeedback('No provider changes to save.', 'error'); return; }
+    $('settings-save').disabled = true; setFeedback('Saving provider settings...', 'info');
     try {
       const result = await window.electronAPI?.saveProviderConfigs?.(changes);
       if (!result?.ok) throw new Error(result?.error ?? 'Could not save provider settings.');
-
       const allProviders = await window.electronAPI?.getModels?.() ?? [];
-      state.allProviders = allProviders;
-      state.providers = allProviders.filter((provider) => provider.configured);
-
-      settingsState.providerCatalog = buildProviderCatalog(allProviders);
-      settingsState.pendingProviderConfigs = {};
-      settingsState.pendingDeletes.clear();
+      state.allProviders = allProviders; state.providers = allProviders.filter((p) => p.configured);
+      ss.providerCatalog = buildProviderCatalog(allProviders); ss.pendingProviderConfigs = {}; ss.pendingDeletes.clear();
       renderProviders();
-
-      const savedCount = Object.values(changes).filter((value) => value !== null).length;
-      const removedCount = Object.values(changes).filter((value) => value === null).length;
+      const savedCount = Object.values(changes).filter((v) => v !== null).length;
+      const removedCount = Object.values(changes).filter((v) => v === null).length;
       const parts = [];
       if (savedCount) parts.push(`${savedCount} provider${savedCount !== 1 ? 's' : ''} saved`);
       if (removedCount) parts.push(`${removedCount} provider${removedCount !== 1 ? 's' : ''} removed`);
       setFeedback(`${parts.join(', ')}.`, 'success');
       window.dispatchEvent(new CustomEvent('ow:settings-saved'));
-    } catch (error) {
-      console.error('[SettingsModal] Save providers error:', error);
-      setFeedback(error.message || 'Could not save.', 'error');
-    } finally {
-      updateSaveButton();
-    }
+    } catch (err) { setFeedback(err.message || 'Could not save.', 'error'); }
+    finally { updateSaveButton(); }
   }
 
-  function wireEvents() {
-    tabs().forEach((button) => {
-      button.addEventListener('click', () => {
-        switchTab(button.dataset.settingsTab);
-        focusActiveTab();
-      });
-    });
-
-    saveBtn()?.addEventListener('click', () => {
-      if (settingsState.activeTab === 'user') void saveUserTab();
-      if (settingsState.activeTab === 'providers') void saveProvidersTab();
-    });
-
-    closeBtn()?.addEventListener('click', close);
-    backdrop()?.addEventListener('click', (event) => {
-      if (event.target === backdrop()) close();
-    });
-
-    document.addEventListener('keydown', (event) => {
-      const isSave = (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's';
-      if (isSave && backdrop()?.classList.contains('open')) {
-        event.preventDefault();
-        if (settingsState.activeTab === 'user') void saveUserTab();
-        if (settingsState.activeTab === 'providers') void saveProvidersTab();
-        return;
-      }
-
-      if (event.key === 'Escape' && backdrop()?.classList.contains('open')) close();
-    });
-  }
-
-  wireEvents();
-
-  async function open(tabId = settingsState.activeTab) {
-    switchTab(tabId);
-    backdrop()?.classList.add('open');
-    syncBodyClass();
-
-    try {
-      await hydrateModal();
-    } catch (error) {
-      console.error('[SettingsModal] Could not load settings:', error);
-      setFeedback('Could not load settings.', 'error');
-    }
-
+  async function open(tabId = ss.activeTab) {
+    switchTab(tabId); modal.open();
+    try { await hydrateModal(); }
+    catch (err) { setFeedback('Could not load settings.', 'error'); }
     requestAnimationFrame(() => focusActiveTab());
-  }
-
-  function close() {
-    backdrop()?.classList.remove('open');
-    syncBodyClass();
   }
 
   async function loadUser() {
     try {
       const user = await window.electronAPI?.getUser?.();
-      applyUserProfile(user ?? {});
-      return user;
-    } catch (error) {
-      console.warn('[SettingsModal] Could not load user:', error);
-      applyUserProfile({});
-      return null;
-    }
+      applyUserProfile(user ?? {}); return user;
+    } catch { applyUserProfile({}); return null; }
   }
 
-  return { open, close, loadUser };
+  return { open, close: modal.close, loadUser };
 }

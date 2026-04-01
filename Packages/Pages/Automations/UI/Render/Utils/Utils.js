@@ -1,28 +1,7 @@
 ﻿import { ACTION_META } from '../Config/Constants.js';
+import { escapeHtml, capitalize, generateId, formatTrigger, timeAgo } from '../../../../../System/Utils.js';
 
-export function escapeHtml(v) {
-    return String(v ?? '')
-        .replace(/&/g, '&amp;').replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
-
-export function generateId() {
-    return `auto_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-}
-
-export function capitalize(s) { return s ? s[0].toUpperCase() + s.slice(1) : s; }
-
-export function formatTrigger(trigger) {
-    if (!trigger) return 'Unknown trigger';
-    switch (trigger.type) {
-        case 'on_startup': return '⚡ On app startup';
-        case 'interval': return `⏱️ Every ${trigger.minutes || 30} min`;
-        case 'hourly': return '⏰ Every hour';
-        case 'daily': return `🌅 Daily at ${trigger.time || '09:00'}`;
-        case 'weekly': return `📅 ${capitalize(trigger.day || 'monday')}s at ${trigger.time || '09:00'}`;
-        default: return trigger.type;
-    }
-}
+export { escapeHtml, capitalize, generateId, formatTrigger };
 
 export function formatActionsSummary(actions = []) {
     if (!actions.length) return 'No actions configured';
@@ -39,10 +18,5 @@ export function formatActionsSummary(actions = []) {
 
 export function formatLastRun(lastRun) {
     if (!lastRun) return '';
-    const d = new Date(lastRun), now = new Date(), diff = now - d;
-    const min = 60_000, hour = 3_600_000, day = 86_400_000;
-    if (diff < min) return 'Last run: just now';
-    if (diff < hour) return `Last run: ${Math.floor(diff / min)}m ago`;
-    if (diff < day) return `Last run: ${Math.floor(diff / hour)}h ago`;
-    return `Last run: ${d.toLocaleDateString()}`;
+    return `Last run: ${timeAgo(lastRun)}`;
 }

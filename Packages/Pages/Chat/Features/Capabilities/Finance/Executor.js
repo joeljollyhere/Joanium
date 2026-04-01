@@ -1,14 +1,12 @@
+import { createExecutor } from '../Shared/createExecutor.js';
 import { fmt, safeJson } from '../Shared/Utils.js';
 
-const HANDLED = new Set(['get_exchange_rate', 'get_treasury_data', 'get_fred_data']);
-
-export function handles(toolName) { return HANDLED.has(toolName); }
-
-export async function execute(toolName, params, onStage = () => { }) {
-    switch (toolName) {
-
+export const { handles, execute } = createExecutor({
+    name: 'FinanceExecutor',
+    tools: ['get_exchange_rate', 'get_treasury_data', 'get_fred_data'],
+    handlers: {
         /* ── Exchange Rates ── */
-        case 'get_exchange_rate': {
+        get_exchange_rate: async (params, onStage) => {
             const { from = 'USD', to } = params;
             const fromUpper = from.toUpperCase();
             onStage(`💱 Fetching exchange rates for ${fromUpper}…`);
@@ -45,10 +43,10 @@ export async function execute(toolName, params, onStage = () => { }) {
             const rateLines = DISPLAY.filter(c => c !== fromUpper && rates[c])
                 .map(c => `  ${c}: ${fmt(rates[c], 4)}`).join('\n');
             return [`💱 Exchange Rates (1 ${fromUpper})`, ``, rateLines, ``, `Last updated: ${updated}`, `Source: open.er-api.com`].join('\n');
-        }
+        },
 
         /* ── US Treasury ── */
-        case 'get_treasury_data': {
+        get_treasury_data: async (params, onStage) => {
             const { type = 'debt' } = params;
             onStage(`🏛️ Fetching US Treasury data (${type})…`);
 
@@ -87,10 +85,10 @@ export async function execute(toolName, params, onStage = () => { }) {
             const data = await safeJson(url);
             if (!data.data?.length) return `No treasury data currently available for type "${type}". Try again later.`;
             return [title, ``, formatter(data.data), ``, `Source: fiscaldata.treasury.gov`].join('\n');
-        }
+        },
 
         /* ── FRED Economic Data ── */
-        case 'get_fred_data': {
+        get_fred_data: async (params, onStage) => {
             const { series_id, limit = 6 } = params;
             if (!series_id) {
                 return [
@@ -164,9 +162,6 @@ export async function execute(toolName, params, onStage = () => { }) {
                 `Source: Federal Reserve Bank of St. Louis (FRED)`,
                 `More data: fred.stlouisfed.org/series/${sid}`,
             ].join('\n');
-        }
-
-        default:
-            throw new Error(`FinanceExecutor: unknown tool "${toolName}"`);
-    }
-}
+        },
+    },
+});

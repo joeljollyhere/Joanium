@@ -1,58 +1,13 @@
-export function escapeHtml(value) {
-  return String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
+import { escapeHtml, capitalize, generateId, formatTrigger, timeAgo, fullDateTime } from '../../../../../System/Utils.js';
 
-export function capitalize(value) {
-  return value ? value[0].toUpperCase() + value.slice(1) : value;
-}
+export { escapeHtml, capitalize, formatTrigger, timeAgo, fullDateTime };
 
 export function generateAgentId() {
-  return `agent_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+  return generateId('agent');
 }
 
 export function generateJobId() {
-  return `job_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
-}
-
-export function formatTrigger(trigger) {
-  if (!trigger) return '?';
-  switch (trigger.type) {
-    case 'on_startup': return '\u26A1 Startup';
-    case 'interval': return `\u23F1 Every ${trigger.minutes}m`;
-    case 'hourly': return '\u23F0 Hourly';
-    case 'daily': return `\u{1F305} Daily ${trigger.time ?? ''}`;
-    case 'weekly': return `\u{1F4C5} ${capitalize(trigger.day ?? '')} ${trigger.time ?? ''}`;
-    default: return trigger.type;
-  }
-}
-
-export function timeAgo(iso) {
-  if (!iso) return '';
-  const diff = Date.now() - new Date(iso);
-  const minute = 60_000;
-  const hour = 3_600_000;
-
-  if (diff < minute) return 'just now';
-  if (diff < hour) return `${Math.floor(diff / minute)}m ago`;
-  if (diff < 86_400_000) return `${Math.floor(diff / hour)}h ago`;
-
-  return new Date(iso).toLocaleDateString([], { month: 'short', day: 'numeric' });
-}
-
-export function fullDateTime(iso) {
-  if (!iso) return '';
-  return new Date(iso).toLocaleString([], {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  });
+  return generateId('job');
 }
 
 export function resolveModelLabel(allModels, providerId, modelId) {

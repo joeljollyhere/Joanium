@@ -1,34 +1,5 @@
+import { createExecutor } from '../Shared/createExecutor.js';
 import { state } from '../../../../../System/State.js';
-
-const HANDLED = new Set([
-  'inspect_workspace',
-  'search_workspace',
-  'find_file_by_name',
-  'run_shell_command',
-  'assess_shell_command',
-  'read_local_file',
-  'extract_file_text',
-  'read_file_chunk',
-  'read_multiple_local_files',
-  'list_directory',
-  'list_directory_tree',
-  'write_file',
-  'apply_file_patch',
-  'replace_lines_in_file',
-  'insert_into_file',
-  'create_folder',
-  'copy_item',
-  'move_item',
-  'git_status',
-  'git_diff',
-  'git_create_branch',
-  'run_project_checks',
-  'open_folder',
-  'start_local_server',
-  'delete_item',
-]);
-
-export function handles(toolName) { return HANDLED.has(toolName); }
 
 function resolveWorkingDirectory(explicitPath) {
   return explicitPath?.trim() || state.workspacePath || '';
@@ -159,9 +130,37 @@ function formatDocumentExtraction(result, filePath) {
   ].join('\n');
 }
 
-export async function execute(toolName, params, onStage = () => { }) {
-  switch (toolName) {
-    case 'inspect_workspace': {
+export const { handles, execute } = createExecutor({
+  name: 'TerminalExecutor',
+  tools: [
+    'inspect_workspace',
+    'search_workspace',
+    'find_file_by_name',
+    'run_shell_command',
+    'assess_shell_command',
+    'read_local_file',
+    'extract_file_text',
+    'read_file_chunk',
+    'read_multiple_local_files',
+    'list_directory',
+    'list_directory_tree',
+    'write_file',
+    'apply_file_patch',
+    'replace_lines_in_file',
+    'insert_into_file',
+    'create_folder',
+    'copy_item',
+    'move_item',
+    'git_status',
+    'git_diff',
+    'git_create_branch',
+    'run_project_checks',
+    'open_folder',
+    'start_local_server',
+    'delete_item',
+  ],
+  handlers: {
+    inspect_workspace: async (params, onStage) => {
       const rootPath = resolveWorkingDirectory(params.path);
       if (!rootPath) throw new Error('No workspace is open. Set a workspace or provide a path.');
 
@@ -169,9 +168,9 @@ export async function execute(toolName, params, onStage = () => { }) {
       const result = await window.electronAPI?.inspectWorkspace?.({ rootPath });
       if (!result?.ok) throw new Error(result?.error ?? 'Workspace inspection failed');
       return formatWorkspaceSummary(result.summary);
-    }
+    },
 
-    case 'search_workspace': {
+    search_workspace: async (params, onStage) => {
       const rootPath = resolveWorkingDirectory(params.path);
       if (!rootPath) throw new Error('No workspace is open. Set a workspace or provide a path.');
       if (!params.query?.trim()) throw new Error('Missing required param: query');
@@ -190,9 +189,9 @@ export async function execute(toolName, params, onStage = () => { }) {
         '',
         ...result.matches.map(match => `- ${match.path}:${match.lineNumber} — ${match.line}`),
       ].join('\n');
-    }
+    },
 
-    case 'find_file_by_name': {
+    find_file_by_name: async (params, onStage) => {
       const rootPath = resolveWorkingDirectory(params.path);
       if (!rootPath) throw new Error('No workspace is open. Set a workspace or provide a path.');
       if (!params.name?.trim()) throw new Error('Missing required param: name');
@@ -211,17 +210,17 @@ export async function execute(toolName, params, onStage = () => { }) {
         '',
         ...result.matches.map(match => `- ${match.path}`),
       ].join('\n');
-    }
+    },
 
-    case 'assess_shell_command': {
+    assess_shell_command: async (params, onStage) => {
       if (!params.command?.trim()) throw new Error('Missing required param: command');
       onStage('🛡️ Assessing shell command risk');
       const result = await window.electronAPI?.assessCommandRisk?.({ command: params.command });
       if (!result?.ok) throw new Error(result?.error ?? 'Risk assessment failed');
       return formatRisk(result.risk) || 'Risk: **low**';
-    }
+    },
 
-    case 'run_shell_command': {
+    run_shell_command: async (params, onStage) => {
       const { command, timeout_seconds = 30, allow_risky = false } = params;
       if (!command?.trim()) throw new Error('Missing required param: command');
 
@@ -252,9 +251,9 @@ export async function execute(toolName, params, onStage = () => { }) {
       if (result.exitCode !== 0) parts.push(`Exit code: ${result.exitCode}`);
       if (!result.stdout?.trim() && !result.stderr?.trim()) parts.push('(no output)');
       return parts.join('\n\n');
-    }
+    },
 
-    case 'read_local_file': {
+    read_local_file: async (params, onStage) => {
       const { path: filePath, max_lines } = params;
       if (!filePath?.trim()) throw new Error('Missing required param: path');
 
@@ -272,9 +271,9 @@ export async function execute(toolName, params, onStage = () => { }) {
         result.content,
         '```',
       ].join('\n');
-    }
+    },
 
-    case 'extract_file_text': {
+    extract_file_text: async (params, onStage) => {
       const { path: filePath } = params;
       if (!filePath?.trim()) throw new Error('Missing required param: path');
 
@@ -282,9 +281,9 @@ export async function execute(toolName, params, onStage = () => { }) {
       const result = await window.electronAPI?.extractDocumentText?.({ filePath });
       if (!result?.ok) throw new Error(result?.error ?? 'Document extraction failed');
       return formatDocumentExtraction(result, filePath);
-    }
+    },
 
-    case 'read_file_chunk': {
+    read_file_chunk: async (params, onStage) => {
       const { path: filePath, start_line, line_count } = params;
       if (!filePath?.trim()) throw new Error('Missing required param: path');
       if (!start_line) throw new Error('Missing required param: start_line');
@@ -304,9 +303,9 @@ export async function execute(toolName, params, onStage = () => { }) {
         result.content,
         '```',
       ].join('\n');
-    }
+    },
 
-    case 'read_multiple_local_files': {
+    read_multiple_local_files: async (params, onStage) => {
       if (!params.paths?.trim()) throw new Error('Missing required param: paths');
 
       onStage(`Reading multiple files`);
@@ -317,9 +316,9 @@ export async function execute(toolName, params, onStage = () => { }) {
 
       if (!result?.ok) throw new Error(result?.error ?? 'Multi-file read failed');
       return formatMultipleFileReads(result);
-    }
+    },
 
-    case 'list_directory': {
+    list_directory: async (params, onStage) => {
       const { path: dirPath } = params;
       if (!dirPath?.trim()) throw new Error('Missing required param: path');
 
@@ -341,9 +340,9 @@ export async function execute(toolName, params, onStage = () => { }) {
         '',
         ...lines,
       ].join('\n');
-    }
+    },
 
-    case 'list_directory_tree': {
+    list_directory_tree: async (params, onStage) => {
       const { path: dirPath } = params;
       if (!dirPath?.trim()) throw new Error('Missing required param: path');
 
@@ -355,9 +354,9 @@ export async function execute(toolName, params, onStage = () => { }) {
       });
       if (!result?.ok) throw new Error(result?.error ?? 'Directory tree failed');
       return formatDirectoryTree(result);
-    }
+    },
 
-    case 'write_file': {
+    write_file: async (params, onStage) => {
       const { path: filePath, content } = params;
       if (!filePath?.trim()) throw new Error('Missing required param: path');
       if (content == null) throw new Error('Missing required param: content');
@@ -367,9 +366,9 @@ export async function execute(toolName, params, onStage = () => { }) {
       const result = await window.electronAPI?.writeAIFile?.({ filePath, content, append });
       if (!result?.ok) throw new Error(result?.error ?? 'File write failed');
       return `✅ File ${append ? 'appended' : 'written'}: ${result.path} (${result.bytes} bytes)`;
-    }
+    },
 
-    case 'apply_file_patch': {
+    apply_file_patch: async (params, onStage) => {
       const { path: filePath, search, replace, replace_all } = params;
       if (!filePath?.trim()) throw new Error('Missing required param: path');
       if (typeof search !== 'string' || !search.length) throw new Error('Missing required param: search');
@@ -384,9 +383,9 @@ export async function execute(toolName, params, onStage = () => { }) {
       });
       if (!result?.ok) throw new Error(result?.error ?? 'File patch failed');
       return `✅ Patched ${result.path} (${result.replacements} replacement${result.replacements !== 1 ? 's' : ''})`;
-    }
+    },
 
-    case 'replace_lines_in_file': {
+    replace_lines_in_file: async (params, onStage) => {
       const { path: filePath, start_line, end_line, replacement } = params;
       if (!filePath?.trim()) throw new Error('Missing required param: path');
       if (start_line == null) throw new Error('Missing required param: start_line');
@@ -402,9 +401,9 @@ export async function execute(toolName, params, onStage = () => { }) {
       });
       if (!result?.ok) throw new Error(result?.error ?? 'Line replacement failed');
       return `✅ Replaced lines ${result.startLine}-${result.endLine} in ${result.path}`;
-    }
+    },
 
-    case 'insert_into_file': {
+    insert_into_file: async (params, onStage) => {
       const { path: filePath, content } = params;
       if (!filePath?.trim()) throw new Error('Missing required param: path');
       if (typeof content !== 'string') throw new Error('Missing required param: content');
@@ -419,9 +418,9 @@ export async function execute(toolName, params, onStage = () => { }) {
       });
       if (!result?.ok) throw new Error(result?.error ?? 'Insert failed');
       return `✅ Inserted text into ${result.path} using ${result.mode} targeting (${result.position})`;
-    }
+    },
 
-    case 'create_folder': {
+    create_folder: async (params, onStage) => {
       const { path: dirPath } = params;
       if (!dirPath?.trim()) throw new Error('Missing required param: path');
 
@@ -429,9 +428,9 @@ export async function execute(toolName, params, onStage = () => { }) {
       const result = await window.electronAPI?.createDirectory?.({ dirPath });
       if (!result?.ok) throw new Error(result?.error ?? 'Folder creation failed');
       return `✅ Folder created: ${result.path}`;
-    }
+    },
 
-    case 'copy_item': {
+    copy_item: async (params, onStage) => {
       const { source_path, destination_path } = params;
       if (!source_path?.trim()) throw new Error('Missing required param: source_path');
       if (!destination_path?.trim()) throw new Error('Missing required param: destination_path');
@@ -444,9 +443,9 @@ export async function execute(toolName, params, onStage = () => { }) {
       });
       if (!result?.ok) throw new Error(result?.error ?? 'Copy failed');
       return `✅ Copied ${result.source} -> ${result.destination}`;
-    }
+    },
 
-    case 'move_item': {
+    move_item: async (params, onStage) => {
       const { source_path, destination_path } = params;
       if (!source_path?.trim()) throw new Error('Missing required param: source_path');
       if (!destination_path?.trim()) throw new Error('Missing required param: destination_path');
@@ -459,9 +458,9 @@ export async function execute(toolName, params, onStage = () => { }) {
       });
       if (!result?.ok) throw new Error(result?.error ?? 'Move failed');
       return `✅ Moved ${result.source} -> ${result.destination}`;
-    }
+    },
 
-    case 'git_status': {
+    git_status: async (params, onStage) => {
       const workingDirectory = resolveWorkingDirectory(params.working_directory);
       if (!workingDirectory) throw new Error('No workspace is open. Set a workspace or provide working_directory.');
 
@@ -474,9 +473,9 @@ export async function execute(toolName, params, onStage = () => { }) {
         (result.stdout || result.stderr || '(no output)').trim(),
         '```',
       ].join('\n');
-    }
+    },
 
-    case 'git_diff': {
+    git_diff: async (params, onStage) => {
       const workingDirectory = resolveWorkingDirectory(params.working_directory);
       if (!workingDirectory) throw new Error('No workspace is open. Set a workspace or provide working_directory.');
 
@@ -492,9 +491,9 @@ export async function execute(toolName, params, onStage = () => { }) {
         (result.stdout || result.stderr || '(no diff)').trim(),
         '```',
       ].join('\n');
-    }
+    },
 
-    case 'git_create_branch': {
+    git_create_branch: async (params, onStage) => {
       const workingDirectory = resolveWorkingDirectory(params.working_directory);
       if (!workingDirectory) throw new Error('No workspace is open. Set a workspace or provide working_directory.');
       if (!params.branch_name?.trim()) throw new Error('Missing required param: branch_name');
@@ -512,9 +511,9 @@ export async function execute(toolName, params, onStage = () => { }) {
         (result.stdout || result.stderr || '(no output)').trim(),
         '```',
       ].join('\n');
-    }
+    },
 
-    case 'run_project_checks': {
+    run_project_checks: async (params, onStage) => {
       const workingDirectory = resolveWorkingDirectory(params.working_directory);
       if (!workingDirectory) throw new Error('No workspace is open. Set a workspace or provide working_directory.');
 
@@ -528,9 +527,9 @@ export async function execute(toolName, params, onStage = () => { }) {
       if (!result) return '⚠️ Project checks are not available in this environment.';
       if (!result.ok && !result.commands?.length) throw new Error(result.error ?? 'Project checks failed');
       return formatProjectChecks(result);
-    }
+    },
 
-    case 'open_folder': {
+    open_folder: async (params, onStage) => {
       const { path: dirPath } = params;
       if (!dirPath?.trim()) throw new Error('Missing required param: path');
 
@@ -538,9 +537,9 @@ export async function execute(toolName, params, onStage = () => { }) {
       const result = await window.electronAPI?.openFolderOS?.({ dirPath });
       if (!result?.ok) throw new Error(result?.error ?? 'Opening folder failed');
       return `✅ Opened folder in system file explorer: ${dirPath}`;
-    }
+    },
 
-    case 'delete_item': {
+    delete_item: async (params, onStage) => {
       const { path: itemPath } = params;
       if (!itemPath?.trim()) throw new Error('Missing required param: path');
 
@@ -548,9 +547,9 @@ export async function execute(toolName, params, onStage = () => { }) {
       const result = await window.electronAPI?.deleteItem?.({ itemPath });
       if (!result?.ok) throw new Error(result?.error ?? 'Delete failed');
       return `✅ Successfully deleted: ${itemPath}`;
-    }
+    },
 
-    case 'start_local_server': {
+    start_local_server: async (params, onStage) => {
       const { command } = params;
       if (!command?.trim()) throw new Error('Missing required param: command');
 
@@ -563,9 +562,6 @@ export async function execute(toolName, params, onStage = () => { }) {
 
       if (!result?.ok) throw new Error(result?.error ?? 'Background process failed to start');
       return `[TERMINAL:${result.pid}]\n\n*Background process started with PID ${result.pid}. Output is streaming to the embedded terminal above. You may proceed.*`;
-    }
-
-    default:
-      throw new Error(`TerminalExecutor: unknown tool "${toolName}"`);
-  }
-}
+    },
+  },
+});

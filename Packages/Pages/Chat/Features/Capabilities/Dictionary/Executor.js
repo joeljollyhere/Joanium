@@ -1,65 +1,66 @@
+import { createExecutor } from '../Shared/createExecutor.js';
 import { safeJson } from '../Shared/Utils.js';
 
-const HANDLED = new Set(['get_definition']);
+export const { handles, execute } = createExecutor({
+  name: 'DictionaryExecutor',
+  tools: ['get_definition'],
+  handlers: {
+    get_definition: async (params, onStage) => {
+      const { word } = params;
+      if (!word?.trim()) throw new Error('Missing required param: word');
 
-export function handles(toolName) { return HANDLED.has(toolName); }
+      const clean = word.trim().toLowerCase();
+      onStage(`📖 Looking up "${clean}"…`);
 
-export async function execute(toolName, params, onStage = () => {}) {
-  if (toolName !== 'get_definition') throw new Error(`DictionaryExecutor: unknown tool "${toolName}"`);
+      // Free Dictionary API — no key, no rate limit
+      let data;
+      try {
+        data = await safeJson(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(clean)}`);
+      } catch {
+        return `No dictionary entry found for "${clean}". Check the spelling or try a different form of the word.`;
+      }
 
-  const { word } = params;
-  if (!word?.trim()) throw new Error('Missing required param: word');
+      if (!Array.isArray(data) || !data.length) {
+        return `No entry found for "${clean}".`;
+      }
 
-  const clean = word.trim().toLowerCase();
-  onStage(`📖 Looking up "${clean}"…`);
+      const entry = data[0];
+      const lines = [];
 
-  // Free Dictionary API — no key, no rate limit
-  let data;
-  try {
-    data = await safeJson(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(clean)}`);
-  } catch {
-    return `No dictionary entry found for "${clean}". Check the spelling or try a different form of the word.`;
-  }
+      // Word + phonetic
+      const phonetic = entry.phonetic
+        || entry.phonetics?.find(p => p.text)?.text
+        || '';
+      lines.push(`📖 **${entry.word}** ${phonetic ? `  /${phonetic}/` : ''}`);
+      lines.push('');
 
-  if (!Array.isArray(data) || !data.length) {
-    return `No entry found for "${clean}".`;
-  }
+      // Meanings
+      for (const meaning of (entry.meanings ?? []).slice(0, 4)) {
+        lines.push(`**${meaning.partOfSpeech}**`);
 
-  const entry = data[0];
-  const lines = [];
+        meaning.definitions?.slice(0, 3).forEach((def, i) => {
+          lines.push(`  ${i + 1}. ${def.definition}`);
+          if (def.example) lines.push(`     *"${def.example}"*`);
+        });
 
-  // Word + phonetic
-  const phonetic = entry.phonetic
-    || entry.phonetics?.find(p => p.text)?.text
-    || '';
-  lines.push(`📖 **${entry.word}** ${phonetic ? `  /${phonetic}/` : ''}`);
-  lines.push('');
+        if (meaning.synonyms?.length) {
+          lines.push(`  Synonyms: ${meaning.synonyms.slice(0, 6).join(', ')}`);
+        }
+        if (meaning.antonyms?.length) {
+          lines.push(`  Antonyms: ${meaning.antonyms.slice(0, 6).join(', ')}`);
+        }
 
-  // Meanings
-  for (const meaning of (entry.meanings ?? []).slice(0, 4)) {
-    lines.push(`**${meaning.partOfSpeech}**`);
+        lines.push('');
+      }
 
-    meaning.definitions?.slice(0, 3).forEach((def, i) => {
-      lines.push(`  ${i + 1}. ${def.definition}`);
-      if (def.example) lines.push(`     *"${def.example}"*`);
-    });
+      // Etymology
+      if (entry.origin) {
+        lines.push(`**Origin:** ${entry.origin}`);
+        lines.push('');
+      }
 
-    if (meaning.synonyms?.length) {
-      lines.push(`  Synonyms: ${meaning.synonyms.slice(0, 6).join(', ')}`);
-    }
-    if (meaning.antonyms?.length) {
-      lines.push(`  Antonyms: ${meaning.antonyms.slice(0, 6).join(', ')}`);
-    }
-
-    lines.push('');
-  }
-
-  // Etymology
-  if (entry.origin) {
-    lines.push(`**Origin:** ${entry.origin}`);
-    lines.push('');
-  }
-
-  lines.push(`Source: Free Dictionary API (dictionaryapi.dev)`);
-  return lines.join('\n');
-}
+      lines.push(`Source: Free Dictionary API (dictionaryapi.dev)`);
+      return lines.join('\n');
+    },
+  },
+});

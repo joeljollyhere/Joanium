@@ -73,6 +73,22 @@ export function timeAgo(iso) {
   return new Date(iso).toLocaleDateString([], { month: 'short', day: 'numeric' });
 }
 
+/**
+ * Full locale date+time string for detail views.
+ * @param {string} iso
+ */
+export function fullDateTime(iso) {
+  if (!iso) return '';
+  return new Date(iso).toLocaleString([], {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  });
+}
+
 /** Sort models by rank. Array can contain plain models or entries with { provider, modelName, ... } */
 export function sortModelsByRank(modelsArray) {
   return [...modelsArray].sort((l, r) => (l.rank ?? 999) - (r.rank ?? 999));

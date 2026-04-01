@@ -1,4 +1,5 @@
 import { state } from '../System/State.js';
+import { escapeHtml } from '../System/Utils.js';
 import { syncModalOpenState } from '../Pages/Shared/Core/DOM.js';
 
 function buildHTML() {
@@ -126,14 +127,6 @@ function buildHTML() {
       </div>
     </div>
   `;
-}
-
-function escapeHtml(value) {
-  return String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
 }
 
 function formatRelativeDate(isoString) {

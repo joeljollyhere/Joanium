@@ -1,4 +1,4 @@
-const HANDLED = new Set(['calculate_date']);
+import { createExecutor } from '../Shared/createExecutor.js';
 
 const DAYS   = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June',
@@ -55,177 +55,179 @@ function getWeekNumber(d) {
   return Math.ceil((getDayNumber(d) + jan1.getDay()) / 7);
 }
 
-export function handles(toolName) { return HANDLED.has(toolName); }
+export const { handles, execute } = createExecutor({
+  name: 'DateTimeExecutor',
+  tools: ['calculate_date'],
+  handlers: {
+    calculate_date: async (params, onStage) => {
+      const { operation, date, date2, amount } = params;
+      if (!operation) throw new Error('Missing required param: operation');
 
-export async function execute(toolName, params, onStage = () => {}) {
-  if (toolName !== 'calculate_date') throw new Error(`DateTimeExecutor: unknown tool "${toolName}"`);
+      const d1 = parseDate(date || undefined);
 
-  const { operation, date, date2, amount } = params;
-  if (!operation) throw new Error('Missing required param: operation');
+      switch (operation) {
+        case 'day_of_week': {
+          onStage('📅 Checking day of week…');
+          return [
+            `📅 Day of Week`,
+            '',
+            `Date: ${formatDate(d1)}`,
+            `Day: **${DAYS[d1.getDay()]}**`,
+            `Day number in year: ${getDayNumber(d1)}`,
+            `Week number: ${getWeekNumber(d1)}`,
+          ].join('\n');
+        }
 
-  const d1 = parseDate(date || undefined);
+        case 'days_between': {
+          if (!date2) throw new Error('days_between requires date2 param.');
+          onStage('📅 Counting days between dates…');
+          const d2 = parseDate(date2);
+          const diff = Math.abs(d2 - d1);
+          const days = Math.round(diff / 86_400_000);
+          const weeks = (days / 7).toFixed(1);
+          const months = (days / 30.44).toFixed(1);
+          const earlier = d1 < d2 ? d1 : d2;
+          const later   = d1 < d2 ? d2 : d1;
+          return [
+            `📅 Days Between Dates`,
+            '',
+            `From: ${formatDate(earlier)}`,
+            `To:   ${formatDate(later)}`,
+            '',
+            `**${days} day${days !== 1 ? 's' : ''}**`,
+            `≈ ${weeks} weeks`,
+            `≈ ${months} months`,
+            `≈ ${(days / 365.25).toFixed(2)} years`,
+          ].join('\n');
+        }
 
-  switch (operation) {
-    case 'day_of_week': {
-      onStage('📅 Checking day of week…');
-      return [
-        `📅 Day of Week`,
-        '',
-        `Date: ${formatDate(d1)}`,
-        `Day: **${DAYS[d1.getDay()]}**`,
-        `Day number in year: ${getDayNumber(d1)}`,
-        `Week number: ${getWeekNumber(d1)}`,
-      ].join('\n');
-    }
+        case 'add_days': {
+          if (amount == null) throw new Error('add_days requires an amount param.');
+          onStage('📅 Calculating date…');
+          const result = new Date(d1);
+          result.setDate(result.getDate() + Math.round(Number(amount)));
+          return [
+            `📅 Add ${amount} Days`,
+            '',
+            `Start: ${formatDate(d1)}`,
+            `Result: **${formatDate(result)}**`,
+            `ISO: ${toISO(result)}`,
+          ].join('\n');
+        }
 
-    case 'days_between': {
-      if (!date2) throw new Error('days_between requires date2 param.');
-      onStage('📅 Counting days between dates…');
-      const d2 = parseDate(date2);
-      const diff = Math.abs(d2 - d1);
-      const days = Math.round(diff / 86_400_000);
-      const weeks = (days / 7).toFixed(1);
-      const months = (days / 30.44).toFixed(1);
-      const earlier = d1 < d2 ? d1 : d2;
-      const later   = d1 < d2 ? d2 : d1;
-      return [
-        `📅 Days Between Dates`,
-        '',
-        `From: ${formatDate(earlier)}`,
-        `To:   ${formatDate(later)}`,
-        '',
-        `**${days} day${days !== 1 ? 's' : ''}**`,
-        `≈ ${weeks} weeks`,
-        `≈ ${months} months`,
-        `≈ ${(days / 365.25).toFixed(2)} years`,
-      ].join('\n');
-    }
+        case 'subtract_days': {
+          if (amount == null) throw new Error('subtract_days requires an amount param.');
+          onStage('📅 Calculating date…');
+          const result = new Date(d1);
+          result.setDate(result.getDate() - Math.round(Number(amount)));
+          return [
+            `📅 Subtract ${amount} Days`,
+            '',
+            `Start: ${formatDate(d1)}`,
+            `Result: **${formatDate(result)}**`,
+            `ISO: ${toISO(result)}`,
+          ].join('\n');
+        }
 
-    case 'add_days': {
-      if (amount == null) throw new Error('add_days requires an amount param.');
-      onStage('📅 Calculating date…');
-      const result = new Date(d1);
-      result.setDate(result.getDate() + Math.round(Number(amount)));
-      return [
-        `📅 Add ${amount} Days`,
-        '',
-        `Start: ${formatDate(d1)}`,
-        `Result: **${formatDate(result)}**`,
-        `ISO: ${toISO(result)}`,
-      ].join('\n');
-    }
+        case 'add_months': {
+          if (amount == null) throw new Error('add_months requires an amount param.');
+          onStage('📅 Calculating date…');
+          const result = new Date(d1);
+          result.setMonth(result.getMonth() + Math.round(Number(amount)));
+          return [
+            `📅 Add ${amount} Month${Math.abs(amount) !== 1 ? 's' : ''}`,
+            '',
+            `Start: ${formatDate(d1)}`,
+            `Result: **${formatDate(result)}**`,
+            `ISO: ${toISO(result)}`,
+          ].join('\n');
+        }
 
-    case 'subtract_days': {
-      if (amount == null) throw new Error('subtract_days requires an amount param.');
-      onStage('📅 Calculating date…');
-      const result = new Date(d1);
-      result.setDate(result.getDate() - Math.round(Number(amount)));
-      return [
-        `📅 Subtract ${amount} Days`,
-        '',
-        `Start: ${formatDate(d1)}`,
-        `Result: **${formatDate(result)}**`,
-        `ISO: ${toISO(result)}`,
-      ].join('\n');
-    }
+        case 'add_years': {
+          if (amount == null) throw new Error('add_years requires an amount param.');
+          onStage('📅 Calculating date…');
+          const result = new Date(d1);
+          result.setFullYear(result.getFullYear() + Math.round(Number(amount)));
+          return [
+            `📅 Add ${amount} Year${Math.abs(amount) !== 1 ? 's' : ''}`,
+            '',
+            `Start: ${formatDate(d1)}`,
+            `Result: **${formatDate(result)}**`,
+            `ISO: ${toISO(result)}`,
+          ].join('\n');
+        }
 
-    case 'add_months': {
-      if (amount == null) throw new Error('add_months requires an amount param.');
-      onStage('📅 Calculating date…');
-      const result = new Date(d1);
-      result.setMonth(result.getMonth() + Math.round(Number(amount)));
-      return [
-        `📅 Add ${amount} Month${Math.abs(amount) !== 1 ? 's' : ''}`,
-        '',
-        `Start: ${formatDate(d1)}`,
-        `Result: **${formatDate(result)}**`,
-        `ISO: ${toISO(result)}`,
-      ].join('\n');
-    }
+        case 'countdown': {
+          onStage('📅 Calculating countdown…');
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          d1.setHours(0, 0, 0, 0);
+          const diffMs = d1 - today;
+          const days = Math.round(diffMs / 86_400_000);
 
-    case 'add_years': {
-      if (amount == null) throw new Error('add_years requires an amount param.');
-      onStage('📅 Calculating date…');
-      const result = new Date(d1);
-      result.setFullYear(result.getFullYear() + Math.round(Number(amount)));
-      return [
-        `📅 Add ${amount} Year${Math.abs(amount) !== 1 ? 's' : ''}`,
-        '',
-        `Start: ${formatDate(d1)}`,
-        `Result: **${formatDate(result)}**`,
-        `ISO: ${toISO(result)}`,
-      ].join('\n');
-    }
+          if (days < 0) {
+            return [
+              `📅 Countdown`,
+              '',
+              `Target: ${formatDate(d1)}`,
+              `**${Math.abs(days)} day${Math.abs(days) !== 1 ? 's' : ''} ago**`,
+              `Today is ${formatDate(today)}`,
+            ].join('\n');
+          } else if (days === 0) {
+            return `📅 **That's today!** (${formatDate(today)})`;
+          } else {
+            const weeks = Math.floor(days / 7);
+            const rem   = days % 7;
+            return [
+              `📅 Countdown`,
+              '',
+              `Target: ${formatDate(d1)}`,
+              `**${days} day${days !== 1 ? 's' : ''} from now**`,
+              weeks > 0 ? `(${weeks} week${weeks !== 1 ? 's' : ''}${rem > 0 ? ` and ${rem} day${rem !== 1 ? 's' : ''}` : ''})` : '',
+              `Today is ${formatDate(today)}`,
+            ].filter(Boolean).join('\n');
+          }
+        }
 
-    case 'countdown': {
-      onStage('📅 Calculating countdown…');
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      d1.setHours(0, 0, 0, 0);
-      const diffMs = d1 - today;
-      const days = Math.round(diffMs / 86_400_000);
+        case 'date_info': {
+          onStage('📅 Getting date details…');
+          const leap = isLeapYear(d1.getFullYear());
+          const zodiac = getZodiac(d1.getMonth() + 1, d1.getDate());
+          const dayNum = getDayNumber(d1);
+          const weekNum = getWeekNumber(d1);
+          const daysInYear = leap ? 366 : 365;
+          const daysLeft = daysInYear - dayNum;
 
-      if (days < 0) {
-        return [
-          `📅 Countdown`,
-          '',
-          `Target: ${formatDate(d1)}`,
-          `**${Math.abs(days)} day${Math.abs(days) !== 1 ? 's' : ''} ago**`,
-          `Today is ${formatDate(today)}`,
-        ].join('\n');
-      } else if (days === 0) {
-        return `📅 **That's today!** (${formatDate(today)})`;
-      } else {
-        const weeks = Math.floor(days / 7);
-        const rem   = days % 7;
-        return [
-          `📅 Countdown`,
-          '',
-          `Target: ${formatDate(d1)}`,
-          `**${days} day${days !== 1 ? 's' : ''} from now**`,
-          weeks > 0 ? `(${weeks} week${weeks !== 1 ? 's' : ''}${rem > 0 ? ` and ${rem} day${rem !== 1 ? 's' : ''}` : ''})` : '',
-          `Today is ${formatDate(today)}`,
-        ].filter(Boolean).join('\n');
+          return [
+            `📅 Date Info: ${formatDate(d1)}`,
+            '',
+            `Day of week:       ${DAYS[d1.getDay()]}`,
+            `Day of year:       ${dayNum} of ${daysInYear}`,
+            `Days left in year: ${daysLeft}`,
+            `Week number:       ${weekNum}`,
+            `Quarter:           Q${Math.ceil((d1.getMonth() + 1) / 3)}`,
+            `Leap year:         ${leap ? 'Yes' : 'No'}`,
+            `Zodiac sign:       ${zodiac}`,
+            `Unix timestamp:    ${Math.floor(d1.getTime() / 1000)}`,
+            `ISO 8601:          ${toISO(d1)}`,
+          ].join('\n');
+        }
+
+        default:
+          return [
+            `Unknown operation "${operation}".`,
+            '',
+            'Available operations:',
+            '  - day_of_week',
+            '  - days_between  (requires date2)',
+            '  - add_days      (requires amount)',
+            '  - subtract_days (requires amount)',
+            '  - add_months    (requires amount)',
+            '  - add_years     (requires amount)',
+            '  - countdown',
+            '  - date_info',
+          ].join('\n');
       }
-    }
-
-    case 'date_info': {
-      onStage('📅 Getting date details…');
-      const leap = isLeapYear(d1.getFullYear());
-      const zodiac = getZodiac(d1.getMonth() + 1, d1.getDate());
-      const dayNum = getDayNumber(d1);
-      const weekNum = getWeekNumber(d1);
-      const daysInYear = leap ? 366 : 365;
-      const daysLeft = daysInYear - dayNum;
-
-      return [
-        `📅 Date Info: ${formatDate(d1)}`,
-        '',
-        `Day of week:       ${DAYS[d1.getDay()]}`,
-        `Day of year:       ${dayNum} of ${daysInYear}`,
-        `Days left in year: ${daysLeft}`,
-        `Week number:       ${weekNum}`,
-        `Quarter:           Q${Math.ceil((d1.getMonth() + 1) / 3)}`,
-        `Leap year:         ${leap ? 'Yes' : 'No'}`,
-        `Zodiac sign:       ${zodiac}`,
-        `Unix timestamp:    ${Math.floor(d1.getTime() / 1000)}`,
-        `ISO 8601:          ${toISO(d1)}`,
-      ].join('\n');
-    }
-
-    default:
-      return [
-        `Unknown operation "${operation}".`,
-        '',
-        'Available operations:',
-        '  - day_of_week',
-        '  - days_between  (requires date2)',
-        '  - add_days      (requires amount)',
-        '  - subtract_days (requires amount)',
-        '  - add_months    (requires amount)',
-        '  - add_years     (requires amount)',
-        '  - countdown',
-        '  - date_info',
-      ].join('\n');
-  }
-}
+    },
+  },
+});

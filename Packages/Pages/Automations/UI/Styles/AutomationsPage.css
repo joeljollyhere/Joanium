@@ -14,22 +14,22 @@
 @import '../../../Shared/Styles/Scrollbar.css';
 
 /* 6. Welcome / home screen */
-@import '../Chat/Styles/Welcome.css';
+@import '../../../Chat/UI/Styles/Welcome.css';
 
 /* 7. Composer input area */
-@import '../Chat/Styles/Input.css';
+@import '../../../Chat/UI/Styles/Input.css';
 
 /* 8. Model selector dropdown */
-@import '../Chat/Styles/ModelSelector.css';
+@import '../../../Chat/UI/Styles/ModelSelector.css';
 
 /* 9. Chat messages + markdown */
-@import '../Chat/Styles/Chat.css';
+@import '../../../Chat/UI/Styles/Chat.css';
 
 /* 10. Code blocks */
-@import '../Chat/Styles/CodeBlock.css';
+@import '../../../Chat/UI/Styles/CodeBlock.css';
 
 /* 11. Per-message action buttons */
-@import '../Chat/Styles/MessageActions.css';
+@import '../../../Chat/UI/Styles/MessageActions.css';
 
 /* 12. Floating theme picker */
 @import '../../../Shared/Styles/ThemePanel.css';
@@ -65,7 +65,7 @@
 @import '../../../Shared/Styles/Memory.css';
 
 /* 23. Agent Log */
-@import '../Chat/Styles/AgentLog.css';
+@import '../../../Chat/UI/Styles/AgentLog.css';
 
 /* 24. Automations */
 @import './Automations.css';

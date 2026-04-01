@@ -111,10 +111,6 @@ export function initDOM() {
 
 /** Keep body.modal-open in sync with whether any modal is open. */
 export const syncModalOpenState = () => {
-  const hasOpen = Boolean(
-    document.querySelector(
-      '#settings-modal-backdrop.open, #library-modal-backdrop.open, #projects-modal-backdrop.open, #global-confirm-backdrop.open, #edit-project-backdrop.open, #html-preview-backdrop.open'
-    )
-  );
+  const hasOpen = Boolean(document.querySelector('[id$="-backdrop"].open'));
   document.body.classList.toggle('modal-open', hasOpen);
 };
