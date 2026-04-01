@@ -1,5 +1,5 @@
-﻿import * as CalendarAPI from './CalendarAPI.js';
-import { requireGoogleCredentials } from '../../Common.js';
+﻿import * as CalendarAPI from '../api/CalendarAPI.js';
+import { requireGoogleCredentials } from '../../../Common.js';
 
 function formatEventTime(eventTime) {
   if (!eventTime) return 'N/A';

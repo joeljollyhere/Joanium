@@ -1,9 +1,9 @@
 ﻿import defineFeature from '../../../Core/defineFeature.js';
-import * as GmailAPI from './GmailAPI.js';
-import { GMAIL_TOOLS } from './Tools.js';
-import { executeGmailChatTool } from './ChatExecutor.js';
-import { gmailAutomationHandlers } from './AutomationHandlers.js';
-import { gmailDataSourceCollectors } from './AgentHandlers.js';
+import * as GmailAPI from './api/GmailAPI.js';
+import { GMAIL_TOOLS } from './chat/Tools.js';
+import { executeGmailChatTool } from './chat/ChatExecutor.js';
+import { gmailAutomationHandlers } from './automation/AutomationHandlers.js';
+import { gmailDataSourceCollectors } from './agents/AgentHandlers.js';
 import { withGoogle } from '../../Common.js';
 
 const GMAIL_ACTIONS = [

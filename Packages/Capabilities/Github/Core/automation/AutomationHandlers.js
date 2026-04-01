@@ -1,6 +1,6 @@
-﻿import { openSite } from '../../../Features/Automation/Actions/Site.js';
-import { sendNotification } from '../../../Features/Automation/Actions/Notification.js';
-import { GithubAPI, parseCommaList, requireGithubCredentials } from './Common.js';
+﻿import { openSite } from '../../../../Features/Automation/Actions/Site.js';
+import { sendNotification } from '../../../../Features/Automation/Actions/Notification.js';
+import { GithubAPI, parseCommaList, requireGithubCredentials } from '../shared/Common.js';
 
 function requireRepo(action) {
   if (!action.owner || !action.repo) throw new Error('GitHub owner and repo are required.');

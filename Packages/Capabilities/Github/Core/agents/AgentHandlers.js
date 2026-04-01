@@ -1,4 +1,4 @@
-﻿import { GithubAPI, requireGithubCredentials } from './Common.js';
+﻿import { GithubAPI, requireGithubCredentials } from '../shared/Common.js';
 
 function requireRepo(owner, repo) {
   if (!owner || !repo) throw new Error('GitHub owner and repo are required.');

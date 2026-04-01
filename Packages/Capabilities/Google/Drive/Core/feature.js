@@ -8,9 +8,9 @@ import {
   listFolders,
   searchFiles,
   updateFileContent,
-} from './DriveApi.js';
-import { executeDriveChatTool } from './ChatExecutor.js';
-import { DRIVE_TOOLS } from './Tools.js';
+} from './api/DriveApi.js';
+import { executeDriveChatTool } from './chat/ChatExecutor.js';
+import { DRIVE_TOOLS } from './chat/Tools.js';
 import { withGoogle } from '../../Common.js';
 
 export default defineFeature({

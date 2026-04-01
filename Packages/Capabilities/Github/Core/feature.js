@@ -1,9 +1,9 @@
 ﻿import defineFeature from '../../Core/defineFeature.js';
-import { GithubAPI, getGithubCredentials, notConnected } from './Common.js';
-import { GITHUB_TOOLS } from './Tools.js';
-import { executeGithubChatTool } from './ChatExecutor.js';
-import { githubAutomationHandlers } from './AutomationHandlers.js';
-import { githubDataSourceCollectors, githubOutputHandlers } from './AgentHandlers.js';
+import { GithubAPI, getGithubCredentials, notConnected } from './shared/Common.js';
+import { GITHUB_TOOLS } from './chat/Tools.js';
+import { executeGithubChatTool } from './chat/ChatExecutor.js';
+import { githubAutomationHandlers } from './automation/AutomationHandlers.js';
+import { githubDataSourceCollectors, githubOutputHandlers } from './agents/AgentHandlers.js';
 
 function withGithub(ctx, callback) {
   const credentials = getGithubCredentials(ctx);

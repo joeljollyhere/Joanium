@@ -1,4 +1,4 @@
-﻿import { GithubAPI, parseCommaList, requireGithubCredentials } from './Common.js';
+﻿import { GithubAPI, parseCommaList, requireGithubCredentials } from '../shared/Common.js';
 
 const SOURCE_EXTS = new Set([
   'js', 'ts', 'jsx', 'tsx', 'mjs', 'cjs',

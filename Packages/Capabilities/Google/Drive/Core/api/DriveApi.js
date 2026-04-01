@@ -1,4 +1,4 @@
-﻿import { getFreshCreds } from '../../GoogleWorkspace.js';
+﻿import { getFreshCreds } from '../../../GoogleWorkspace.js';
 
 const DRIVE_BASE = 'https://www.googleapis.com/drive/v3';
 const UPLOAD_BASE = 'https://www.googleapis.com/upload/drive/v3';

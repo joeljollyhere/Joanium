@@ -5,8 +5,8 @@
   listFiles,
   listFolders,
   searchFiles,
-} from './DriveApi.js';
-import { requireGoogleCredentials } from '../../Common.js';
+} from '../api/DriveApi.js';
+import { requireGoogleCredentials } from '../../../Common.js';
 
 function formatSize(bytes) {
   if (bytes == null) return 'unknown size';

@@ -1,4 +1,4 @@
-﻿import { getFreshCreds } from '../../GoogleWorkspace.js';
+﻿import { getFreshCreds } from '../../../GoogleWorkspace.js';
 
 const CALENDAR_BASE = 'https://www.googleapis.com/calendar/v3';
 

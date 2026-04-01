@@ -53,9 +53,9 @@
       "App.js",
       "Packages/**/*",
       "Public/**/*",
-      "Icons/Logo.ico",
-      "Icons/Logo.icns",
-      "Icons/Logo.png"
+      "Assets/Logo/Logo.ico",
+      "Assets/Logo/Logo.icns",
+      "Assets/Logo/Logo.png"
     ],
     "extraResources": [
       {

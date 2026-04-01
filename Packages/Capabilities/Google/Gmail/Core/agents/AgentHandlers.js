@@ -1,5 +1,5 @@
-﻿import * as GmailAPI from './GmailAPI.js';
-import { requireGoogleCredentials } from '../../Common.js';
+﻿import * as GmailAPI from '../api/GmailAPI.js';
+import { requireGoogleCredentials } from '../../../Common.js';
 
 function formatEmailLines(emails = []) {
   return emails.map((email, index) => (

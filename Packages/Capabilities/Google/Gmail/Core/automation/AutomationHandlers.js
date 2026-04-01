@@ -1,6 +1,6 @@
-﻿import { sendNotification } from '../../../../Features/Automation/Actions/Notification.js';
-import * as GmailAPI from './GmailAPI.js';
-import { requireGoogleCredentials } from '../../Common.js';
+﻿import { sendNotification } from '../../../../../Features/Automation/Actions/Notification.js';
+import * as GmailAPI from '../api/GmailAPI.js';
+import { requireGoogleCredentials } from '../../../Common.js';
 
 function previewBrief(brief) {
   if (!brief?.text) return 'Inbox is clear.';
