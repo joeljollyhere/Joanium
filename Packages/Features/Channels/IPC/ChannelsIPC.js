@@ -1,7 +1,7 @@
 import { ipcMain } from 'electron';
 
 /**
- * @param {import('../../Features/Channels/Core/ChannelEngine.js').ChannelEngine} channelEngine
+ * @param {import('../Core/ChannelEngine.js').ChannelEngine} channelEngine
  */
 export function register(channelEngine) {
 

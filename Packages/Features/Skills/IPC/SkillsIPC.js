@@ -1,8 +1,8 @@
 import { ipcMain } from 'electron';
 import fs from 'fs';
 import path from 'path';
-import Paths from '../Core/Paths.js';
-import { invalidate as invalidateSysPrompt } from '../Services/SystemPromptService.js';
+import Paths from '../../../Main/Core/Paths.js';
+import { invalidate as invalidateSysPrompt } from '../../../Main/Services/SystemPromptService.js';
 
 /* ── Frontmatter parser ── */
 function parseFrontmatter(content) {
@@ -71,7 +71,6 @@ export function register() {
           const raw = fs.readFileSync(path.join(Paths.SKILLS_DIR, filename), 'utf-8');
           const { meta, body } = parseFrontmatter(raw);
 
-          // Skip files that have no name and no body content
           if (!meta.name && !body.trim()) return null;
 
           return {
@@ -81,7 +80,6 @@ export function register() {
             description: meta.description || '',
             body,
             raw,
-            // Default: disabled (must be explicitly enabled in Skills.json)
             enabled: enabledMap[filename] === true,
           };
         } catch { return null; }

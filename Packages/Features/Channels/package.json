@@ -1,0 +1,10 @@
+{
+  "name": "@Joanium/channels",
+  "private": true,
+  "type": "module",
+  "description": "Messaging channel integrations (Telegram, WhatsApp, Discord, Slack) for Joanium.",
+  "main": "./index.js",
+  "exports": {
+    ".": "./index.js"
+  }
+}

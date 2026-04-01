@@ -1,0 +1,10 @@
+{
+  "name": "@Joanium/features-core",
+  "private": true,
+  "type": "module",
+  "description": "Core feature infrastructure and IPC handlers for Joanium.",
+  "main": "./index.js",
+  "exports": {
+    ".": "./index.js"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "name": "@Joanium/browser-preview",
+  "private": true,
+  "type": "module",
+  "description": "Built-in browser preview service for Joanium.",
+  "main": "./index.js",
+  "exports": {
+    ".": "./index.js"
+  }
+}

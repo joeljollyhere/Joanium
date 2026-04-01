@@ -1,0 +1,10 @@
+{
+  "name": "@Joanium/skills",
+  "private": true,
+  "type": "module",
+  "description": "Skills management and IPC handlers for Joanium.",
+  "main": "./index.js",
+  "exports": {
+    ".": "./index.js"
+  }
+}
