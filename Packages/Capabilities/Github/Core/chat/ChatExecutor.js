@@ -1461,6 +1461,242 @@ export async function executeGithubChatTool(ctx, toolName, params = {}) {
       ].join('\n');
     }
 
+    case 'github_get_commit_activity': {
+      const { owner, repo } = params;
+      requireRepo(owner, repo);
+      const weeks = await GithubAPI.getCommitActivity(credentials, owner, repo);
+      if (!weeks?.length) return `No commit activity data yet for ${owner}/${repo}. GitHub may still be computing it.`;
+      const recent = weeks.slice(-8);
+      const total = recent.reduce((s, w) => s + w.total, 0);
+      return [
+        `Commit activity for ${owner}/${repo} (last ${recent.length} weeks, ${total} commits):`,
+        '',
+        ...recent.map(w => {
+          const bar = '█'.repeat(Math.min(w.total, 20));
+          return `  ${formatDate(new Date(w.week * 1000))}  ${String(w.total).padStart(3)} ${bar}`;
+        }),
+      ].join('\n');
+    }
+
+    case 'github_get_punch_card': {
+      const { owner, repo } = params;
+      requireRepo(owner, repo);
+      const data = await GithubAPI.getPunchCard(credentials, owner, repo);
+      if (!data?.length) return `No punch card data available for ${owner}/${repo}.`;
+      const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      // Find peak
+      const peak = [...data].sort((a, b) => b[2] - a[2])[0];
+      // Aggregate by day
+      const byDay = days.map((name, d) => {
+        const total = data.filter(([day]) => day === d).reduce((s, [, , c]) => s + c, 0);
+        return `  ${name}: ${total} commits`;
+      });
+      return [
+        `Commit punch card for ${owner}/${repo}:`,
+        `Peak time: ${days[peak[0]]} at ${peak[1]}:00 (${peak[2]} commits)`,
+        '',
+        'Commits by day of week:',
+        ...byDay,
+      ].join('\n');
+    }
+
+    case 'github_get_repo_subscription': {
+      const { owner, repo } = params;
+      requireRepo(owner, repo);
+      const data = await GithubAPI.getRepoSubscription(credentials, owner, repo);
+      return [
+        `Subscription status for ${owner}/${repo}:`,
+        `Subscribed: ${data.subscribed ?? false}`,
+        `Ignored: ${data.ignored ?? false}`,
+        `Reason: ${data.reason ?? 'n/a'}`,
+        data.created_at ? `Since: ${formatDate(data.created_at)}` : '',
+      ].filter(Boolean).join('\n');
+    }
+
+    case 'github_get_user_followers': {
+      const { username, count = 30 } = params;
+      if (!username) throw new Error('Missing required param: username');
+      const followers = await GithubAPI.getUserFollowers(credentials, username, Math.min(Number(count) || 30, 100));
+      if (!followers.length) return `@${username} has no public followers.`;
+      return [
+        `Followers of @${username} (${followers.length} shown):`,
+        '',
+        ...followers.map((u, i) => `${i + 1}. @${u.login}`),
+      ].join('\n');
+    }
+
+    case 'github_get_user_following': {
+      const { username, count = 30 } = params;
+      if (!username) throw new Error('Missing required param: username');
+      const following = await GithubAPI.getUserFollowing(credentials, username, Math.min(Number(count) || 30, 100));
+      if (!following.length) return `@${username} is not following anyone (or list is private).`;
+      return [
+        `@${username} is following (${following.length} shown):`,
+        '',
+        ...following.map((u, i) => `${i + 1}. @${u.login}`),
+      ].join('\n');
+    }
+
+    case 'github_get_user_gists': {
+      const { username, count = 20 } = params;
+      if (!username) throw new Error('Missing required param: username');
+      const gists = await GithubAPI.getUserGists(credentials, username, Math.min(Number(count) || 20, 100));
+      if (!gists.length) return `No public gists found for @${username}.`;
+      return [
+        `Gists by @${username} (${gists.length} shown):`,
+        '',
+        ...gists.map((g, i) => {
+          const files = Object.keys(g.files).join(', ');
+          return `${i + 1}. ${g.description || files || 'untitled'} [${g.public ? 'public' : 'secret'}]\n   ${g.html_url}`;
+        }),
+      ].join('\n');
+    }
+
+    case 'github_get_gist_details': {
+      const { gist_id } = params;
+      if (!gist_id) throw new Error('Missing required param: gist_id');
+      const g = await GithubAPI.getGistDetails(credentials, gist_id);
+      const files = Object.values(g.files ?? {});
+      const preview = files[0]
+        ? `\nFirst file (${files[0].filename}):\n${(files[0].content ?? '').slice(0, 500)}${(files[0].content?.length ?? 0) > 500 ? '\n...(truncated)' : ''}`
+        : '';
+      return [
+        `Gist: ${g.description || gist_id}`,
+        `Owner: @${g.owner?.login ?? 'unknown'}`,
+        `Visibility: ${g.public ? 'public' : 'secret'}`,
+        `Files (${files.length}): ${files.map(f => f.filename).join(', ')}`,
+        `Created: ${formatDate(g.created_at)} | Updated: ${formatDate(g.updated_at)}`,
+        `Forks: ${g.forks?.length ?? 0} | Comments: ${g.comments ?? 0}`,
+        `URL: ${g.html_url}`,
+        preview,
+      ].filter(Boolean).join('\n');
+    }
+
+    case 'github_get_pr_commits': {
+      const { owner, repo, pr_number } = params;
+      requirePullRequest(owner, repo, pr_number);
+      const commits = await GithubAPI.getPRCommits(credentials, owner, repo, Number(pr_number));
+      if (!commits.length) return `No commits found in ${owner}/${repo} PR #${pr_number}.`;
+      return [
+        `Commits in ${owner}/${repo} PR #${pr_number} (${commits.length}):`,
+        '',
+        ...commits.map((c, i) => {
+          const sha = c.sha?.slice(0, 7) ?? '?';
+          const msg = String(c.commit?.message ?? '').split('\n')[0].slice(0, 80);
+          const author = c.commit?.author?.name ?? c.author?.login ?? 'unknown';
+          return `${i + 1}. \`${sha}\` ${msg}\n   by ${author}`;
+        }),
+      ].join('\n');
+    }
+
+    case 'github_get_commit_statuses': {
+      const { owner, repo, ref } = params;
+      if (!owner || !repo || !ref) throw new Error('Missing required params: owner, repo, ref');
+      const statuses = await GithubAPI.getCommitStatuses(credentials, owner, repo, ref);
+      if (!statuses.length) return `No commit statuses found for ${ref} in ${owner}/${repo}.`;
+      return [
+        `Commit statuses for ${ref} in ${owner}/${repo} (${statuses.length}):`,
+        '',
+        ...statuses.map((s, i) =>
+          `${i + 1}. [${s.state}] ${s.context ?? 'unknown'}\n   ${s.description ?? ''}\n   ${s.target_url ?? ''}`,
+        ),
+      ].filter(Boolean).join('\n');
+    }
+
+    case 'github_get_repo_pages': {
+      const { owner, repo } = params;
+      requireRepo(owner, repo);
+      const p = await GithubAPI.getRepoPages(credentials, owner, repo);
+      return [
+        `GitHub Pages for ${owner}/${repo}:`,
+        `Status: ${p.status ?? 'unknown'}`,
+        `URL: ${p.html_url ?? 'not set'}`,
+        `Custom domain: ${p.cname ?? 'none'}`,
+        `HTTPS enforced: ${p.https_enforced ?? false}`,
+        p.source ? `Source: ${p.source.branch} / ${p.source.path ?? '/'}` : '',
+        p.build_type ? `Build type: ${p.build_type}` : '',
+      ].filter(Boolean).join('\n');
+    }
+
+    case 'github_get_org_info': {
+      const { org } = params;
+      if (!org) throw new Error('Missing required param: org');
+      const o = await GithubAPI.getOrgInfo(credentials, org);
+      return [
+        `Organization: ${o.login}`,
+        o.name ? `Name: ${o.name}` : '',
+        o.description ? `Description: ${o.description}` : '',
+        o.email ? `Email: ${o.email}` : '',
+        o.blog ? `Website: ${o.blog}` : '',
+        o.location ? `Location: ${o.location}` : '',
+        `Public repos: ${o.public_repos} | Members: ${o.public_members ?? '?'}`,
+        `Followers: ${o.followers}`,
+        `Created: ${formatDate(o.created_at)}`,
+        `URL: ${o.html_url}`,
+      ].filter(Boolean).join('\n');
+    }
+
+    case 'github_search_commits': {
+      const { query, count = 20 } = params;
+      if (!query) throw new Error('Missing required param: query');
+      const result = await GithubAPI.searchCommits(credentials, query, Math.min(Number(count) || 20, 50));
+      const items = result.items ?? [];
+      if (!items.length) return `No commits found for query "${query}".`;
+      return [
+        `Commit search results for "${query}" (${result.total_count?.toLocaleString() ?? 0} total):`,
+        '',
+        ...items.slice(0, 20).map((c, i) => {
+          const sha = c.sha?.slice(0, 7) ?? '?';
+          const msg = String(c.commit?.message ?? '').split('\n')[0].slice(0, 80);
+          const author = c.commit?.author?.name ?? c.author?.login ?? 'unknown';
+          const repo = c.repository?.full_name ?? 'unknown';
+          return `${i + 1}. \`${sha}\` ${msg}\n   by ${author} in ${repo}`;
+        }),
+      ].join('\n');
+    }
+
+    case 'github_get_deployment_statuses': {
+      const { owner, repo, deployment_id } = params;
+      if (!owner || !repo || !deployment_id) throw new Error('Missing required params: owner, repo, deployment_id');
+      const statuses = await GithubAPI.getDeploymentStatuses(credentials, owner, repo, deployment_id);
+      if (!statuses.length) return `No statuses found for deployment #${deployment_id} in ${owner}/${repo}.`;
+      return [
+        `Statuses for deployment #${deployment_id} in ${owner}/${repo}:`,
+        '',
+        ...statuses.map((s, i) =>
+          `${i + 1}. [${s.state}] ${s.environment ?? 'unknown env'} — ${formatDateTime(s.created_at)}\n   ${s.description ?? ''}${s.log_url ? `\n   Logs: ${s.log_url}` : ''}`,
+        ),
+      ].filter(Boolean).join('\n');
+    }
+
+    case 'github_get_repo_invitations': {
+      const { owner, repo } = params;
+      requireRepo(owner, repo);
+      const invites = await GithubAPI.getRepoInvitations(credentials, owner, repo);
+      if (!invites.length) return `No pending invitations for ${owner}/${repo}.`;
+      return [
+        `Pending invitations for ${owner}/${repo} (${invites.length}):`,
+        '',
+        ...invites.map((inv, i) =>
+          `${i + 1}. @${inv.invitee?.login ?? 'unknown'} — ${inv.permissions} — invited by @${inv.inviter?.login ?? 'unknown'} on ${formatDate(inv.created_at)}`,
+        ),
+      ].join('\n');
+    }
+
+    case 'github_get_rate_limit': {
+      const data = await GithubAPI.getRateLimit(credentials);
+      const core = data.resources?.core ?? {};
+      const search = data.resources?.search ?? {};
+      const graphql = data.resources?.graphql ?? {};
+      const formatReset = ts => ts ? new Date(ts * 1000).toLocaleTimeString() : 'n/a';
+      return [
+        'GitHub API Rate Limits:',
+        '',
+        `Core:    ${core.remaining ?? '?'} / ${core.limit ?? '?'} remaining — resets at ${formatReset(core.reset)}`,
+        `Search:  ${search.remaining ?? '?'} / ${search.limit ?? '?'} remaining — resets at ${formatReset(search.reset)}`,
+        `GraphQL: ${graphql.remaining ?? '?'} / ${graphql.limit ?? '?'} remaining — resets at ${formatReset(graphql.reset)}`,
+      ].join('\n');
+    }
     default:
       throw new Error(`Unknown GitHub tool: ${toolName}`);
   }

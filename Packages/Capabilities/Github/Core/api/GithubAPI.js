@@ -702,3 +702,76 @@ export async function getCodeFrequency(credentials, owner, repo) {
 export async function getContributorStats(credentials, owner, repo) {
   return githubFetch(`/repos/${owner}/${repo}/stats/contributors`, credentials.token);
 }
+
+export async function getCommitActivity(credentials, owner, repo) {
+  return githubFetch(`/repos/${owner}/${repo}/stats/commit_activity`, credentials.token);
+}
+
+export async function getPunchCard(credentials, owner, repo) {
+  return githubFetch(`/repos/${owner}/${repo}/stats/punch_card`, credentials.token);
+}
+
+export async function getRepoSubscription(credentials, owner, repo) {
+  return githubFetch(`/repos/${owner}/${repo}/subscription`, credentials.token);
+}
+
+export async function getUserFollowers(credentials, username, perPage = 30) {
+  return githubFetch(`/users/${username}/followers?per_page=${perPage}`, credentials.token);
+}
+
+export async function getUserFollowing(credentials, username, perPage = 30) {
+  return githubFetch(`/users/${username}/following?per_page=${perPage}`, credentials.token);
+}
+
+export async function getUserGists(credentials, username, perPage = 20) {
+  return githubFetch(`/users/${username}/gists?per_page=${perPage}`, credentials.token);
+}
+
+export async function getGistDetails(credentials, gistId) {
+  return githubFetch(`/gists/${gistId}`, credentials.token);
+}
+
+export async function getPRCommits(credentials, owner, repo, prNumber, perPage = 30) {
+  return githubFetch(
+    `/repos/${owner}/${repo}/pulls/${prNumber}/commits?per_page=${perPage}`,
+    credentials.token,
+  );
+}
+
+export async function getCommitStatuses(credentials, owner, repo, ref, perPage = 20) {
+  return githubFetch(
+    `/repos/${owner}/${repo}/commits/${encodeURIComponent(ref)}/statuses?per_page=${perPage}`,
+    credentials.token,
+  );
+}
+
+export async function getRepoPages(credentials, owner, repo) {
+  return githubFetch(`/repos/${owner}/${repo}/pages`, credentials.token);
+}
+
+export async function getOrgInfo(credentials, org) {
+  return githubFetch(`/orgs/${org}`, credentials.token);
+}
+
+export async function searchCommits(credentials, query, perPage = 20) {
+  return githubFetch(
+    `/search/commits?q=${encodeURIComponent(query)}&per_page=${perPage}`,
+    credentials.token,
+    { headers: { Accept: 'application/vnd.github.cloak-preview+json' } },
+  );
+}
+
+export async function getDeploymentStatuses(credentials, owner, repo, deploymentId, perPage = 10) {
+  return githubFetch(
+    `/repos/${owner}/${repo}/deployments/${deploymentId}/statuses?per_page=${perPage}`,
+    credentials.token,
+  );
+}
+
+export async function getRepoInvitations(credentials, owner, repo) {
+  return githubFetch(`/repos/${owner}/${repo}/invitations`, credentials.token);
+}
+
+export async function getRateLimit(credentials) {
+  return githubFetch('/rate_limit', credentials.token);
+}

@@ -925,107 +925,255 @@
     },
   },
   {
-  name: 'github_get_traffic_clones',
-  description: 'Get clone traffic stats for a repository over the last 14 days.',
-  category: 'github',
-  connectorId: 'github',
-  parameters: {
-    owner: { type: 'string', required: true, description: 'GitHub username or organization' },
-    repo:  { type: 'string', required: true, description: 'Repository name' },
+    name: 'github_get_traffic_clones',
+    description: 'Get clone traffic stats for a repository over the last 14 days.',
+    category: 'github',
+    connectorId: 'github',
+    parameters: {
+      owner: { type: 'string', required: true, description: 'GitHub username or organization' },
+      repo: { type: 'string', required: true, description: 'Repository name' },
+    },
   },
-},
-{
-  name: 'github_get_community_profile',
-  description: 'Get the community health profile of a repository including readme, license, and contributing guide presence.',
-  category: 'github',
-  connectorId: 'github',
-  parameters: {
-    owner: { type: 'string', required: true, description: 'GitHub username or organization' },
-    repo:  { type: 'string', required: true, description: 'Repository name' },
+  {
+    name: 'github_get_community_profile',
+    description: 'Get the community health profile of a repository including readme, license, and contributing guide presence.',
+    category: 'github',
+    connectorId: 'github',
+    parameters: {
+      owner: { type: 'string', required: true, description: 'GitHub username or organization' },
+      repo: { type: 'string', required: true, description: 'Repository name' },
+    },
   },
-},
-{
-  name: 'github_get_repo_webhooks',
-  description: 'List webhooks configured for a repository.',
-  category: 'github',
-  connectorId: 'github',
-  parameters: {
-    owner: { type: 'string', required: true, description: 'GitHub username or organization' },
-    repo:  { type: 'string', required: true, description: 'Repository name' },
+  {
+    name: 'github_get_repo_webhooks',
+    description: 'List webhooks configured for a repository.',
+    category: 'github',
+    connectorId: 'github',
+    parameters: {
+      owner: { type: 'string', required: true, description: 'GitHub username or organization' },
+      repo: { type: 'string', required: true, description: 'Repository name' },
+    },
   },
-},
-{
-  name: 'github_get_org_members',
-  description: 'List public members of a GitHub organization.',
-  category: 'github',
-  connectorId: 'github',
-  parameters: {
-    org:   { type: 'string', required: true,  description: 'GitHub organization name' },
-    count: { type: 'number', required: false, description: 'Max members to return (default 30)' },
+  {
+    name: 'github_get_org_members',
+    description: 'List public members of a GitHub organization.',
+    category: 'github',
+    connectorId: 'github',
+    parameters: {
+      org: { type: 'string', required: true, description: 'GitHub organization name' },
+      count: { type: 'number', required: false, description: 'Max members to return (default 30)' },
+    },
   },
-},
-{
-  name: 'github_list_org_teams',
-  description: 'List teams in a GitHub organization.',
-  category: 'github',
-  connectorId: 'github',
-  parameters: {
-    org:   { type: 'string', required: true,  description: 'GitHub organization name' },
-    count: { type: 'number', required: false, description: 'Max teams to return (default 30)' },
+  {
+    name: 'github_list_org_teams',
+    description: 'List teams in a GitHub organization.',
+    category: 'github',
+    connectorId: 'github',
+    parameters: {
+      org: { type: 'string', required: true, description: 'GitHub organization name' },
+      count: { type: 'number', required: false, description: 'Max teams to return (default 30)' },
+    },
   },
-},
-{
-  name: 'github_get_team_members',
-  description: 'List members of a specific team within a GitHub organization.',
-  category: 'github',
-  connectorId: 'github',
-  parameters: {
-    org:       { type: 'string', required: true,  description: 'GitHub organization name' },
-    team_slug: { type: 'string', required: true,  description: 'Team slug (from github_list_org_teams)' },
-    count:     { type: 'number', required: false, description: 'Max members to return (default 30)' },
+  {
+    name: 'github_get_team_members',
+    description: 'List members of a specific team within a GitHub organization.',
+    category: 'github',
+    connectorId: 'github',
+    parameters: {
+      org: { type: 'string', required: true, description: 'GitHub organization name' },
+      team_slug: { type: 'string', required: true, description: 'Team slug (from github_list_org_teams)' },
+      count: { type: 'number', required: false, description: 'Max members to return (default 30)' },
+    },
   },
-},
-{
-  name: 'github_get_issue_reactions',
-  description: 'Get emoji reactions on a GitHub issue or pull request.',
-  category: 'github',
-  connectorId: 'github',
-  parameters: {
-    owner:        { type: 'string', required: true, description: 'GitHub username or organization' },
-    repo:         { type: 'string', required: true, description: 'Repository name' },
-    issue_number: { type: 'number', required: true, description: 'Issue or pull request number' },
+  {
+    name: 'github_get_issue_reactions',
+    description: 'Get emoji reactions on a GitHub issue or pull request.',
+    category: 'github',
+    connectorId: 'github',
+    parameters: {
+      owner: { type: 'string', required: true, description: 'GitHub username or organization' },
+      repo: { type: 'string', required: true, description: 'Repository name' },
+      issue_number: { type: 'number', required: true, description: 'Issue or pull request number' },
+    },
   },
-},
-{
-  name: 'github_get_repo_license',
-  description: 'Get the license file and metadata for a repository.',
-  category: 'github',
-  connectorId: 'github',
-  parameters: {
-    owner: { type: 'string', required: true, description: 'GitHub username or organization' },
-    repo:  { type: 'string', required: true, description: 'Repository name' },
+  {
+    name: 'github_get_repo_license',
+    description: 'Get the license file and metadata for a repository.',
+    category: 'github',
+    connectorId: 'github',
+    parameters: {
+      owner: { type: 'string', required: true, description: 'GitHub username or organization' },
+      repo: { type: 'string', required: true, description: 'Repository name' },
+    },
   },
-},
-{
-  name: 'github_get_code_frequency',
-  description: 'Get weekly addition and deletion counts for a repository (last ~52 weeks).',
-  category: 'github',
-  connectorId: 'github',
-  parameters: {
-    owner: { type: 'string', required: true, description: 'GitHub username or organization' },
-    repo:  { type: 'string', required: true, description: 'Repository name' },
+  {
+    name: 'github_get_code_frequency',
+    description: 'Get weekly addition and deletion counts for a repository (last ~52 weeks).',
+    category: 'github',
+    connectorId: 'github',
+    parameters: {
+      owner: { type: 'string', required: true, description: 'GitHub username or organization' },
+      repo: { type: 'string', required: true, description: 'Repository name' },
+    },
   },
-},
-{
-  name: 'github_get_contributor_stats',
-  description: 'Get commit, addition, and deletion counts per contributor for a repository.',
-  category: 'github',
-  connectorId: 'github',
-  parameters: {
-    owner: { type: 'string', required: true, description: 'GitHub username or organization' },
-    repo:  { type: 'string', required: true, description: 'Repository name' },
+  {
+    name: 'github_get_contributor_stats',
+    description: 'Get commit, addition, and deletion counts per contributor for a repository.',
+    category: 'github',
+    connectorId: 'github',
+    parameters: {
+      owner: { type: 'string', required: true, description: 'GitHub username or organization' },
+      repo: { type: 'string', required: true, description: 'Repository name' },
+    },
   },
-},
+  {
+    name: 'github_get_commit_activity',
+    description: 'Get weekly commit counts for a repository over the last year.',
+    category: 'github',
+    connectorId: 'github',
+    parameters: {
+      owner: { type: 'string', required: true, description: 'GitHub username or organization' },
+      repo: { type: 'string', required: true, description: 'Repository name' },
+    },
+  },
+  {
+    name: 'github_get_punch_card',
+    description: 'Get commit frequency by day of week and hour for a repository.',
+    category: 'github',
+    connectorId: 'github',
+    parameters: {
+      owner: { type: 'string', required: true, description: 'GitHub username or organization' },
+      repo: { type: 'string', required: true, description: 'Repository name' },
+    },
+  },
+  {
+    name: 'github_get_repo_subscription',
+    description: 'Check the authenticated user\'s watch/subscription status for a repository.',
+    category: 'github',
+    connectorId: 'github',
+    parameters: {
+      owner: { type: 'string', required: true, description: 'GitHub username or organization' },
+      repo: { type: 'string', required: true, description: 'Repository name' },
+    },
+  },
+  {
+    name: 'github_get_user_followers',
+    description: 'List followers of a GitHub user.',
+    category: 'github',
+    connectorId: 'github',
+    parameters: {
+      username: { type: 'string', required: true, description: 'GitHub username' },
+      count: { type: 'number', required: false, description: 'Max followers to return (default 30)' },
+    },
+  },
+  {
+    name: 'github_get_user_following',
+    description: 'List users that a GitHub user is following.',
+    category: 'github',
+    connectorId: 'github',
+    parameters: {
+      username: { type: 'string', required: true, description: 'GitHub username' },
+      count: { type: 'number', required: false, description: 'Max following to return (default 30)' },
+    },
+  },
+  {
+    name: 'github_get_user_gists',
+    description: 'List public gists for a GitHub user.',
+    category: 'github',
+    connectorId: 'github',
+    parameters: {
+      username: { type: 'string', required: true, description: 'GitHub username' },
+      count: { type: 'number', required: false, description: 'Max gists to return (default 20)' },
+    },
+  },
+  {
+    name: 'github_get_gist_details',
+    description: 'Get full details and file contents of a specific GitHub Gist.',
+    category: 'github',
+    connectorId: 'github',
+    parameters: {
+      gist_id: { type: 'string', required: true, description: 'Gist ID (from github_get_gists or github_get_user_gists)' },
+    },
+  },
+  {
+    name: 'github_get_pr_commits',
+    description: 'List all commits in a pull request.',
+    category: 'github',
+    connectorId: 'github',
+    parameters: {
+      owner: { type: 'string', required: true, description: 'GitHub username or organization' },
+      repo: { type: 'string', required: true, description: 'Repository name' },
+      pr_number: { type: 'number', required: true, description: 'Pull request number' },
+    },
+  },
+  {
+    name: 'github_get_commit_statuses',
+    description: 'Get CI/CD statuses for a specific commit ref or SHA.',
+    category: 'github',
+    connectorId: 'github',
+    parameters: {
+      owner: { type: 'string', required: true, description: 'GitHub username or organization' },
+      repo: { type: 'string', required: true, description: 'Repository name' },
+      ref: { type: 'string', required: true, description: 'Commit SHA, branch, or tag' },
+    },
+  },
+  {
+    name: 'github_get_repo_pages',
+    description: 'Get GitHub Pages configuration and status for a repository.',
+    category: 'github',
+    connectorId: 'github',
+    parameters: {
+      owner: { type: 'string', required: true, description: 'GitHub username or organization' },
+      repo: { type: 'string', required: true, description: 'Repository name' },
+    },
+  },
+  {
+    name: 'github_get_org_info',
+    description: 'Get public profile and metadata for a GitHub organization.',
+    category: 'github',
+    connectorId: 'github',
+    parameters: {
+      org: { type: 'string', required: true, description: 'GitHub organization name' },
+    },
+  },
+  {
+    name: 'github_search_commits',
+    description: 'Search commits across GitHub by message, author, repo, date, etc.',
+    category: 'github',
+    connectorId: 'github',
+    parameters: {
+      query: { type: 'string', required: true, description: 'Search query e.g. "fix bug repo:owner/repo author:alice"' },
+      count: { type: 'number', required: false, description: 'Max results to return (default 20, max 50)' },
+    },
+  },
+  {
+    name: 'github_get_deployment_statuses',
+    description: 'Get status history for a specific deployment.',
+    category: 'github',
+    connectorId: 'github',
+    parameters: {
+      owner: { type: 'string', required: true, description: 'GitHub username or organization' },
+      repo: { type: 'string', required: true, description: 'Repository name' },
+      deployment_id: { type: 'number', required: true, description: 'Deployment ID (from github_get_deployments)' },
+    },
+  },
+  {
+    name: 'github_get_repo_invitations',
+    description: 'List pending collaboration invitations for a repository.',
+    category: 'github',
+    connectorId: 'github',
+    parameters: {
+      owner: { type: 'string', required: true, description: 'GitHub username or organization' },
+      repo: { type: 'string', required: true, description: 'Repository name' },
+    },
+  },
+  {
+    name: 'github_get_rate_limit',
+    description: 'Check the current GitHub API rate limit status for core, search, and GraphQL.',
+    category: 'github',
+    connectorId: 'github',
+    parameters: {},
+  },
 ];
 
 export default GITHUB_TOOLS;
