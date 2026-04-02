@@ -1,6 +1,6 @@
 import { DATA_SOURCE_TYPES, loadAgentsFeatureRegistry } from './Config/Constants.js';
 import { createConfirmDialog } from './Components/ConfirmDialog.js';
-import { renderAgentsGrid } from './Components/Grid.js';
+import { createAgentGrid } from './Components/Grid.js';
 import { createHistoryModal } from '../../../../Modals/HistoryModal.js';
 import { createJobsController } from './Builders/JobBuilder.js';
 import { createModelPicker } from './Components/ModelPicker.js';
@@ -59,6 +59,51 @@ export function mount(outlet) {
     modalBodyEl: elements.modalBodyEl,
   });
 
+  function renderGrid() {
+    agentGrid.render(state.agents);
+  }
+
+  const confirmDialog = createConfirmDialog({
+    state,
+    overlayEl: elements.confirmOverlay,
+    cancelBtn: elements.confirmCancelBtn,
+    deleteBtn: elements.confirmDeleteBtn,
+    nameEl: elements.confirmNameEl,
+    onDelete: async agentId => {
+      await window.electronAPI?.deleteAgent?.(agentId);
+      state.agents = state.agents.filter(agent => agent.id !== agentId);
+      renderGrid();
+    },
+  });
+
+  const agentGrid = createAgentGrid({
+    gridEl: elements.gridEl,
+    emptyEl: elements.emptyEl,
+    dataSourceTypes: DATA_SOURCE_TYPES,
+    resolveModelLabel: (providerId, modelId) => resolveModelLabel(state.allModels, providerId, modelId),
+    onToggleAgent: async ({ agent, enabled, card }) => {
+      agent.enabled = enabled;
+      card.classList.toggle('is-disabled', !enabled);
+      await window.electronAPI?.toggleAgent?.(agent.id, enabled);
+    },
+    onRunAgent: async ({ agent, button }) => {
+      button.classList.add('is-running');
+      button.innerHTML = `
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation:spin 1s linear infinite">
+          <path d="M21 12a9 9 0 11-6.219-8.56" stroke-linecap="round"/>
+        </svg>`;
+      await window.electronAPI?.runAgentNow?.(agent.id);
+      state.agents = await fetchAgents();
+      renderGrid();
+    },
+    onOpenHistory: async agent => {
+      state.agents = await fetchAgents();
+      historyModal.open(state.agents.find(item => item.id === agent.id) ?? agent);
+    },
+    onOpenModal: agent => openModal(agent),
+    onOpenConfirm: (id, name) => confirmDialog.open(id, name),
+  });
+
   async function fetchAgents() {
     const response = await window.electronAPI?.getAgents?.().catch(() => null);
     return Array.isArray(response?.agents) ? response.agents : [];
@@ -90,50 +135,6 @@ export function mount(outlet) {
       state.allModels = [];
     }
   }
-
-  function renderGrid() {
-    renderAgentsGrid({
-      agents: state.agents,
-      gridEl: elements.gridEl,
-      emptyEl: elements.emptyEl,
-      dataSourceTypes: DATA_SOURCE_TYPES,
-      resolveModelLabel: (providerId, modelId) => resolveModelLabel(state.allModels, providerId, modelId),
-      onToggleAgent: async ({ agent, enabled, card }) => {
-        agent.enabled = enabled;
-        card.classList.toggle('is-disabled', !enabled);
-        await window.electronAPI?.toggleAgent?.(agent.id, enabled);
-      },
-      onRunAgent: async ({ agent, button }) => {
-        button.classList.add('is-running');
-        button.innerHTML = `
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation:spin 1s linear infinite">
-            <path d="M21 12a9 9 0 11-6.219-8.56" stroke-linecap="round"/>
-          </svg>`;
-        await window.electronAPI?.runAgentNow?.(agent.id);
-        state.agents = await fetchAgents();
-        renderGrid();
-      },
-      onOpenHistory: async agent => {
-        state.agents = await fetchAgents();
-        historyModal.open(state.agents.find(item => item.id === agent.id) ?? agent);
-      },
-      onOpenModal: openModal,
-      onOpenConfirm: confirmDialog.open,
-    });
-  }
-
-  const confirmDialog = createConfirmDialog({
-    state,
-    overlayEl: elements.confirmOverlay,
-    cancelBtn: elements.confirmCancelBtn,
-    deleteBtn: elements.confirmDeleteBtn,
-    nameEl: elements.confirmNameEl,
-    onDelete: async agentId => {
-      await window.electronAPI?.deleteAgent?.(agentId);
-      state.agents = state.agents.filter(agent => agent.id !== agentId);
-      renderGrid();
-    },
-  });
 
   async function openModal(agent = null) {
     state.editingId = agent?.id ?? null;
@@ -249,6 +250,7 @@ export function mount(outlet) {
     elements.modalBackdrop?.removeEventListener('click', onModalBackdropClick);
     elements.saveBtn?.removeEventListener('click', onSaveClick);
 
+    agentGrid.clear();
     jobsController.cleanup();
     modelPicker.cleanup();
     confirmDialog.cleanup();

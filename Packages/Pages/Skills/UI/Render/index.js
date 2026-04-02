@@ -1,5 +1,6 @@
 import { getHTML } from './Templates/SkillsTemplate.js';
 import { openConfirm, closeConfirm } from './Components/SkillsConfirm.js';
+import { createCardPool } from '../../../../System/CardPool.js';
 
 /* ── DOM refs (module-level, reset on each mount/unmount) ── */
 let skillsGrid     = null;
@@ -17,6 +18,7 @@ let modalContent   = null;
 let modalCloseBtn  = null;
 
 let _allSkills = [];
+let _skillPool = null;
 
 /* ── Helpers ── */
 function escapeHtml(value) {
@@ -93,10 +95,10 @@ function closeModal() {
   document.body.classList.remove('modal-open');
 }
 
-function buildSkillCard(skill) {
+function createSkillCard() {
   const card = document.createElement('div');
-  card.className = `skill-card${skill.enabled ? ' skill-card--enabled' : ''}`;
-  card.dataset.filename = skill.filename;
+  card.className = 'skill-card';
+  card._currentSkill = null;
 
   card.innerHTML = `
     <div class="skill-card-head">
@@ -106,20 +108,19 @@ function buildSkillCard(skill) {
         </svg>
       </div>
       <div class="skill-card-title-group">
-        <div class="skill-name">${escapeHtml(skill.name)}</div>
+        <div class="skill-name"></div>
         <span class="skill-badge">Skill</span>
       </div>
-      <label class="skill-toggle" title="${skill.enabled ? 'Disable this skill' : 'Enable this skill'}">
-        <input type="checkbox" class="skill-toggle-input" ${skill.enabled ? 'checked' : ''} />
+      <label class="skill-toggle" title="">
+        <input type="checkbox" class="skill-toggle-input" />
         <span class="skill-toggle-track"></span>
       </label>
     </div>
-    ${skill.trigger ? `
-      <div class="skill-trigger">
-        <span class="skill-trigger-label">When</span>
-        <span>${escapeHtml(skill.trigger)}</span>
-      </div>` : ''}
-    ${skill.description ? `<div class="skill-description">${escapeHtml(skill.description)}</div>` : ''}
+    <div class="skill-trigger" style="display:none">
+      <span class="skill-trigger-label">When</span>
+      <span class="skill-trigger-text"></span>
+    </div>
+    <div class="skill-description" style="display:none"></div>
     <div class="skill-card-footer">
       <button class="skill-read-btn" type="button">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
@@ -135,6 +136,8 @@ function buildSkillCard(skill) {
 
   toggleLabel?.addEventListener('click', e => e.stopPropagation());
   toggleInput?.addEventListener('change', async e => {
+    const skill = card._currentSkill;
+    if (!skill) return;
     const newEnabled = e.target.checked;
     if (toggleLabel) toggleLabel.title = newEnabled ? 'Disable this skill' : 'Enable this skill';
     card.classList.toggle('skill-card--enabled', newEnabled);
@@ -143,15 +146,41 @@ function buildSkillCard(skill) {
 
   card.addEventListener('click', e => {
     if (e.target.closest('.skill-toggle')) return;
-    openModal(skill);
+    if (card._currentSkill) openModal(card._currentSkill);
   });
 
   card.querySelector('.skill-read-btn')?.addEventListener('click', e => {
     e.stopPropagation();
-    openModal(skill);
+    if (card._currentSkill) openModal(card._currentSkill);
   });
 
   return card;
+}
+
+function updateSkillCard(card, skill) {
+  card._currentSkill = skill;
+  card.className = `skill-card${skill.enabled ? ' skill-card--enabled' : ''}`;
+  card.dataset.filename = skill.filename;
+
+  card.querySelector('.skill-name').textContent = skill.name;
+  card.querySelector('.skill-toggle').title = skill.enabled ? 'Disable this skill' : 'Enable this skill';
+  card.querySelector('.skill-toggle-input').checked = skill.enabled;
+
+  const triggerEl = card.querySelector('.skill-trigger');
+  if (skill.trigger) {
+    triggerEl.style.display = '';
+    card.querySelector('.skill-trigger-text').textContent = skill.trigger;
+  } else {
+    triggerEl.style.display = 'none';
+  }
+
+  const descEl = card.querySelector('.skill-description');
+  if (skill.description) {
+    descEl.style.display = '';
+    descEl.textContent = skill.description;
+  } else {
+    descEl.style.display = 'none';
+  }
 }
 
 function render(query = '') {
@@ -168,17 +197,24 @@ function render(query = '') {
   skillsEmpty.hidden   = true;
   searchWrapper.hidden = false;
   skillsGrid.hidden    = false;
-  skillsGrid.innerHTML = '';
 
   if (filtered.length === 0) {
-    const noResults = document.createElement('div');
-    noResults.className   = 'skills-no-results';
+    _skillPool.render([]);
+    let noResults = skillsGrid.querySelector('.skills-no-results');
+    if (!noResults) {
+      noResults = document.createElement('div');
+      noResults.className = 'skills-no-results';
+      skillsGrid.appendChild(noResults);
+    }
     noResults.textContent = `No skills match "${query}"`;
-    skillsGrid.appendChild(noResults);
+    noResults.style.display = '';
     return;
   }
 
-  filtered.forEach(skill => skillsGrid.appendChild(buildSkillCard(skill)));
+  const noResults = skillsGrid.querySelector('.skills-no-results');
+  if (noResults) noResults.style.display = 'none';
+
+  _skillPool.render(filtered);
 }
 
 async function load() {
@@ -213,6 +249,12 @@ export function mount(outlet) {
   modalCloseBtn  = document.getElementById('skill-modal-close');
 
   _allSkills = [];
+  _skillPool = createCardPool({
+    container: skillsGrid,
+    createCard: createSkillCard,
+    updateCard: updateSkillCard,
+    getKey: skill => skill.filename,
+  });
   closeConfirm();
 
   const onModalClose         = () => closeModal();
@@ -281,6 +323,8 @@ export function mount(outlet) {
     disableAllBtn?.removeEventListener('click', onDisableAll);
     document.removeEventListener('keydown', onKeydown);
 
+    _skillPool?.clear();
+    _skillPool = null;
     skillsGrid = skillsEmpty = searchWrapper = searchInput = null;
     searchClearBtn = countEl = enabledCountEl = enableAllBtn = null;
     disableAllBtn = modalBackdrop = modalName = modalContent = modalCloseBtn = null;

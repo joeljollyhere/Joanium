@@ -1,5 +1,5 @@
 import { getPersonasHTML } from './Templates/PersonasTemplate.js';
-import { buildDefaultCard, buildPersonaCard } from './Components/PersonasCards.js';
+import { createPersonaCardPool } from './Components/PersonasCards.js';
 
 // ── Module-level refs (reset on each mount) ──────────────────────────────────
 let activeBanner  = null;
@@ -11,6 +11,7 @@ let countEl       = null;
 let _navigate     = null;
 let _activePersona = null;
 let _allPersonas  = [];
+let _personaPool  = null;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function matchesSearch(persona, query) {
@@ -39,8 +40,7 @@ function render(query = '') {
   const total = 1 + _allPersonas.length;
   if (countEl) countEl.textContent = `${total} persona${total !== 1 ? 's' : ''}`;
 
-  if (!personasGrid) return;
-  personasGrid.innerHTML = '';
+  if (!personasGrid || !_personaPool) return;
 
   const defaultKeywords = 'default assistant helpful accurate contextual standard';
   const lowerQuery = query.toLowerCase();
@@ -52,55 +52,22 @@ function render(query = '') {
   visibleItems.push(...filteredCustom);
 
   if (visibleItems.length === 0) {
-    const noResults = document.createElement('div');
-    noResults.className = 'personas-no-results';
+    _personaPool.render([], null);
+    let noResults = personasGrid.querySelector('.personas-no-results');
+    if (!noResults) {
+      noResults = document.createElement('div');
+      noResults.className = 'personas-no-results';
+      personasGrid.appendChild(noResults);
+    }
     noResults.textContent = `No personas match "${query}"`;
-    personasGrid.appendChild(noResults);
+    noResults.style.display = '';
     return;
   }
 
-  visibleItems.forEach(item => {
-    if (item._isDefault) {
-      personasGrid.appendChild(buildDefaultCard({
-        isActive: !_activePersona,
-        searchQuery: () => searchInput?.value?.trim() ?? '',
-        onActivate: async () => {
-          await window.electronAPI?.resetActivePersona?.();
-          _activePersona = null;
-          render(searchInput?.value?.trim() ?? '');
-        },
-        onChat: async () => {
-          await window.electronAPI?.resetActivePersona?.();
-          _activePersona = null;
-          await navigateToChat();
-        },
-      }));
-    } else {
-      personasGrid.appendChild(buildPersonaCard({
-        persona: item,
-        isActive: _activePersona?.filename === item.filename,
-        onActivate: async () => {
-          const result = await window.electronAPI?.setActivePersona?.(item);
-          if (result?.ok !== false) {
-            _activePersona = item;
-            render(searchInput?.value?.trim() ?? '');
-          }
-        },
-        onDeactivate: async () => {
-          await window.electronAPI?.resetActivePersona?.();
-          _activePersona = null;
-          render(searchInput?.value?.trim() ?? '');
-        },
-        onChat: async () => {
-          const result = await window.electronAPI?.setActivePersona?.(item);
-          if (result?.ok !== false) {
-            _activePersona = item;
-            await navigateToChat();
-          }
-        },
-      }));
-    }
-  });
+  const noResults = personasGrid.querySelector('.personas-no-results');
+  if (noResults) noResults.style.display = 'none';
+
+  _personaPool.render(visibleItems, _activePersona?.filename ?? null);
 }
 
 // ── Data loading ──────────────────────────────────────────────────────────────
@@ -136,6 +103,39 @@ export function mount(outlet, { navigate }) {
   _activePersona = null;
   _allPersonas   = [];
 
+  _personaPool = createPersonaCardPool({
+    container: personasGrid,
+    onActivateDefault: async () => {
+      await window.electronAPI?.resetActivePersona?.();
+      _activePersona = null;
+      render(searchInput?.value?.trim() ?? '');
+    },
+    onChatDefault: async () => {
+      await window.electronAPI?.resetActivePersona?.();
+      _activePersona = null;
+      await navigateToChat();
+    },
+    onActivatePersona: async (persona) => {
+      const result = await window.electronAPI?.setActivePersona?.(persona);
+      if (result?.ok !== false) {
+        _activePersona = persona;
+        render(searchInput?.value?.trim() ?? '');
+      }
+    },
+    onDeactivatePersona: async () => {
+      await window.electronAPI?.resetActivePersona?.();
+      _activePersona = null;
+      render(searchInput?.value?.trim() ?? '');
+    },
+    onChatPersona: async (persona) => {
+      const result = await window.electronAPI?.setActivePersona?.(persona);
+      if (result?.ok !== false) {
+        _activePersona = persona;
+        await navigateToChat();
+      }
+    },
+  });
+
   const onSearchInput = () => {
     render(searchInput?.value.trim() ?? '');
     searchClearBtn?.classList.toggle('visible', (searchInput?.value.length ?? 0) > 0);
@@ -156,6 +156,8 @@ export function mount(outlet, { navigate }) {
     searchInput?.removeEventListener('input', onSearchInput);
     searchClearBtn?.removeEventListener('click', onSearchClear);
 
+    _personaPool?.clear();
+    _personaPool = null;
     activeBanner   = null;
     activeNameEl   = null;
     personasGrid   = null;

@@ -2,6 +2,7 @@ import { loadAutomationFeatureRegistry } from './Config/Constants.js';
 import { escapeHtml, formatActionsSummary, formatLastRun, formatTrigger, generateId } from './Utils/Utils.js';
 import { createActionRow, collectActionFromRow } from './Components/ActionRenderer.js';
 import { getAutomationsHTML } from './Templates/Template.js';
+import { createCardPool } from '../../../../System/CardPool.js';
 
 // ── mount ────────────────────────────────────────────────────────────────────
 export function mount(outlet) {
@@ -10,63 +11,98 @@ export function mount(outlet) {
   // ── Local state ────────────────────────────────────────────────────────────
   const pageState = { automations: [] };
   let _editingId  = null;
+  let _autoPool   = null;
 
   // ── DOM refs (looked up lazily inside functions) ───────────────────────────
   const $ = id => document.getElementById(id);
+
+  // ── Card pool ──────────────────────────────────────────────────────────────
+  function createAutoCard() {
+    const card = document.createElement('div');
+    card.className = 'auto-card';
+    card._currentAuto = null;
+
+    card.innerHTML = `
+      <div class="auto-card-head">
+        <div class="auto-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M13 2L4.5 13H11l-1 9L20.5 11H14L13 2z" stroke-linejoin="round" stroke-width="1.6"/></svg></div>
+        <div class="auto-card-info">
+          <div class="auto-card-name"></div>
+          <div class="auto-card-desc" style="display:none"></div>
+        </div>
+        <label class="auto-toggle" title="">
+          <input type="checkbox" class="toggle-input"><div class="auto-toggle-track"></div>
+        </label>
+      </div>
+      <div class="auto-card-meta">
+        <span class="auto-card-tag trigger_tag">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3" stroke-linecap="round"/></svg>
+          <span class="auto-trigger-text"></span>
+        </span>
+        <div class="auto-card-actions-summary">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M9 6h11M9 12h11M9 18h11M5 6v.01M5 12v.01M5 18v.01" stroke-linecap="round"/></svg>
+          <span class="auto-actions-text"></span>
+        </div>
+        <div class="auto-card-lastrun" style="display:none"></div>
+      </div>
+      <div class="auto-card-footer">
+        <button class="auto-card-btn edit-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke-linecap="round"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke-linecap="round"/></svg>
+          Edit
+        </button>
+        <button class="auto-card-btn danger delete-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Delete
+        </button>
+      </div>`;
+
+    card.querySelector('.toggle-input').addEventListener('change', async e => {
+      const auto = card._currentAuto;
+      if (!auto) return;
+      auto.enabled = e.target.checked;
+      card.classList.toggle('is-disabled', !auto.enabled);
+      await window.electronAPI?.toggleAutomation?.(auto.id, auto.enabled);
+    });
+    card.querySelector('.edit-btn').addEventListener('click', () => { if (card._currentAuto) openModal(card._currentAuto); });
+    card.querySelector('.delete-btn').addEventListener('click', () => { const a = card._currentAuto; if (a) openConfirm(a.id, a.name); });
+
+    return card;
+  }
+
+  function updateAutoCard(card, auto) {
+    card._currentAuto = auto;
+    card.className = `auto-card${auto.enabled ? '' : ' is-disabled'}`;
+    card.dataset.id = escapeHtml(auto.id);
+
+    card.querySelector('.auto-card-name').textContent = auto.name;
+    card.querySelector('.auto-toggle').title = auto.enabled ? 'Enabled' : 'Disabled';
+    card.querySelector('.toggle-input').checked = auto.enabled;
+    card.querySelector('.auto-trigger-text').textContent = formatTrigger(auto.trigger);
+    card.querySelector('.auto-actions-text').textContent = formatActionsSummary(auto.actions);
+
+    const descEl = card.querySelector('.auto-card-desc');
+    if (auto.description) {
+      descEl.style.display = '';
+      descEl.textContent = auto.description;
+    } else {
+      descEl.style.display = 'none';
+    }
+
+    const lastRunEl = card.querySelector('.auto-card-lastrun');
+    if (auto.lastRun) {
+      lastRunEl.style.display = '';
+      lastRunEl.textContent = formatLastRun(auto.lastRun);
+    } else {
+      lastRunEl.style.display = 'none';
+    }
+  }
 
   // ── Grid rendering ─────────────────────────────────────────────────────────
   function renderAutomations() {
     const grid  = $('auto-grid');
     const empty = $('auto-empty');
     if (!pageState.automations.length) { empty.hidden = false; grid.hidden = true; return; }
-    empty.hidden = true; grid.hidden = false; grid.innerHTML = '';
-
-    pageState.automations.forEach(auto => {
-      const card = document.createElement('div');
-      card.className = `auto-card${auto.enabled ? '' : ' is-disabled'}`;
-      card.dataset.id = escapeHtml(auto.id);
-      card.innerHTML = `
-        <div class="auto-card-head">
-          <div class="auto-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M13 2L4.5 13H11l-1 9L20.5 11H14L13 2z" stroke-linejoin="round" stroke-width="1.6"/></svg></div>
-          <div class="auto-card-info">
-            <div class="auto-card-name">${escapeHtml(auto.name)}</div>
-            ${auto.description ? `<div class="auto-card-desc">${escapeHtml(auto.description)}</div>` : ''}
-          </div>
-          <label class="auto-toggle" title="${auto.enabled ? 'Enabled' : 'Disabled'}">
-            <input type="checkbox" class="toggle-input" ${auto.enabled ? 'checked' : ''}><div class="auto-toggle-track"></div>
-          </label>
-        </div>
-        <div class="auto-card-meta">
-          <span class="auto-card-tag trigger-tag">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3" stroke-linecap="round"/></svg>
-            ${escapeHtml(formatTrigger(auto.trigger))}
-          </span>
-          <div class="auto-card-actions-summary">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M9 6h11M9 12h11M9 18h11M5 6v.01M5 12v.01M5 18v.01" stroke-linecap="round"/></svg>
-            ${escapeHtml(formatActionsSummary(auto.actions))}
-          </div>
-          ${auto.lastRun ? `<div class="auto-card-lastrun">${escapeHtml(formatLastRun(auto.lastRun))}</div>` : ''}
-        </div>
-        <div class="auto-card-footer">
-          <button class="auto-card-btn edit-btn">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke-linecap="round"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke-linecap="round"/></svg>
-            Edit
-          </button>
-          <button class="auto-card-btn danger delete-btn">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            Delete
-          </button>
-        </div>`;
-
-      card.querySelector('.toggle-input').addEventListener('change', async e => {
-        auto.enabled = e.target.checked;
-        card.classList.toggle('is-disabled', !auto.enabled);
-        await window.electronAPI?.toggleAutomation?.(auto.id, auto.enabled);
-      });
-      card.querySelector('.edit-btn').addEventListener('click',   () => openModal(auto));
-      card.querySelector('.delete-btn').addEventListener('click', () => openConfirm(auto.id, auto.name));
-      grid.appendChild(card);
-    });
+    empty.hidden = true; grid.hidden = false;
+    _autoPool.render(pageState.automations);
   }
 
   async function loadAutomations() {
@@ -203,11 +239,19 @@ export function mount(outlet) {
   document.addEventListener('keydown', onKeydown);
 
   // ── Load data ─────────────────────────────────────────────────────────────
+  _autoPool = createCardPool({
+    container: $('auto-grid'),
+    createCard: createAutoCard,
+    updateCard: updateAutoCard,
+    getKey: auto => auto.id,
+  });
   loadAutomationFeatureRegistry().then(loadAutomations).catch(error => { console.warn('[Automations] Feature registry load failed:', error); loadAutomations(); });
 
   // ── Return cleanup ─────────────────────────────────────────────────────────
   return function unmount() {
     document.removeEventListener('keydown', onKeydown);
+    _autoPool?.clear();
+    _autoPool = null;
   };
 }
 
