@@ -1,4 +1,12 @@
-node_modules
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+out/
+build/
+
+# Data - local user data
 Data/User.json
 Data/Chats
 Data/Projects
@@ -13,4 +21,30 @@ Data/Agents.json
 Data/Automations.json
 Data/Usage.json
 Data/ActivePersona.json
-dist
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# OS files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+npm-debug.log*
+
+# Coverage
+coverage/
+
+# Electron
+release/
