@@ -775,3 +775,79 @@ export async function getRepoInvitations(credentials, owner, repo) {
 export async function getRateLimit(credentials) {
   return githubFetch('/rate_limit', credentials.token);
 }
+
+export async function listWorkflows(credentials, owner, repo, perPage = 30) {
+  return githubFetch(`/repos/${owner}/${repo}/actions/workflows?per_page=${perPage}`, credentials.token);
+}
+
+export async function getWorkflowDetails(credentials, owner, repo, workflowId) {
+  return githubFetch(`/repos/${owner}/${repo}/actions/workflows/${workflowId}`, credentials.token);
+}
+
+export async function getActionsRunners(credentials, owner, repo) {
+  return githubFetch(`/repos/${owner}/${repo}/actions/runners`, credentials.token);
+}
+
+export async function getActionsVariables(credentials, owner, repo, perPage = 30) {
+  return githubFetch(`/repos/${owner}/${repo}/actions/variables?per_page=${perPage}`, credentials.token);
+}
+
+export async function getActionsCache(credentials, owner, repo, perPage = 30) {
+  return githubFetch(`/repos/${owner}/${repo}/actions/caches?per_page=${perPage}`, credentials.token);
+}
+
+export async function getTeamRepos(credentials, org, teamSlug, perPage = 30) {
+  return githubFetch(
+    `/orgs/${org}/teams/${teamSlug}/repos?per_page=${perPage}`,
+    credentials.token,
+  );
+}
+
+export async function getUserRepos(credentials, username, perPage = 30) {
+  return githubFetch(
+    `/users/${username}/repos?sort=updated&per_page=${perPage}`,
+    credentials.token,
+  );
+}
+
+export async function getIssueTimeline(credentials, owner, repo, issueNumber, perPage = 30) {
+  return githubFetch(
+    `/repos/${owner}/${repo}/issues/${issueNumber}/timeline?per_page=${perPage}`,
+    credentials.token,
+    { headers: { Accept: 'application/vnd.github.mockingbird-preview+json' } },
+  );
+}
+
+export async function getOrgSecrets(credentials, org, perPage = 30) {
+  return githubFetch(`/orgs/${org}/actions/secrets?per_page=${perPage}`, credentials.token);
+}
+
+export async function getSingleComment(credentials, owner, repo, commentId) {
+  return githubFetch(`/repos/${owner}/${repo}/issues/comments/${commentId}`, credentials.token);
+}
+
+export async function getRepoSecurityAdvisories(credentials, owner, repo, perPage = 20) {
+  return githubFetch(
+    `/repos/${owner}/${repo}/security-advisories?per_page=${perPage}`,
+    credentials.token,
+  );
+}
+
+export async function getPRReviewDetails(credentials, owner, repo, prNumber, reviewId) {
+  return githubFetch(
+    `/repos/${owner}/${repo}/pulls/${prNumber}/reviews/${reviewId}`,
+    credentials.token,
+  );
+}
+
+export async function getOrgVariables(credentials, org, perPage = 30) {
+  return githubFetch(`/orgs/${org}/actions/variables?per_page=${perPage}`, credentials.token);
+}
+
+export async function getRepoAutolinks(credentials, owner, repo) {
+  return githubFetch(`/repos/${owner}/${repo}/autolinks`, credentials.token);
+}
+
+export async function getCheckRunDetails(credentials, owner, repo, checkRunId) {
+  return githubFetch(`/repos/${owner}/${repo}/check-runs/${checkRunId}`, credentials.token);
+}

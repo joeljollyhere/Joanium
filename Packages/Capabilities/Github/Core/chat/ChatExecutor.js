@@ -1697,6 +1697,251 @@ export async function executeGithubChatTool(ctx, toolName, params = {}) {
         `GraphQL: ${graphql.remaining ?? '?'} / ${graphql.limit ?? '?'} remaining — resets at ${formatReset(graphql.reset)}`,
       ].join('\n');
     }
+
+    case 'github_list_workflows': {
+      const { owner, repo } = params;
+      requireRepo(owner, repo);
+      const data = await GithubAPI.listWorkflows(credentials, owner, repo);
+      const workflows = data.workflows ?? [];
+      if (!workflows.length) return `No workflows found in ${owner}/${repo}.`;
+      return [
+        `Workflows in ${owner}/${repo} (${workflows.length}):`,
+        '',
+        ...workflows.map((w, i) =>
+          `${i + 1}. ${w.name} [${w.state}]\n   File: ${w.path}\n   ID: ${w.id}`,
+        ),
+      ].join('\n');
+    }
+
+    case 'github_get_workflow_details': {
+      const { owner, repo, workflow_id } = params;
+      if (!owner || !repo || !workflow_id) throw new Error('Missing required params: owner, repo, workflow_id');
+      const w = await GithubAPI.getWorkflowDetails(credentials, owner, repo, workflow_id);
+      return [
+        `Workflow: ${w.name}`,
+        `ID: ${w.id}`,
+        `File: ${w.path}`,
+        `State: ${w.state}`,
+        `Created: ${formatDate(w.created_at)} | Updated: ${formatDate(w.updated_at)}`,
+        `URL: ${w.html_url}`,
+        `Badge: ${w.badge_url}`,
+      ].filter(Boolean).join('\n');
+    }
+
+    case 'github_get_actions_runners': {
+      const { owner, repo } = params;
+      requireRepo(owner, repo);
+      const data = await GithubAPI.getActionsRunners(credentials, owner, repo);
+      const runners = data.runners ?? [];
+      if (!runners.length) return `No self-hosted runners found in ${owner}/${repo}.`;
+      return [
+        `Self-hosted runners in ${owner}/${repo} (${runners.length}):`,
+        '',
+        ...runners.map((r, i) => {
+          const labels = r.labels?.map(l => l.name).join(', ') || 'none';
+          return `${i + 1}. ${r.name} [${r.status}] — OS: ${r.os ?? 'unknown'} | Labels: ${labels}`;
+        }),
+      ].join('\n');
+    }
+
+    case 'github_get_actions_variables': {
+      const { owner, repo } = params;
+      requireRepo(owner, repo);
+      const data = await GithubAPI.getActionsVariables(credentials, owner, repo);
+      const vars = data.variables ?? [];
+      if (!vars.length) return `No Actions variables found in ${owner}/${repo}.`;
+      return [
+        `Actions variables in ${owner}/${repo} (${vars.length}):`,
+        '',
+        ...vars.map((v, i) =>
+          `${i + 1}. ${v.name} = ${v.value}\n   Updated: ${formatDate(v.updated_at)}`,
+        ),
+      ].join('\n');
+    }
+
+    case 'github_get_actions_cache': {
+      const { owner, repo } = params;
+      requireRepo(owner, repo);
+      const data = await GithubAPI.getActionsCache(credentials, owner, repo);
+      const caches = data.actions_caches ?? [];
+      if (!caches.length) return `No Actions cache entries found in ${owner}/${repo}.`;
+      const totalBytes = caches.reduce((s, c) => s + (c.size_in_bytes ?? 0), 0);
+      const totalMB = (totalBytes / 1_000_000).toFixed(1);
+      return [
+        `Actions cache for ${owner}/${repo} (${caches.length} entries, ${totalMB} MB total):`,
+        '',
+        ...caches.slice(0, 20).map((c, i) => {
+          const size = ((c.size_in_bytes ?? 0) / 1_000_000).toFixed(2);
+          return `${i + 1}. ${c.key}\n   Branch: ${c.ref ?? 'unknown'} | ${size} MB | Last used: ${formatDate(c.last_accessed_at)}`;
+        }),
+      ].join('\n');
+    }
+
+    case 'github_get_team_repos': {
+      const { org, team_slug, count = 30 } = params;
+      if (!org || !team_slug) throw new Error('Missing required params: org, team_slug');
+      const repos = await GithubAPI.getTeamRepos(credentials, org, team_slug, Math.min(Number(count) || 30, 100));
+      if (!repos.length) return `No repositories found for team "${team_slug}" in org "${org}".`;
+      return [
+        `Repos accessible to ${org}/${team_slug} (${repos.length}):`,
+        '',
+        ...repos.map((r, i) => {
+          const perms = Object.entries(r.permissions ?? {})
+            .filter(([, v]) => v)
+            .map(([k]) => k)
+            .join(', ');
+          return `${i + 1}. ${r.full_name} [${r.language ?? 'unknown'}] — permissions: ${perms || 'none'}`;
+        }),
+      ].join('\n');
+    }
+
+    case 'github_get_user_repos': {
+      const { username, count = 30 } = params;
+      if (!username) throw new Error('Missing required param: username');
+      const repos = await GithubAPI.getUserRepos(credentials, username, Math.min(Number(count) || 30, 100));
+      if (!repos.length) return `No public repositories found for @${username}.`;
+      return [
+        `Repositories for @${username} (${repos.length} shown):`,
+        '',
+        ...repos.map((r, i) =>
+          `${i + 1}. ${r.name} [${r.language ?? 'unknown'}] ★${r.stargazers_count}${r.description ? ` — ${r.description}` : ''}`,
+        ),
+      ].join('\n');
+    }
+
+    case 'github_get_issue_timeline': {
+      const { owner, repo, issue_number } = params;
+      if (!owner || !repo || !issue_number) throw new Error('Missing required params: owner, repo, issue_number');
+      const events = await GithubAPI.getIssueTimeline(credentials, owner, repo, Number(issue_number));
+      if (!events.length) return `No timeline events found for ${owner}/${repo}#${issue_number}.`;
+      return [
+        `Timeline for ${owner}/${repo}#${issue_number} (${events.length} events):`,
+        '',
+        ...events.slice(0, 25).map((e, i) => {
+          const actor = e.actor?.login ?? e.user?.login ?? 'unknown';
+          const date = formatDate(e.created_at ?? e.submitted_at);
+          const detail = e.label?.name
+            ? `label: ${e.label.name}`
+            : e.rename
+              ? `renamed: "${e.rename.from}" → "${e.rename.to}"`
+              : e.body
+                ? String(e.body).slice(0, 80)
+                : '';
+          return `${i + 1}. [${e.event}] @${actor} ${date}${detail ? `\n   ${detail}` : ''}`;
+        }),
+      ].join('\n');
+    }
+
+    case 'github_get_org_secrets': {
+      const { org } = params;
+      if (!org) throw new Error('Missing required param: org');
+      const data = await GithubAPI.getOrgSecrets(credentials, org);
+      const secrets = data.secrets ?? [];
+      if (!secrets.length) return `No org-level Actions secrets found in "${org}".`;
+      return [
+        `Org-level Actions secrets for ${org} (${secrets.length}) — names only:`,
+        '',
+        ...secrets.map((s, i) =>
+          `${i + 1}. ${s.name} — visibility: ${s.visibility} | updated: ${formatDate(s.updated_at)}`,
+        ),
+      ].join('\n');
+    }
+
+    case 'github_get_single_comment': {
+      const { owner, repo, comment_id } = params;
+      if (!owner || !repo || !comment_id) throw new Error('Missing required params: owner, repo, comment_id');
+      const c = await GithubAPI.getSingleComment(credentials, owner, repo, comment_id);
+      return [
+        `Comment #${c.id} on ${owner}/${repo}`,
+        `Author: @${c.user?.login ?? 'unknown'}`,
+        `Created: ${formatDate(c.created_at)} | Updated: ${formatDate(c.updated_at)}`,
+        `URL: ${c.html_url}`,
+        '',
+        c.body ?? '(empty)',
+      ].join('\n');
+    }
+
+    case 'github_get_security_advisories': {
+      const { owner, repo } = params;
+      requireRepo(owner, repo);
+      const advisories = await GithubAPI.getRepoSecurityAdvisories(credentials, owner, repo);
+      if (!advisories.length) return `No security advisories found for ${owner}/${repo}.`;
+      return [
+        `Security advisories for ${owner}/${repo} (${advisories.length}):`,
+        '',
+        ...advisories.map((a, i) => {
+          const severity = a.severity ?? 'unknown';
+          const state = a.state ?? 'unknown';
+          const cvss = a.cvss?.score ? ` | CVSS: ${a.cvss.score}` : '';
+          return `${i + 1}. [${severity.toUpperCase()}] ${a.summary ?? 'no summary'}\n   State: ${state}${cvss} | Published: ${formatDate(a.published_at)}`;
+        }),
+      ].join('\n');
+    }
+
+    case 'github_get_pr_review_details': {
+      const { owner, repo, pr_number, review_id } = params;
+      if (!owner || !repo || !pr_number || !review_id) throw new Error('Missing required params: owner, repo, pr_number, review_id');
+      const r = await GithubAPI.getPRReviewDetails(credentials, owner, repo, Number(pr_number), review_id);
+      return [
+        `Review #${r.id} on ${owner}/${repo} PR #${pr_number}`,
+        `Reviewer: @${r.user?.login ?? 'unknown'}`,
+        `State: ${r.state}`,
+        `Submitted: ${formatDate(r.submitted_at)}`,
+        `URL: ${r.html_url}`,
+        '',
+        r.body ? `Body:\n${r.body.slice(0, 1000)}${r.body.length > 1000 ? '\n...(truncated)' : ''}` : '(no body)',
+      ].filter(Boolean).join('\n');
+    }
+
+    case 'github_get_org_variables': {
+      const { org } = params;
+      if (!org) throw new Error('Missing required param: org');
+      const data = await GithubAPI.getOrgVariables(credentials, org);
+      const vars = data.variables ?? [];
+      if (!vars.length) return `No org-level Actions variables found in "${org}".`;
+      return [
+        `Org-level Actions variables for ${org} (${vars.length}):`,
+        '',
+        ...vars.map((v, i) =>
+          `${i + 1}. ${v.name} = ${v.value}\n   Visibility: ${v.visibility} | Updated: ${formatDate(v.updated_at)}`,
+        ),
+      ].join('\n');
+    }
+
+    case 'github_get_repo_autolinks': {
+      const { owner, repo } = params;
+      requireRepo(owner, repo);
+      const links = await GithubAPI.getRepoAutolinks(credentials, owner, repo);
+      if (!links.length) return `No autolinks configured for ${owner}/${repo}.`;
+      return [
+        `Autolinks for ${owner}/${repo} (${links.length}):`,
+        '',
+        ...links.map((l, i) =>
+          `${i + 1}. Key prefix: ${l.key_prefix}\n   URL template: ${l.url_template}\n   Alphanumeric: ${l.is_alphanumeric}`,
+        ),
+      ].join('\n');
+    }
+
+    case 'github_get_check_run_details': {
+      const { owner, repo, check_run_id } = params;
+      if (!owner || !repo || !check_run_id) throw new Error('Missing required params: owner, repo, check_run_id');
+      const c = await GithubAPI.getCheckRunDetails(credentials, owner, repo, check_run_id);
+      const steps = c.output?.annotations_count != null
+        ? `Annotations: ${c.output.annotations_count}`
+        : '';
+      return [
+        `Check run: ${c.name}`,
+        `ID: ${c.id}`,
+        `Status: ${c.status} | Conclusion: ${c.conclusion ?? 'pending'}`,
+        `Started: ${formatDateTime(c.started_at)} | Completed: ${formatDateTime(c.completed_at)}`,
+        steps,
+        c.output?.title ? `Title: ${c.output.title}` : '',
+        c.output?.summary ? `Summary: ${c.output.summary.slice(0, 300)}` : '',
+        `URL: ${c.html_url}`,
+        c.details_url ? `Details: ${c.details_url}` : '',
+      ].filter(Boolean).join('\n');
+    }
+
     default:
       throw new Error(`Unknown GitHub tool: ${toolName}`);
   }

@@ -1174,6 +1174,161 @@
     connectorId: 'github',
     parameters: {},
   },
+  {
+    name: 'github_list_workflows',
+    description: 'List all GitHub Actions workflows in a repository.',
+    category: 'github',
+    connectorId: 'github',
+    parameters: {
+      owner: { type: 'string', required: true, description: 'GitHub username or organization' },
+      repo: { type: 'string', required: true, description: 'Repository name' },
+    },
+  },
+  {
+    name: 'github_get_workflow_details',
+    description: 'Get metadata for a specific GitHub Actions workflow.',
+    category: 'github',
+    connectorId: 'github',
+    parameters: {
+      owner: { type: 'string', required: true, description: 'GitHub username or organization' },
+      repo: { type: 'string', required: true, description: 'Repository name' },
+      workflow_id: { type: 'string', required: true, description: 'Workflow file name or numeric ID' },
+    },
+  },
+  {
+    name: 'github_get_actions_runners',
+    description: 'List self-hosted Actions runners for a repository.',
+    category: 'github',
+    connectorId: 'github',
+    parameters: {
+      owner: { type: 'string', required: true, description: 'GitHub username or organization' },
+      repo: { type: 'string', required: true, description: 'Repository name' },
+    },
+  },
+  {
+    name: 'github_get_actions_variables',
+    description: 'List Actions variables (names and values) for a repository.',
+    category: 'github',
+    connectorId: 'github',
+    parameters: {
+      owner: { type: 'string', required: true, description: 'GitHub username or organization' },
+      repo: { type: 'string', required: true, description: 'Repository name' },
+    },
+  },
+  {
+    name: 'github_get_actions_cache',
+    description: 'List Actions cache entries for a repository including size and last used date.',
+    category: 'github',
+    connectorId: 'github',
+    parameters: {
+      owner: { type: 'string', required: true, description: 'GitHub username or organization' },
+      repo: { type: 'string', required: true, description: 'Repository name' },
+    },
+  },
+  {
+    name: 'github_get_team_repos',
+    description: 'List repositories a specific team has access to within an org.',
+    category: 'github',
+    connectorId: 'github',
+    parameters: {
+      org: { type: 'string', required: true, description: 'GitHub organization name' },
+      team_slug: { type: 'string', required: true, description: 'Team slug' },
+      count: { type: 'number', required: false, description: 'Max repos to return (default 30)' },
+    },
+  },
+  {
+    name: 'github_get_user_repos',
+    description: "List public repositories for any GitHub user.",
+    category: 'github',
+    connectorId: 'github',
+    parameters: {
+      username: { type: 'string', required: true, description: 'GitHub username' },
+      count: { type: 'number', required: false, description: 'Max repos to return (default 30)' },
+    },
+  },
+  {
+    name: 'github_get_issue_timeline',
+    description: 'Get the full event timeline for a GitHub issue including labels, assignments, renames, and comments.',
+    category: 'github',
+    connectorId: 'github',
+    parameters: {
+      owner: { type: 'string', required: true, description: 'GitHub username or organization' },
+      repo: { type: 'string', required: true, description: 'Repository name' },
+      issue_number: { type: 'number', required: true, description: 'Issue number' },
+    },
+  },
+  {
+    name: 'github_get_org_secrets',
+    description: 'List org-level GitHub Actions secret names (values are never exposed).',
+    category: 'github',
+    connectorId: 'github',
+    parameters: {
+      org: { type: 'string', required: true, description: 'GitHub organization name' },
+    },
+  },
+  {
+    name: 'github_get_single_comment',
+    description: 'Get a single issue or PR comment by its ID.',
+    category: 'github',
+    connectorId: 'github',
+    parameters: {
+      owner: { type: 'string', required: true, description: 'GitHub username or organization' },
+      repo: { type: 'string', required: true, description: 'Repository name' },
+      comment_id: { type: 'number', required: true, description: 'Comment ID' },
+    },
+  },
+  {
+    name: 'github_get_security_advisories',
+    description: 'List published security advisories for a repository.',
+    category: 'github',
+    connectorId: 'github',
+    parameters: {
+      owner: { type: 'string', required: true, description: 'GitHub username or organization' },
+      repo: { type: 'string', required: true, description: 'Repository name' },
+    },
+  },
+  {
+    name: 'github_get_pr_review_details',
+    description: 'Get the full details of a single PR review by its ID.',
+    category: 'github',
+    connectorId: 'github',
+    parameters: {
+      owner: { type: 'string', required: true, description: 'GitHub username or organization' },
+      repo: { type: 'string', required: true, description: 'Repository name' },
+      pr_number: { type: 'number', required: true, description: 'Pull request number' },
+      review_id: { type: 'number', required: true, description: 'Review ID (from github_list_pr_reviews)' },
+    },
+  },
+  {
+    name: 'github_get_org_variables',
+    description: 'List org-level GitHub Actions variables.',
+    category: 'github',
+    connectorId: 'github',
+    parameters: {
+      org: { type: 'string', required: true, description: 'GitHub organization name' },
+    },
+  },
+  {
+    name: 'github_get_repo_autolinks',
+    description: 'List autolink references configured for a repository.',
+    category: 'github',
+    connectorId: 'github',
+    parameters: {
+      owner: { type: 'string', required: true, description: 'GitHub username or organization' },
+      repo: { type: 'string', required: true, description: 'Repository name' },
+    },
+  },
+  {
+    name: 'github_get_check_run_details',
+    description: 'Get full details of a specific CI check run including status, conclusion, and output summary.',
+    category: 'github',
+    connectorId: 'github',
+    parameters: {
+      owner: { type: 'string', required: true, description: 'GitHub username or organization' },
+      repo: { type: 'string', required: true, description: 'Repository name' },
+      check_run_id: { type: 'number', required: true, description: 'Check run ID (from github_get_pr_checks)' },
+    },
+  },
 ];
 
 export default GITHUB_TOOLS;
