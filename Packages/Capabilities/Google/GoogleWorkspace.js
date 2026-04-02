@@ -14,18 +14,43 @@ const REDIRECT_URI  = `http://localhost:${CALLBACK_PORT}/oauth/callback`;
 // All scopes in one shot — user only grants once
 const SCOPES = [
   'https://www.googleapis.com/auth/userinfo.email',
+  // Gmail
   'https://www.googleapis.com/auth/gmail.readonly',
   'https://www.googleapis.com/auth/gmail.send',
   'https://www.googleapis.com/auth/gmail.modify',
+  // Drive
   'https://www.googleapis.com/auth/drive',
+  // Calendar
   'https://www.googleapis.com/auth/calendar',
+  // YouTube
+  'https://www.googleapis.com/auth/youtube',
+  // Tasks
+  'https://www.googleapis.com/auth/tasks',
+  // Sheets
+  'https://www.googleapis.com/auth/spreadsheets',
+  // Contacts
+  'https://www.googleapis.com/auth/contacts',
+  // Docs
+  'https://www.googleapis.com/auth/documents',
 ].join(' ');
 
 // Per-service probe endpoints (fast, minimal data)
 const SERVICE_PROBES = {
-  gmail:    { url: 'https://gmail.googleapis.com/gmail/v1/users/me/profile',      label: 'Gmail' },
-  drive:    { url: 'https://www.googleapis.com/drive/v3/about?fields=user',        label: 'Google Drive' },
-  calendar: { url: 'https://www.googleapis.com/calendar/v3/calendars/primary',     label: 'Google Calendar' },
+  gmail:    { url: 'https://gmail.googleapis.com/gmail/v1/users/me/profile',                          label: 'Gmail' },
+  drive:    { url: 'https://www.googleapis.com/drive/v3/about?fields=user',                           label: 'Google Drive' },
+  calendar: { url: 'https://www.googleapis.com/calendar/v3/calendars/primary',                        label: 'Google Calendar' },
+  youtube:  { url: 'https://www.googleapis.com/youtube/v3/channels?part=id&mine=true',                label: 'YouTube' },
+  tasks:    { url: 'https://tasks.googleapis.com/tasks/v1/users/@me/lists?maxResults=1',              label: 'Google Tasks' },
+  contacts: { url: 'https://people.googleapis.com/v1/people/me?personFields=names',                   label: 'Google Contacts' },
+  // Sheets and Docs probed via Drive (same OAuth scope, same GCP project requirement)
+  sheets: {
+    url: `https://www.googleapis.com/drive/v3/files?q=mimeType%3D'application%2Fvnd.google-apps.spreadsheet'+and+trashed%3Dfalse&pageSize=1&fields=files(id)`,
+    label: 'Google Sheets',
+  },
+  docs: {
+    url: `https://www.googleapis.com/drive/v3/files?q=mimeType%3D'application%2Fvnd.google-apps.document'+and+trashed%3Dfalse&pageSize=1&fields=files(id)`,
+    label: 'Google Docs',
+  },
 };
 
 /* ══════════════════════════════════════════
@@ -109,8 +134,6 @@ async function exchangeCode(code, clientId, clientSecret) {
 
 /* ══════════════════════════════════════════
    SERVICE DETECTION
-   Returns { gmail: bool, drive: bool, calendar: bool }
-   Each probe is a lightweight HEAD/GET — fast.
 ══════════════════════════════════════════ */
 export async function detectServices(creds) {
   const fresh = await getFreshCreds(creds);
@@ -122,7 +145,6 @@ export async function detectServices(creds) {
         const res = await fetch(url, {
           headers: { Authorization: `Bearer ${fresh.accessToken}` },
         });
-        // 200 = enabled, 403 = API not enabled in project, 401 = scope missing
         results[key] = res.ok;
       } catch {
         results[key] = false;
@@ -179,8 +201,7 @@ export async function getFreshCreds(creds) {
 }
 
 /* ══════════════════════════════════════════
-   SHARED FETCH HELPER  (used by Gmail/Drive/Calendar APIs)
-   Pass the service key for a clear error message.
+   SHARED FETCH HELPER
 ══════════════════════════════════════════ */
 export async function googleFetch(creds, url, options = {}) {
   const fresh = await getFreshCreds(creds);
@@ -211,4 +232,9 @@ export const SERVICE_LABELS = {
   gmail:    { icon: '📧', name: 'Gmail' },
   drive:    { icon: '🗂️', name: 'Google Drive' },
   calendar: { icon: '📅', name: 'Google Calendar' },
+  youtube:  { icon: '▶️', name: 'YouTube' },
+  tasks:    { icon: '✅', name: 'Google Tasks' },
+  sheets:   { icon: '📊', name: 'Google Sheets' },
+  contacts: { icon: '👤', name: 'Google Contacts' },
+  docs:     { icon: '📄', name: 'Google Docs' },
 };
