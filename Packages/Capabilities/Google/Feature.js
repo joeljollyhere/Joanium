@@ -26,10 +26,15 @@ export default defineFeature({
         id: 'google',
         name: 'Google Workspace',
         icon: 'Google',
-        description: 'Connect once with one Client ID and get access to your enabled Google services.',
+        description:
+          'Connect once with one Client ID and get access to your enabled Google services.',
         helpUrl: 'https://console.cloud.google.com/apis/credentials',
         helpText: 'Create OAuth credentials ->',
         oauthType: 'google',
+        connectMethod: 'oauthStart',
+        connectLabel: 'Sign in with Google',
+        connectingLabel: 'Opening Google sign-in...',
+        serviceRefreshMethod: 'detectServices',
         subServices: [],
         setupSteps: [
           'Go to Google Cloud Console and create or select a project',
@@ -71,6 +76,12 @@ export default defineFeature({
         },
       },
     ],
+  },
+  lifecycle: {
+    async onBoot(ctx) {
+      const { setConnectorEngine } = await getGoogleWorkspaceModule();
+      setConnectorEngine(ctx.connectorEngine);
+    },
   },
   main: {
     methods: {

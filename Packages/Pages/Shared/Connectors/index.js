@@ -2,11 +2,11 @@
 import { buildFreeCard, setStatus, setConnectBtnState } from './Catalog/ConnectorCards.js';
 
 export const cxState = {
-  statuses:    {},
-  pending:     {},
-  freeStatuses:{},
-  freeKeys:    {},
-  loaded:      false,
+  statuses: {},
+  pending: {},
+  freeStatuses: {},
+  freeKeys: {},
+  loaded: false,
 };
 
 /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
@@ -46,7 +46,11 @@ function buildServiceBadges(def, services = {}) {
     if (!enabled) {
       badge.title = `${svc.name} API not detected. Click to enable it in Google Cloud.`;
       badge.addEventListener('click', () => {
-        const a = Object.assign(document.createElement('a'), { href: svc.apiUrl, target: '_blank', rel: 'noopener noreferrer' });
+        const a = Object.assign(document.createElement('a'), {
+          href: svc.apiUrl,
+          target: '_blank',
+          rel: 'noopener noreferrer',
+        });
         a.click();
       });
     }
@@ -67,13 +71,15 @@ function buildSetupSteps(def) {
   wrap.style.cssText = 'margin:10px 0;';
 
   const title = document.createElement('div');
-  title.style.cssText = 'font-size:11px;font-weight:500;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;';
+  title.style.cssText =
+    'font-size:11px;font-weight:500;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;';
   title.textContent = 'Setup steps';
   wrap.appendChild(title);
 
   def.setupSteps.forEach((step, i) => {
     const row = document.createElement('div');
-    row.style.cssText = 'display:flex;gap:8px;align-items:flex-start;margin-bottom:4px;font-size:12px;color:var(--text-secondary);';
+    row.style.cssText =
+      'display:flex;gap:8px;align-items:flex-start;margin-bottom:4px;font-size:12px;color:var(--text-secondary);';
     row.innerHTML = `<span style="min-width:16px;font-weight:500;color:var(--text-muted)">${i + 1}.</span><span>${step}</span>`;
     wrap.appendChild(row);
   });
@@ -88,7 +94,7 @@ function buildSetupSteps(def) {
 function buildCard(def, cxState, onConnect, onDisconnect) {
   const status = cxState.statuses[def.id] ?? { enabled: false };
   const isConnected = Boolean(status.enabled);
-  const services   = status.services ?? {};
+  const services = status.services ?? {};
 
   const card = document.createElement('div');
   card.className = `cx-card${isConnected ? ' cx-connected' : ''}`;
@@ -111,7 +117,7 @@ function buildCard(def, cxState, onConnect, onDisconnect) {
   /* â”€â”€ Capabilities â”€â”€ */
   const caps = document.createElement('div');
   caps.className = 'cx-capabilities';
-  (def.capabilities ?? []).forEach(cap => {
+  (def.capabilities ?? []).forEach((cap) => {
     const tag = document.createElement('span');
     tag.className = 'cx-cap-tag';
     tag.textContent = cap;
@@ -136,27 +142,38 @@ function buildCard(def, cxState, onConnect, onDisconnect) {
       badgeWrap.style.cssText = 'padding:0 16px 4px;';
 
       const badgeLabel = document.createElement('div');
-      badgeLabel.style.cssText = 'font-size:11px;font-weight:500;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;';
+      badgeLabel.style.cssText =
+        'font-size:11px;font-weight:500;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;';
       badgeLabel.textContent = 'Detected services';
       badgeWrap.appendChild(badgeLabel);
       badgeWrap.appendChild(badgesEl);
 
-      const refreshBtn = document.createElement('button');
-      refreshBtn.style.cssText = 'font-size:11px;color:var(--text-muted);background:none;border:none;cursor:pointer;padding:4px 0;text-decoration:underline;';
-      refreshBtn.textContent = 'Re-check services';
-      refreshBtn.addEventListener('click', async () => {
-        refreshBtn.textContent = 'Checkingâ€¦';
-        refreshBtn.disabled = true;
-        const res = await window.featureAPI?.invoke?.('google-workspace', 'detectServices', {});
-        if (res?.ok) {
-          cxState.statuses[def.id] = { ...cxState.statuses[def.id], services: res.services };
-          renderPanel();
-        } else {
-          refreshBtn.textContent = `Error: ${res?.error ?? 'Unknown'}`;
-          setTimeout(() => { refreshBtn.textContent = 'Re-check services'; refreshBtn.disabled = false; }, 3000);
-        }
-      });
-      badgeWrap.appendChild(refreshBtn);
+      if (def.featureId && def.serviceRefreshMethod) {
+        const refreshBtn = document.createElement('button');
+        refreshBtn.style.cssText =
+          'font-size:11px;color:var(--text-muted);background:none;border:none;cursor:pointer;padding:4px 0;text-decoration:underline;';
+        refreshBtn.textContent = 'Re-check services';
+        refreshBtn.addEventListener('click', async () => {
+          refreshBtn.textContent = 'Checkingâ€¦';
+          refreshBtn.disabled = true;
+          const res = await window.featureAPI?.invoke?.(
+            def.featureId,
+            def.serviceRefreshMethod,
+            {},
+          );
+          if (res?.ok) {
+            cxState.statuses[def.id] = { ...cxState.statuses[def.id], services: res.services };
+            renderPanel();
+          } else {
+            refreshBtn.textContent = `Error: ${res?.error ?? 'Unknown'}`;
+            setTimeout(() => {
+              refreshBtn.textContent = 'Re-check services';
+              refreshBtn.disabled = false;
+            }, 3000);
+          }
+        });
+        badgeWrap.appendChild(refreshBtn);
+      }
       card.appendChild(badgeWrap);
     }
   }
@@ -166,7 +183,7 @@ function buildCard(def, cxState, onConnect, onDisconnect) {
     const autoSec = document.createElement('div');
     autoSec.className = 'cx-auto-section';
     autoSec.innerHTML = `<div class="cx-auto-label">Suggested Automations</div>`;
-    def.automations.forEach(a => {
+    def.automations.forEach((a) => {
       const item = document.createElement('div');
       item.className = 'cx-auto-item';
       item.innerHTML = `<strong>${a.name}</strong> â€” <span>${a.description}</span>`;
@@ -193,7 +210,7 @@ function buildCard(def, cxState, onConnect, onDisconnect) {
     if (stepsEl) fieldsWrap.appendChild(stepsEl);
   }
 
-  def.fields.forEach(field => {
+  def.fields.forEach((field) => {
     const wrap = document.createElement('div');
     wrap.className = 'cx-field-wrap';
 
@@ -225,7 +242,9 @@ function buildCard(def, cxState, onConnect, onDisconnect) {
       eyeBtn.className = 'key-eye';
       eyeBtn.title = 'Show / hide';
       eyeBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke-width="1.8"/><circle cx="12" cy="12" r="3" stroke-width="1.8"/></svg>`;
-      eyeBtn.addEventListener('click', () => { input.type = input.type === 'password' ? 'text' : 'password'; });
+      eyeBtn.addEventListener('click', () => {
+        input.type = input.type === 'password' ? 'text' : 'password';
+      });
       inputWrap.appendChild(eyeBtn);
     }
 
@@ -251,9 +270,13 @@ function buildCard(def, cxState, onConnect, onDisconnect) {
   helpLink.className = 'cx-help-link';
   helpLink.textContent = def.helpText;
   helpLink.href = '#';
-  helpLink.addEventListener('click', e => {
+  helpLink.addEventListener('click', (e) => {
     e.preventDefault();
-    const a = Object.assign(document.createElement('a'), { href: def.helpUrl, target: '_blank', rel: 'noopener noreferrer' });
+    const a = Object.assign(document.createElement('a'), {
+      href: def.helpUrl,
+      target: '_blank',
+      rel: 'noopener noreferrer',
+    });
     a.click();
   });
   actions.appendChild(helpLink);
@@ -265,7 +288,10 @@ function buildCard(def, cxState, onConnect, onDisconnect) {
     const updateBtn = document.createElement('button');
     updateBtn.className = 'cx-secondary-btn';
     updateBtn.textContent = 'Update credentials';
-    updateBtn.addEventListener('click', () => { fieldsWrap.style.display = ''; updateBtn.style.display = 'none'; });
+    updateBtn.addEventListener('click', () => {
+      fieldsWrap.style.display = '';
+      updateBtn.style.display = 'none';
+    });
     btnGroup.appendChild(updateBtn);
 
     const disconnectBtn = document.createElement('button');
@@ -277,7 +303,9 @@ function buildCard(def, cxState, onConnect, onDisconnect) {
     const connectBtn = document.createElement('button');
     connectBtn.id = `cx-connect-btn-${def.id}`;
     connectBtn.className = 'cx-connect-btn';
-    connectBtn.textContent = def.oauthType === 'google' ? 'Sign in with Google' : `Connect ${def.name}`;
+    connectBtn.textContent =
+      def.connectLabel ??
+      (def.oauthType === 'google' ? 'Sign in with Google' : `Connect ${def.name}`);
     connectBtn.addEventListener('click', () => onConnect(def.id, def));
     btnGroup.appendChild(connectBtn);
   }
@@ -303,7 +331,9 @@ function renderPanel() {
     <div class="cx-section-sub">Requires authentication</div>`;
   list.appendChild(svcHeader);
 
-  CONNECTORS.forEach(def => list.appendChild(buildCard(def, cxState, handleConnect, handleDisconnect)));
+  CONNECTORS.forEach((def) =>
+    list.appendChild(buildCard(def, cxState, handleConnect, handleDisconnect)),
+  );
 
   const freeHeader = document.createElement('div');
   freeHeader.className = 'cx-section-header cx-section-header--free';
@@ -312,55 +342,68 @@ function renderPanel() {
     <div class="cx-section-sub">Enabled by default Â· Toggle to disable</div>`;
   list.appendChild(freeHeader);
 
-  FREE_CONNECTORS.forEach(def => list.appendChild(buildFreeCard(def, cxState)));
+  FREE_CONNECTORS.forEach((def) => list.appendChild(buildFreeCard(def, cxState)));
 }
 
 /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    CONNECT HANDLERS
 â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 async function handleConnect(id, def) {
-  if (def.oauthType === 'google') {
-    await handleGoogleConnect(id, def);
+  if (def.featureId && def.connectMethod) {
+    await handleFeatureConnect(id, def);
   } else {
     await handleTokenConnect(id, def);
   }
 }
 
-async function handleGoogleConnect(id, def) {
+async function handleFeatureConnect(id, def) {
   const credentials = cxState.pending[id] ?? {};
-  const missing = def.fields.filter(f => !credentials[f.key]?.trim());
+  const missing = def.fields.filter((f) => !credentials[f.key]?.trim());
   if (missing.length) {
-    setStatus(id, `Please fill in: ${missing.map(f => f.label).join(', ')}`, 'error'); return;
+    setStatus(id, `Please fill in: ${missing.map((f) => f.label).join(', ')}`, 'error');
+    return;
   }
 
-  setConnectBtnState(id, true, 'Opening Google sign-inâ€¦');
-  setStatus(id, 'A browser window will open â€” sign in and grant access, then return here.');
+  setConnectBtnState(id, true, def.connectingLabel ?? 'Connectingâ€¦');
+  if (def.oauthType) {
+    setStatus(id, 'A browser window will open - sign in, grant access, then return here.');
+  } else {
+    setStatus(id, '');
+  }
 
   try {
-    const result = await window.featureAPI?.invoke?.('google-workspace', 'oauthStart', { clientId: credentials.clientId, clientSecret: credentials.clientSecret });
-    if (!result?.ok) throw new Error(result?.error ?? 'OAuth failed');
+    const result = await window.featureAPI?.invoke?.(def.featureId, def.connectMethod, credentials);
+    if (!result?.ok) throw new Error(result?.error ?? 'Connection failed');
 
     const enabledCount = Object.values(result.services ?? {}).filter(Boolean).length;
     cxState.statuses[id] = {
       enabled: true,
       connectedAt: new Date().toISOString(),
-      accountInfo: { email: result.email },
+      accountInfo: result.accountInfo ?? {
+        email: result.email ?? null,
+        username: result.username ?? null,
+      },
       services: result.services ?? {},
     };
     cxState.pending[id] = {};
-    setStatus(id, `Connected as ${result.email} â€” ${enabledCount} service${enabledCount !== 1 ? 's' : ''} detected âœ“`, 'success');
+    const defaultMessage = result.email ? `Connected as ${result.email}` : `Connected ${def.name}`;
+    const serviceMessage = enabledCount
+      ? ` - ${enabledCount} service${enabledCount !== 1 ? 's' : ''} detected`
+      : '';
+    setStatus(id, result.message ?? `${defaultMessage}${serviceMessage}`, 'success');
     setTimeout(renderPanel, 800);
   } catch (err) {
     setStatus(id, `Failed: ${err.message}`, 'error');
-    setConnectBtnState(id, false, 'Sign in with Google');
+    setConnectBtnState(id, false, def.connectLabel ?? `Connect ${def.name}`);
   }
 }
 
 async function handleTokenConnect(id, def) {
   const credentials = cxState.pending[id] ?? {};
-  const missing = def.fields.filter(f => !credentials[f.key]?.trim());
+  const missing = def.fields.filter((f) => !credentials[f.key]?.trim());
   if (missing.length) {
-    setStatus(id, `Please fill in: ${missing.map(f => f.label).join(', ')}`, 'error'); return;
+    setStatus(id, `Please fill in: ${missing.map((f) => f.label).join(', ')}`, 'error');
+    return;
   }
 
   setConnectBtnState(id, true, 'Connectingâ€¦');
@@ -409,7 +452,7 @@ export async function loadConnectorsPanel() {
 
   try {
     await loadFeatureConnectorDefs();
-    const statuses = await window.electronAPI?.invoke?.('get-connectors') ?? {};
+    const statuses = (await window.electronAPI?.invoke?.('get-connectors')) ?? {};
     cxState.statuses = {};
 
     for (const [name, s] of Object.entries(statuses)) {
@@ -423,20 +466,29 @@ export async function loadConnectorsPanel() {
       Object.entries(cxState.statuses)
         .filter(([, s]) => s.enabled)
         .map(async ([name]) => {
-          const v = await window.electronAPI?.invoke?.('validate-connector', name).catch(() => null);
+          const v = await window.electronAPI
+            ?.invoke?.('validate-connector', name)
+            .catch(() => null);
           if (v?.ok) {
-            cxState.statuses[name].accountInfo = { email: v.email ?? null, username: v.username ?? null };
+            cxState.statuses[name].accountInfo = {
+              email: v.email ?? null,
+              username: v.username ?? null,
+            };
           }
           // For google, also load stored service detection state
           if (name === 'google') {
-            const creds = await window.electronAPI?.invoke?.('get-connector-safe-creds', 'google').catch(() => null);
+            const creds = await window.electronAPI
+              ?.invoke?.('get-connector-safe-creds', 'google')
+              .catch(() => null);
             if (creds?.ok && creds.services) cxState.statuses[name].services = creds.services;
           }
         }),
     );
 
     for (const def of FREE_CONNECTORS) {
-      const config = await window.electronAPI?.invoke?.('get-free-connector-config', def.id).catch(() => null);
+      const config = await window.electronAPI
+        ?.invoke?.('get-free-connector-config', def.id)
+        .catch(() => null);
       if (config) {
         cxState.freeStatuses[def.id] = config.enabled ?? true;
         if (!def.noKey && config.credentials?.apiKey) {
@@ -450,7 +502,7 @@ export async function loadConnectorsPanel() {
     cxState.loaded = true;
     renderPanel();
   } catch (err) {
-    if (list) list.innerHTML = `<div class="cx-loading">Could not load connectors: ${err.message}</div>`;
+    if (list)
+      list.innerHTML = `<div class="cx-loading">Could not load connectors: ${err.message}</div>`;
   }
 }
-

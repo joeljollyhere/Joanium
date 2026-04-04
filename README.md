@@ -56,6 +56,16 @@ npm start
 
 On first launch, Joanium walks through setup and stores local app data inside `Data/`.
 
+## Capability Packages
+
+Joanium can now discover integration features from independent workspace packages under `Packages/Capabilities/*`.
+
+- Put one product in one package, for example `Packages/Capabilities/Notion/`.
+- Declare `joanium.discovery.features` in that package's `package.json`.
+- Keep the product's connector definition, chat tools, automations, agent data sources, and boot-time wiring inside that package.
+
+That means adding a new product no longer needs a hardcoded core registration path. The product package can own its moving parts and be discovered automatically at startup.
+
 ## Project Structure
 
 ```text

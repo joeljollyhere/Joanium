@@ -1,7 +1,7 @@
 import { fileURLToPath } from 'url';
 import path from 'path';
 import { app } from 'electron';
-import { PAGE_DISCOVERY_ROOT } from './DiscoveryManifest.js';
+import { FEATURE_DISCOVERY_ROOTS, PAGE_DISCOVERY_ROOT } from './DiscoveryManifest.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -37,7 +37,8 @@ export const Paths = {
   PERSONAS_DIR: path.join(EXTERNAL, 'Personas'),
 
   // Features
-  FEATURES_DIR: path.join(ROOT, 'Packages', 'Capabilities'),
+  FEATURES_DIRS: FEATURE_DISCOVERY_ROOTS,
+  FEATURES_DIR: FEATURE_DISCOVERY_ROOTS[0] ?? path.join(ROOT, 'Packages', 'Capabilities'),
 
   // Pages (renderer)
   PAGES_DIR: PAGE_DISCOVERY_ROOT,

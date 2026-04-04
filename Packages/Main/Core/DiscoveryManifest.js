@@ -32,6 +32,7 @@ function collectRoots(kind) {
 
 function collectPackageDiscovery(pkg) {
   return Object.freeze({
+    features: Object.freeze(resolvePackageDiscoveryRoots(pkg, 'features')),
     engines: Object.freeze(resolvePackageDiscoveryRoots(pkg, 'engines')),
     ipc: Object.freeze(resolvePackageDiscoveryRoots(pkg, 'ipc')),
     pages: Object.freeze(resolvePackageDiscoveryRoots(pkg, 'pages')),
@@ -52,11 +53,13 @@ export const DISCOVERY_PACKAGES = Object.freeze(
 export const IPC_SCAN_DIRS = collectRoots('ipc');
 export const SERVICE_SCAN_DIRS = collectRoots('services');
 export const ENGINE_DISCOVERY_ROOTS = collectRoots('engines');
+export const FEATURE_DISCOVERY_ROOTS = collectRoots('features');
 export const PAGE_DISCOVERY_ROOTS = collectRoots('pages');
 export const PAGE_DISCOVERY_ROOT = PAGE_DISCOVERY_ROOTS[0] ?? DEFAULT_PAGE_DISCOVERY_ROOT;
 
 export default {
   DISCOVERY_PACKAGES,
+  FEATURE_DISCOVERY_ROOTS,
   ENGINE_DISCOVERY_ROOTS,
   IPC_SCAN_DIRS,
   PAGE_DISCOVERY_ROOT,

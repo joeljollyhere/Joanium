@@ -6,6 +6,7 @@
   "workspaces": [
     "Core/Electron",
     "Packages/*",
+    "Packages/Capabilities/*",
     "Packages/Features/*"
   ],
   "imports": {
@@ -64,47 +65,5 @@
     "jest": "30.3.0",
     "lint-staged": "16.4.0",
     "prettier": "3.8.1"
-  },
-  "build": {
-    "appId": "com.Joanium.app",
-    "productName": "Joanium",
-    "directories": {
-      "output": "dist"
-    },
-    "files": [
-      "App.js",
-      "Core/**/*",
-      "Packages/**/*",
-      "Public/**/*",
-      "Assets/**/*",
-      "SystemInstructions/**/*"
-    ],
-    "extraResources": [
-      {
-        "from": "Config/Models.json",
-        "to": "Config/Models.json"
-      },
-      {
-        "from": "Config/WindowState.json",
-        "to": "Config/WindowState.json"
-      },
-      {
-        "from": "Skills",
-        "to": "Skills"
-      },
-      {
-        "from": "Personas",
-        "to": "Personas"
-      }
-    ],
-    "win": {
-      "icon": "Assets/Logo/Logo.ico"
-    },
-    "mac": {
-      "icon": "Assets/Logo/Logo.icns"
-    },
-    "linux": {
-      "icon": "Assets/Logo/Logo.png"
-    }
   }
 }

@@ -1,7 +1,11 @@
 import FeatureRegistry from '../Capabilities/Core/FeatureRegistry.js';
-import { setConnectorEngine as setGoogleConnectorEngine } from '../Capabilities/Google/GoogleWorkspace.js';
 import createFeatureStorageMap from '../Features/Core/FeatureStorage.js';
-import { IPC_SCAN_DIRS, SERVICE_SCAN_DIRS, ENGINE_DISCOVERY_ROOTS } from './Core/DiscoveryManifest.js';
+import {
+  IPC_SCAN_DIRS,
+  SERVICE_SCAN_DIRS,
+  ENGINE_DISCOVERY_ROOTS,
+  FEATURE_DISCOVERY_ROOTS,
+} from './Core/DiscoveryManifest.js';
 import { discoverAndRegisterIPC } from './Core/DiscoverIPC.js';
 import { discoverEngines } from './Core/EngineDiscovery.js';
 import Paths from './Core/Paths.js';
@@ -14,11 +18,11 @@ function getProvidedKey(engine = {}) {
 }
 
 function unmetEngineNeeds(meta = {}, context = {}) {
-  return (meta.needs ?? []).filter(key => context[key] == null);
+  return (meta.needs ?? []).filter((key) => context[key] == null);
 }
 
 export async function boot() {
-  const featureRegistry = await FeatureRegistry.load(Paths.FEATURES_DIR);
+  const featureRegistry = await FeatureRegistry.load(FEATURE_DISCOVERY_ROOTS);
   const browserPreviewService = getBrowserPreviewService();
 
   // Discover engine modules and build them via engineMeta.create(context)
@@ -76,15 +80,15 @@ export async function boot() {
 
     if (progressed) continue;
 
-    const details = pending.map(({ name, meta }) => {
-      const missing = unmetEngineNeeds(meta, context);
-      return `${name} [missing: ${missing.join(', ') || 'unknown'}]`;
-    }).join('; ');
+    const details = pending
+      .map(({ name, meta }) => {
+        const missing = unmetEngineNeeds(meta, context);
+        return `${name} [missing: ${missing.join(', ') || 'unknown'}]`;
+      })
+      .join('; ');
 
     throw new Error(`[Boot] Unable to instantiate engines: ${details}`);
   }
-
-  setGoogleConnectorEngine(context.connectorEngine);
 
   featureRegistry.setBaseContext({
     connectorEngine: context.connectorEngine,
@@ -92,13 +96,18 @@ export async function boot() {
     paths: Paths,
     invalidateSystemPrompt,
   });
+  await featureRegistry.runLifecycle('onBoot', context);
 
-  const registered = await discoverAndRegisterIPC(IPC_SCAN_DIRS, {
-    ...context,
-    browserPreviewService,
-  }, {
-    serviceDirs: SERVICE_SCAN_DIRS,
-  });
+  const registered = await discoverAndRegisterIPC(
+    IPC_SCAN_DIRS,
+    {
+      ...context,
+      browserPreviewService,
+    },
+    {
+      serviceDirs: SERVICE_SCAN_DIRS,
+    },
+  );
 
   console.log(`[Boot] Auto-discovered ${registered.length} IPC modules: ${registered.join(', ')}`);
 
@@ -110,18 +119,18 @@ export async function boot() {
 }
 
 export function startEngines(payload = {}) {
-  const instances = payload.engines ?? Object.fromEntries(
-    Object.entries(payload).filter(([key]) => key.endsWith('Engine')),
-  );
+  const instances =
+    payload.engines ??
+    Object.fromEntries(Object.entries(payload).filter(([key]) => key.endsWith('Engine')));
   for (const engine of Object.values(instances)) {
     engine?.start?.();
   }
 }
 
 export function stopEngines(payload = {}) {
-  const instances = payload.engines ?? Object.fromEntries(
-    Object.entries(payload).filter(([key]) => key.endsWith('Engine')),
-  );
+  const instances =
+    payload.engines ??
+    Object.fromEntries(Object.entries(payload).filter(([key]) => key.endsWith('Engine')));
   for (const engine of Object.values(instances)) {
     engine?.stop?.();
   }

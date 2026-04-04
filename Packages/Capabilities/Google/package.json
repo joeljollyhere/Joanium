@@ -1,0 +1,17 @@
+{
+  "name": "@Joanium/capability-google",
+  "private": true,
+  "type": "module",
+  "description": "Google Workspace capability package for Joanium.",
+  "main": "./Feature.js",
+  "exports": {
+    ".": "./Feature.js"
+  },
+  "joanium": {
+    "discovery": {
+      "features": [
+        "."
+      ]
+    }
+  }
+}

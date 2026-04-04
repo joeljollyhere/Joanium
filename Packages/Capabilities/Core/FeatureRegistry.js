@@ -2,7 +2,7 @@
 import path from 'path';
 import { pathToFileURL } from 'url';
 
-function uniqueBy(items = [], keyFn = item => item) {
+function uniqueBy(items = [], keyFn = (item) => item) {
   const seen = new Set();
   const result = [];
 
@@ -25,22 +25,19 @@ function normalizeFeatureStorage(feature = {}) {
   const raw = feature.storage;
   if (!raw) return [];
 
-  const items = Array.isArray(raw)
-    ? raw
-    : (Array.isArray(raw.descriptors) ? raw.descriptors : [raw]);
+  const items = Array.isArray(raw) ? raw : Array.isArray(raw.descriptors) ? raw.descriptors : [raw];
 
   return items
-    .filter(item => item && typeof item === 'object' && !Array.isArray(item))
-    .map(item => deepClone(item));
+    .filter((item) => item && typeof item === 'object' && !Array.isArray(item))
+    .map((item) => deepClone(item));
 }
 
 function getDefaultFeatureStorageKey(feature = {}) {
   return normalizeFeatureStorage(feature)[0]?.key ?? feature.id;
 }
 
-
 function topologicallySortFeatures(features = []) {
-  const byId = new Map(features.map(feature => [feature.id, feature]));
+  const byId = new Map(features.map((feature) => [feature.id, feature]));
   const visiting = new Set();
   const visited = new Set();
   const result = [];
@@ -91,6 +88,10 @@ function serializeServiceConnector(featureId, connector) {
     helpUrl: connector.helpUrl,
     helpText: connector.helpText,
     oauthType: connector.oauthType ?? null,
+    connectMethod: connector.connectMethod ?? null,
+    connectLabel: connector.connectLabel ?? null,
+    connectingLabel: connector.connectingLabel ?? null,
+    serviceRefreshMethod: connector.serviceRefreshMethod ?? null,
     subServices: deepClone(connector.subServices ?? []),
     setupSteps: deepClone(connector.setupSteps ?? []),
     capabilities: deepClone(connector.capabilities ?? []),
@@ -123,7 +124,8 @@ export class FeatureRegistry {
     const featureFiles = [];
 
     function visit(directory) {
-      const entries = fs.readdirSync(directory, { withFileTypes: true })
+      const entries = fs
+        .readdirSync(directory, { withFileTypes: true })
         .sort((left, right) => left.name.localeCompare(right.name));
 
       for (const entry of entries) {
@@ -143,27 +145,52 @@ export class FeatureRegistry {
     return featureFiles;
   }
 
-  static async load(featuresDir) {
-    if (!featuresDir || !fs.existsSync(featuresDir)) {
-      return new FeatureRegistry([], featuresDir);
+  static async load(featuresRoots = []) {
+    const roots = Array.isArray(featuresRoots)
+      ? featuresRoots
+      : featuresRoots
+        ? [featuresRoots]
+        : [];
+    const existingRoots = roots
+      .filter((root) => typeof root === 'string' && root.trim())
+      .map((root) => path.resolve(root))
+      .filter((root, index, values) => values.indexOf(root) === index)
+      .filter((root) => fs.existsSync(root));
+
+    if (!existingRoots.length) {
+      return new FeatureRegistry([], existingRoots);
     }
 
-    const featureFiles = FeatureRegistry._findFeatureFiles(featuresDir);
+    const featureFiles = uniqueBy(
+      existingRoots.flatMap((root) => FeatureRegistry._findFeatureFiles(root)),
+      (filePath) => path.resolve(filePath),
+    );
     const loadedFeatures = [];
+    const featureSources = new Map();
 
     for (const featureFile of featureFiles) {
       const imported = await import(pathToFileURL(featureFile).href);
       const feature = imported.default ?? imported.feature ?? imported;
+      if (!feature?.id) {
+        throw new Error(`[FeatureRegistry] Missing feature id in ${featureFile}.`);
+      }
+      const previousSource = featureSources.get(feature.id);
+      if (previousSource) {
+        throw new Error(
+          `[FeatureRegistry] Duplicate feature id "${feature.id}" in ${previousSource} and ${featureFile}.`,
+        );
+      }
+      featureSources.set(feature.id, featureFile);
       loadedFeatures.push(feature);
     }
 
-    return new FeatureRegistry(loadedFeatures, featuresDir);
+    return new FeatureRegistry(loadedFeatures, existingRoots);
   }
 
-  constructor(features = [], featuresDir = '') {
-    this.featuresDir = featuresDir;
+  constructor(features = [], featuresDir = []) {
+    this.featuresDir = Array.isArray(featuresDir) ? [...featuresDir] : featuresDir;
     this.features = topologicallySortFeatures(features);
-    this.featureMap = new Map(this.features.map(feature => [feature.id, feature]));
+    this.featureMap = new Map(this.features.map((feature) => [feature.id, feature]));
     this.baseContext = {};
     this.windows = new Set();
 
@@ -300,16 +327,16 @@ export class FeatureRegistry {
         if (!current) continue;
 
         current.subServices = uniqueBy(
-          [...current.subServices, ...(deepClone(extension.subServices ?? []))],
-          item => item.key,
+          [...current.subServices, ...deepClone(extension.subServices ?? [])],
+          (item) => item.key,
         );
         current.capabilities = uniqueBy(
-          [...current.capabilities, ...(deepClone(extension.capabilities ?? []))],
-          item => item,
+          [...current.capabilities, ...deepClone(extension.capabilities ?? [])],
+          (item) => item,
         );
         current.automations = uniqueBy(
-          [...current.automations, ...(deepClone(extension.automations ?? []))],
-          item => `${item.name}:${item.description}`,
+          [...current.automations, ...deepClone(extension.automations ?? [])],
+          (item) => `${item.name}:${item.description}`,
         );
       }
     }
@@ -368,7 +395,7 @@ export class FeatureRegistry {
     }
 
     return {
-      features: this.features.map(feature => ({
+      features: this.features.map((feature) => ({
         id: feature.id,
         name: feature.name,
         dependsOn: [...(feature.dependsOn ?? [])],
@@ -413,7 +440,7 @@ export class FeatureRegistry {
     if (!featureId) return null;
 
     const feature = this.getFeature(featureId);
-    const connector = (feature.connectors?.services ?? []).find(item => item.id === connectorId);
+    const connector = (feature.connectors?.services ?? []).find((item) => item.id === connectorId);
     if (!connector || typeof connector.validate !== 'function') return null;
 
     return connector.validate(this._createContext(feature, extraContext), connectorId);
@@ -446,7 +473,7 @@ export class FeatureRegistry {
     const featureId = this.agentDataSourceMap.get(type);
     if (!featureId) return null;
     const feature = this.getFeature(featureId);
-    return (feature.agents?.dataSources ?? []).find(item => item.value === type) ?? null;
+    return (feature.agents?.dataSources ?? []).find((item) => item.value === type) ?? null;
   }
 
   async collectAgentDataSource(dataSource, extraContext = {}) {
@@ -500,10 +527,14 @@ export class FeatureRegistry {
       sections,
     };
   }
+
+  async runLifecycle(method, extraContext = {}) {
+    for (const feature of this.features) {
+      const handler = feature.lifecycle?.[method];
+      if (typeof handler !== 'function') continue;
+      await handler(this._createContext(feature, extraContext));
+    }
+  }
 }
 
 export default FeatureRegistry;
-
-
-
-

@@ -32,6 +32,7 @@ export function defineFeature(feature = {}) {
     dependsOn,
     connectors: feature.connectors ?? {},
     pages: Array.isArray(feature.pages) ? feature.pages : [],
+    lifecycle: feature.lifecycle ?? {},
     main: feature.main ?? {},
     renderer: feature.renderer ?? {},
     automation: feature.automation ?? {},

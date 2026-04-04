@@ -1,0 +1,17 @@
+{
+  "name": "@Joanium/capability-free-connectors",
+  "private": true,
+  "type": "module",
+  "description": "Free connector capability package for Joanium.",
+  "main": "./Feature.js",
+  "exports": {
+    ".": "./Feature.js"
+  },
+  "joanium": {
+    "discovery": {
+      "features": [
+        "."
+      ]
+    }
+  }
+}
