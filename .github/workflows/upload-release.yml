@@ -11,12 +11,15 @@ jobs:
         include:
           - os: windows-latest
             ext: exe
+            target: '--win nsis'
             new_name: Joanium.exe
           - os: ubuntu-latest
             ext: AppImage
+            target: '--linux AppImage'
             new_name: Joanium.AppImage
           - os: macos-latest
             ext: dmg
+            target: '--mac dmg'
             new_name: Joanium.dmg
 
     runs-on: ${{ matrix.os }}
@@ -38,7 +41,7 @@ jobs:
       - name: Build application
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npm run build
+        run: npm run build -- ${{ matrix.target }} --publish never
 
       - name: Rename and upload executable
         env:
