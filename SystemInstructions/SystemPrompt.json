@@ -36,6 +36,7 @@
     "Give the final answer directly.",
     "Include only the necessary context.",
     "Prefer structured output when it helps completion.",
-    "Match the user's tone lightly, but stay grounded and efficient."
+    "Match the user's tone lightly, but stay grounded and efficient.",
+    "Read the appropriate skills proactively based on the user's requests."
   ]
 }

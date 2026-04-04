@@ -2,11 +2,11 @@ import { createModal } from '../System/ModalFactory.js';
 
 const PREVIEW_CSP = [
   "default-src 'none'",
-  "img-src data: blob: https: http:",
-  "media-src data: blob: https: http:",
+  'img-src data: blob: https: http:',
+  'media-src data: blob: https: http:',
   "style-src 'unsafe-inline' data: https: http:",
-  "font-src data: https: http:",
-  "script-src 'none'",
+  'font-src data: https: http:',
+  "script-src 'unsafe-inline' 'unsafe-eval' data: https: http:",
   "connect-src 'none'",
   "frame-src 'none'",
   "object-src 'none'",
@@ -15,14 +15,19 @@ const PREVIEW_CSP = [
 ].join('; ');
 
 const BLOCKED_ELEMENT_SELECTOR = [
-  'script', 'iframe', 'frame', 'frameset',
-  'object', 'embed', 'portal', 'base',
+  'iframe',
+  'frame',
+  'frameset',
+  'object',
+  'embed',
+  'portal',
+  'base',
 ].join(', ');
 
 const URL_ATTR_NAMES = new Set(['href', 'src', 'xlink:href', 'action', 'formaction', 'poster']);
 
 function buildHTML() {
-  return /* html */`
+  return /* html */ `
     <div id="html-preview-backdrop">
       <div id="html-preview-modal" role="dialog" aria-modal="true" aria-labelledby="html-preview-title">
         <div class="html-preview-header">
@@ -47,7 +52,7 @@ function buildHTML() {
               id="html-preview-frame"
               title="Rendered HTML preview"
               referrerpolicy="no-referrer"
-              sandbox="allow-same-origin">
+              sandbox="allow-scripts allow-same-origin">
             </iframe>
           </div>
         </div>
@@ -64,26 +69,40 @@ function ensureHtmlDocument(markup) {
 }
 
 function isBlockedUrl(value) {
-  const normalized = String(value ?? '').trim().toLowerCase();
-  return normalized.startsWith('javascript:')
-    || normalized.startsWith('vbscript:')
-    || normalized.startsWith('file:')
-    || normalized.startsWith('data:text/html');
+  const normalized = String(value ?? '')
+    .trim()
+    .toLowerCase();
+  return (
+    normalized.startsWith('javascript:') ||
+    normalized.startsWith('vbscript:') ||
+    normalized.startsWith('file:') ||
+    normalized.startsWith('data:text/html')
+  );
 }
 
 function sanitizeAttributes(el) {
   Array.from(el.attributes).forEach((attr) => {
     const name = attr.name.toLowerCase();
-    if (name.startsWith('on')) { el.removeAttribute(attr.name); return; }
-    if (name === 'srcdoc' || name === 'autofocus') { el.removeAttribute(attr.name); return; }
-    if (name === 'target') { el.setAttribute(attr.name, '_self'); return; }
+    if (name.startsWith('on')) {
+      el.removeAttribute(attr.name);
+      return;
+    }
+    if (name === 'srcdoc' || name === 'autofocus') {
+      el.removeAttribute(attr.name);
+      return;
+    }
+    if (name === 'target') {
+      el.setAttribute(attr.name, '_self');
+      return;
+    }
     if (URL_ATTR_NAMES.has(name) && isBlockedUrl(attr.value)) el.removeAttribute(attr.name);
   });
 }
 
 function addSafetyMeta(head, doc) {
   head.querySelectorAll('meta[http-equiv]').forEach((el) => {
-    if (String(el.getAttribute('http-equiv') ?? '').toLowerCase() === 'content-security-policy') el.remove();
+    if (String(el.getAttribute('http-equiv') ?? '').toLowerCase() === 'content-security-policy')
+      el.remove();
   });
   if (!head.querySelector('meta[charset]')) {
     const charset = doc.createElement('meta');
@@ -107,9 +126,15 @@ function sanitizePreviewHtml(markup) {
   const doc = parser.parseFromString(ensureHtmlDocument(markup), 'text/html');
   const htmlEl = doc.documentElement || doc.appendChild(doc.createElement('html'));
   let head = doc.head;
-  if (!head) { head = doc.createElement('head'); htmlEl.prepend(head); }
+  if (!head) {
+    head = doc.createElement('head');
+    htmlEl.prepend(head);
+  }
   let body = doc.body;
-  if (!body) { body = doc.createElement('body'); htmlEl.appendChild(body); }
+  if (!body) {
+    body = doc.createElement('body');
+    htmlEl.appendChild(body);
+  }
   doc.querySelectorAll(BLOCKED_ELEMENT_SELECTOR).forEach((el) => el.remove());
   doc.querySelectorAll('meta[http-equiv]').forEach((el) => {
     if (String(el.getAttribute('http-equiv') ?? '').toLowerCase() === 'refresh') el.remove();
@@ -127,16 +152,24 @@ function closestElement(node, selector) {
 function hardenPreviewFrame(frame) {
   const doc = frame.contentDocument;
   if (!doc) return;
-  doc.addEventListener('click', (event) => {
-    const anchor = closestElement(event.target, 'a');
-    if (!anchor) return;
-    event.preventDefault();
-    event.stopPropagation();
-  }, true);
-  doc.addEventListener('submit', (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-  }, true);
+  doc.addEventListener(
+    'click',
+    (event) => {
+      const anchor = closestElement(event.target, 'a');
+      if (!anchor) return;
+      event.preventDefault();
+      event.stopPropagation();
+    },
+    true,
+  );
+  doc.addEventListener(
+    'submit',
+    (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+    },
+    true,
+  );
   doc.querySelectorAll('a').forEach((anchor) => {
     anchor.setAttribute('rel', 'noopener noreferrer nofollow');
     anchor.setAttribute('target', '_self');
