@@ -84,10 +84,6 @@
         "to": "Config/Models.json"
       },
       {
-        "from": "Config/User.json",
-        "to": "Config/User.json"
-      },
-      {
         "from": "Config/WindowState.json",
         "to": "Config/WindowState.json"
       },
@@ -98,10 +94,6 @@
       {
         "from": "Personas",
         "to": "Personas"
-      },
-      {
-        "from": "Data",
-        "to": "Data"
       },
       {
         "from": "Instructions",

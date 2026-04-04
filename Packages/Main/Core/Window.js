@@ -51,7 +51,9 @@ export function create(page) {
   _win.loadURL(`file://${page}`);
 
   // Apply saved window state immediately
-  if (windowState.isFullScreen) {
+  if (page === Paths.SETUP_PAGE) {
+    _win.setFullScreen(true);
+  } else if (windowState.isFullScreen) {
     _win.setFullScreen(true);
   } else if (windowState.isMaximized) {
     _win.maximize();
@@ -106,6 +108,9 @@ export function loadPage(page) {
 
   if (page === Paths.SETUP_PAGE || page === Paths.INDEX_PAGE) {
     _win.loadURL(`file://${page}`);
+    if (page === Paths.SETUP_PAGE) {
+      _win.setFullScreen(true);
+    }
     return;
   }
 
