@@ -24,6 +24,7 @@
     "dev": "electron . --dev",
     "build": "electron-builder",
     "lint": "eslint .",
+    "packages:audit": "node ./Scripts/AuditWorkspacePackages.mjs",
     "prepare": "husky"
   },
   "keywords": [

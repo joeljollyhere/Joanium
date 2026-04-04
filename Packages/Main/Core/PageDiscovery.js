@@ -1,7 +1,10 @@
 import fs from 'fs';
 import path from 'path';
 import { pathToFileURL } from 'url';
-import { PAGE_DISCOVERY_ROOT } from './DiscoveryManifest.js';
+import { PAGE_DISCOVERY_ROOTS } from './DiscoveryManifest.js';
+
+let cachedPagePromise = null;
+let cachedRootSignature = '';
 
 function scanRecursive(dir, predicate, results = []) {
   if (!fs.existsSync(dir)) return results;
@@ -38,31 +41,64 @@ function normalizePage(rawPage = {}, filePath = '') {
   };
 }
 
-export async function discoverPages(scanRoot = PAGE_DISCOVERY_ROOT) {
-  const pageFiles = scanRecursive(scanRoot, name => name === 'Page.js');
-  const pages = [];
-  const seenIds = new Set();
+function normalizeScanRoots(scanRoots) {
+  const roots = Array.isArray(scanRoots) ? scanRoots : [scanRoots];
+  return roots
+    .filter((root) => typeof root === 'string' && root.trim())
+    .map((root) => path.resolve(root));
+}
 
-  for (const filePath of pageFiles.sort((a, b) => a.localeCompare(b))) {
-    try {
-      const mod = await import(pathToFileURL(filePath).href);
-      const page = normalizePage(mod.default, filePath);
-      if (!page) continue;
+function buildRootSignature(scanRoots) {
+  return [...scanRoots].sort((a, b) => a.localeCompare(b)).join('|');
+}
 
-      if (seenIds.has(page.id)) {
-        throw new Error(`[PageDiscovery] Duplicate page id "${page.id}" found at ${filePath}`);
-      }
+export async function discoverPages(scanRoots = PAGE_DISCOVERY_ROOTS) {
+  const roots = normalizeScanRoots(scanRoots);
+  const rootSignature = buildRootSignature(roots);
 
-      seenIds.add(page.id);
-      pages.push(page);
-    } catch (error) {
-      console.warn(`[PageDiscovery] Failed to load page manifest: ${filePath}`, error.message);
-    }
+  if (cachedPagePromise && cachedRootSignature === rootSignature) {
+    return cachedPagePromise;
   }
 
-  return pages.sort((a, b) => {
-    const orderDelta = (a.order ?? 999) - (b.order ?? 999);
-    if (orderDelta !== 0) return orderDelta;
-    return String(a.label ?? a.id).localeCompare(String(b.label ?? b.id));
-  });
+  cachedRootSignature = rootSignature;
+  cachedPagePromise = (async () => {
+    const pageFiles = [];
+    const pages = [];
+    const seenIds = new Set();
+
+    for (const root of roots) {
+      scanRecursive(root, (name) => name === 'Page.js', pageFiles);
+    }
+
+    for (const filePath of pageFiles.sort((a, b) => a.localeCompare(b))) {
+      try {
+        const mod = await import(pathToFileURL(filePath).href);
+        const page = normalizePage(mod.default, filePath);
+        if (!page) continue;
+
+        if (seenIds.has(page.id)) {
+          throw new Error(`[PageDiscovery] Duplicate page id "${page.id}" found at ${filePath}`);
+        }
+
+        seenIds.add(page.id);
+        pages.push(page);
+      } catch (error) {
+        console.warn(`[PageDiscovery] Failed to load page manifest: ${filePath}`, error.message);
+      }
+    }
+
+    return pages.sort((a, b) => {
+      const orderDelta = (a.order ?? 999) - (b.order ?? 999);
+      if (orderDelta !== 0) return orderDelta;
+      return String(a.label ?? a.id).localeCompare(String(b.label ?? b.id));
+    });
+  })();
+
+  try {
+    return await cachedPagePromise;
+  } catch (error) {
+    cachedPagePromise = null;
+    cachedRootSignature = '';
+    throw error;
+  }
 }

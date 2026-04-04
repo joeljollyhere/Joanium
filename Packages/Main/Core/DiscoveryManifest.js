@@ -1,28 +1,65 @@
-import { fileURLToPath } from 'url';
+import fs from 'fs';
 import path from 'path';
+import {
+  getRepoRoot,
+  loadWorkspacePackages,
+  resolvePackageDiscoveryRoots,
+} from './WorkspacePackages.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const PACKAGES_DIR = path.resolve(__dirname, '..', '..');
+const REPO_ROOT = getRepoRoot();
+const DEFAULT_PAGE_DISCOVERY_ROOT = path.join(REPO_ROOT, 'Packages', 'Pages');
+const WORKSPACE_PACKAGES = loadWorkspacePackages();
 
-export const IPC_SCAN_DIRS = [
-  path.join(PACKAGES_DIR, 'Main', 'IPC'),
-  path.join(PACKAGES_DIR, 'Features'),
-];
+function collectRoots(kind) {
+  const roots = [];
+  const seen = new Set();
 
-export const SERVICE_SCAN_DIRS = [
-  path.join(PACKAGES_DIR, 'Main', 'Services'),
-];
+  for (const pkg of WORKSPACE_PACKAGES) {
+    for (const root of resolvePackageDiscoveryRoots(pkg, kind)) {
+      if (!fs.existsSync(root)) {
+        console.warn(`[DiscoveryManifest] Skipping missing ${kind} root for ${pkg.name}: ${root}`);
+        continue;
+      }
 
-export const ENGINE_DISCOVERY_ROOTS = [
-  path.join(PACKAGES_DIR, 'Features'),
-];
+      if (seen.has(root)) continue;
+      seen.add(root);
+      roots.push(root);
+    }
+  }
 
-export const PAGE_DISCOVERY_ROOT = path.join(PACKAGES_DIR, 'Pages');
+  return Object.freeze(roots.sort((a, b) => a.localeCompare(b)));
+}
+
+function collectPackageDiscovery(pkg) {
+  return Object.freeze({
+    engines: Object.freeze(resolvePackageDiscoveryRoots(pkg, 'engines')),
+    ipc: Object.freeze(resolvePackageDiscoveryRoots(pkg, 'ipc')),
+    pages: Object.freeze(resolvePackageDiscoveryRoots(pkg, 'pages')),
+    services: Object.freeze(resolvePackageDiscoveryRoots(pkg, 'services')),
+  });
+}
+
+export const DISCOVERY_PACKAGES = Object.freeze(
+  WORKSPACE_PACKAGES.map((pkg) =>
+    Object.freeze({
+      name: pkg.name,
+      rootDir: pkg.rootDir,
+      discovery: collectPackageDiscovery(pkg),
+    }),
+  ),
+);
+
+export const IPC_SCAN_DIRS = collectRoots('ipc');
+export const SERVICE_SCAN_DIRS = collectRoots('services');
+export const ENGINE_DISCOVERY_ROOTS = collectRoots('engines');
+export const PAGE_DISCOVERY_ROOTS = collectRoots('pages');
+export const PAGE_DISCOVERY_ROOT = PAGE_DISCOVERY_ROOTS[0] ?? DEFAULT_PAGE_DISCOVERY_ROOT;
 
 export default {
+  DISCOVERY_PACKAGES,
   ENGINE_DISCOVERY_ROOTS,
   IPC_SCAN_DIRS,
   PAGE_DISCOVERY_ROOT,
+  PAGE_DISCOVERY_ROOTS,
   SERVICE_SCAN_DIRS,
 };
