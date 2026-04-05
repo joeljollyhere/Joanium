@@ -1,0 +1,60 @@
+{
+  "provider": "mistral",
+  "label": "Mistral AI",
+  "endpoint": "https://api.mistral.ai/v1/chat/completions",
+  "auth_header": "Authorization",
+  "auth_prefix": "Bearer ",
+  "models": {
+    "mistral-large-latest": {
+      "name": "Mistral Large 3",
+      "description": "Flagship reasoning with multimodal capabilities",
+      "rank": 1,
+      "context_window": 131000,
+      "max_output": 8192,
+      "inputs": {
+        "text": true,
+        "image": false,
+        "pdf": false,
+        "docx": false
+      },
+      "pricing": {
+        "input": 0.5,
+        "output": 1.5
+      }
+    },
+    "codestral-latest": {
+      "name": "Codestral",
+      "description": "Optimized for code generation with 256K context",
+      "rank": 2,
+      "context_window": 256000,
+      "max_output": 8192,
+      "inputs": {
+        "text": true,
+        "image": false,
+        "pdf": false,
+        "docx": false
+      },
+      "pricing": {
+        "input": 0.3,
+        "output": 0.9
+      }
+    },
+    "mistral-small-latest": {
+      "name": "Mistral Small",
+      "description": "Cost-efficient, fast for high-volume tasks",
+      "rank": 3,
+      "context_window": 32000,
+      "max_output": 8192,
+      "inputs": {
+        "text": true,
+        "image": false,
+        "pdf": false,
+        "docx": false
+      },
+      "pricing": {
+        "input": 0.07,
+        "output": 0.2
+      }
+    }
+  }
+}

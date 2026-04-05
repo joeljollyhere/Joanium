@@ -1818,6 +1818,243 @@
       },
     },
   },
+  {
+    name: 'github_get_authenticated_user',
+    description:
+      'Get the full profile of the currently authenticated GitHub user, including plan and private repo count.',
+    category: 'github',
+    connectorId: 'github',
+    parameters: {},
+  },
+  {
+    name: 'github_update_comment',
+    description: 'Edit the body of an existing issue or pull request comment.',
+    category: 'github',
+    connectorId: 'github',
+    parameters: {
+      owner: { type: 'string', required: true, description: 'GitHub username or organization' },
+      repo: { type: 'string', required: true, description: 'Repository name' },
+      comment_id: { type: 'number', required: true, description: 'Comment ID to edit' },
+      body: { type: 'string', required: true, description: 'New comment body in markdown' },
+    },
+  },
+  {
+    name: 'github_delete_comment',
+    description: 'Permanently delete an issue or pull request comment.',
+    category: 'github',
+    connectorId: 'github',
+    parameters: {
+      owner: { type: 'string', required: true, description: 'GitHub username or organization' },
+      repo: { type: 'string', required: true, description: 'Repository name' },
+      comment_id: { type: 'number', required: true, description: 'Comment ID to delete' },
+    },
+  },
+  {
+    name: 'github_add_reaction_to_issue',
+    description: 'Add an emoji reaction to a GitHub issue or pull request.',
+    category: 'github',
+    connectorId: 'github',
+    parameters: {
+      owner: { type: 'string', required: true, description: 'GitHub username or organization' },
+      repo: { type: 'string', required: true, description: 'Repository name' },
+      issue_number: { type: 'number', required: true, description: 'Issue or pull request number' },
+      content: {
+        type: 'string',
+        required: true,
+        description: 'Reaction: +1, -1, laugh, hooray, confused, heart, rocket, or eyes',
+      },
+    },
+  },
+  {
+    name: 'github_add_reaction_to_comment',
+    description: 'Add an emoji reaction to an issue or pull request comment.',
+    category: 'github',
+    connectorId: 'github',
+    parameters: {
+      owner: { type: 'string', required: true, description: 'GitHub username or organization' },
+      repo: { type: 'string', required: true, description: 'Repository name' },
+      comment_id: { type: 'number', required: true, description: 'Comment ID' },
+      content: {
+        type: 'string',
+        required: true,
+        description: 'Reaction: +1, -1, laugh, hooray, confused, heart, rocket, or eyes',
+      },
+    },
+  },
+  {
+    name: 'github_get_code_scanning_alerts',
+    description: 'List code scanning security alerts for a repository.',
+    category: 'github',
+    connectorId: 'github',
+    parameters: {
+      owner: { type: 'string', required: true, description: 'GitHub username or organization' },
+      repo: { type: 'string', required: true, description: 'Repository name' },
+      state: {
+        type: 'string',
+        required: false,
+        description: 'open (default), dismissed, or fixed',
+      },
+    },
+  },
+  {
+    name: 'github_get_secret_scanning_alerts',
+    description: 'List secret scanning alerts for a repository.',
+    category: 'github',
+    connectorId: 'github',
+    parameters: {
+      owner: { type: 'string', required: true, description: 'GitHub username or organization' },
+      repo: { type: 'string', required: true, description: 'Repository name' },
+      state: {
+        type: 'string',
+        required: false,
+        description: 'open (default) or resolved',
+      },
+    },
+  },
+  {
+    name: 'github_delete_workflow_run',
+    description: 'Delete a completed GitHub Actions workflow run record.',
+    category: 'github',
+    connectorId: 'github',
+    parameters: {
+      owner: { type: 'string', required: true, description: 'GitHub username or organization' },
+      repo: { type: 'string', required: true, description: 'Repository name' },
+      run_id: { type: 'number', required: true, description: 'Workflow run ID' },
+    },
+  },
+  {
+    name: 'github_get_workflow_run_jobs',
+    description: 'List all jobs (and their steps) for a GitHub Actions workflow run.',
+    category: 'github',
+    connectorId: 'github',
+    parameters: {
+      owner: { type: 'string', required: true, description: 'GitHub username or organization' },
+      repo: { type: 'string', required: true, description: 'Repository name' },
+      run_id: { type: 'number', required: true, description: 'Workflow run ID' },
+      filter: {
+        type: 'string',
+        required: false,
+        description: 'latest (default) or all — whether to return latest or all job attempts',
+      },
+    },
+  },
+  {
+    name: 'github_check_team_membership',
+    description: "Check a user's membership status and role in a specific org team.",
+    category: 'github',
+    connectorId: 'github',
+    parameters: {
+      org: { type: 'string', required: true, description: 'GitHub organization name' },
+      team_slug: { type: 'string', required: true, description: 'Team slug' },
+      username: { type: 'string', required: true, description: 'GitHub username to check' },
+    },
+  },
+  {
+    name: 'github_list_gist_comments',
+    description: 'List all comments on a GitHub Gist.',
+    category: 'github',
+    connectorId: 'github',
+    parameters: {
+      gist_id: { type: 'string', required: true, description: 'Gist ID' },
+      count: {
+        type: 'number',
+        required: false,
+        description: 'Max comments to return (default 30)',
+      },
+    },
+  },
+  {
+    name: 'github_create_gist_comment',
+    description: 'Post a comment on a GitHub Gist.',
+    category: 'github',
+    connectorId: 'github',
+    parameters: {
+      gist_id: { type: 'string', required: true, description: 'Gist ID' },
+      body: { type: 'string', required: true, description: 'Comment body in markdown' },
+    },
+  },
+  {
+    name: 'github_get_repo_actions_permissions',
+    description:
+      'Get the GitHub Actions permissions policy for a repository (enabled, allowed actions).',
+    category: 'github',
+    connectorId: 'github',
+    parameters: {
+      owner: { type: 'string', required: true, description: 'GitHub username or organization' },
+      repo: { type: 'string', required: true, description: 'Repository name' },
+    },
+  },
+  {
+    name: 'github_get_org_webhooks',
+    description: 'List webhooks configured at the organization level.',
+    category: 'github',
+    connectorId: 'github',
+    parameters: {
+      org: { type: 'string', required: true, description: 'GitHub organization name' },
+    },
+  },
+  {
+    name: 'github_list_user_repo_invitations',
+    description:
+      'List all pending repository collaboration invitations for the authenticated user.',
+    category: 'github',
+    connectorId: 'github',
+    parameters: {},
+  },
+  {
+    name: 'github_accept_repo_invitation',
+    description: 'Accept a pending repository collaboration invitation.',
+    category: 'github',
+    connectorId: 'github',
+    parameters: {
+      invitation_id: {
+        type: 'number',
+        required: true,
+        description: 'Invitation ID (from github_list_user_repo_invitations)',
+      },
+    },
+  },
+  {
+    name: 'github_decline_repo_invitation',
+    description: 'Decline a pending repository collaboration invitation.',
+    category: 'github',
+    connectorId: 'github',
+    parameters: {
+      invitation_id: {
+        type: 'number',
+        required: true,
+        description: 'Invitation ID (from github_list_user_repo_invitations)',
+      },
+    },
+  },
+  {
+    name: 'github_get_user_public_keys',
+    description: "List a GitHub user's public SSH keys.",
+    category: 'github',
+    connectorId: 'github',
+    parameters: {
+      username: { type: 'string', required: true, description: 'GitHub username' },
+    },
+  },
+  {
+    name: 'github_star_gist',
+    description: 'Star or unstar a GitHub Gist.',
+    category: 'github',
+    connectorId: 'github',
+    parameters: {
+      gist_id: { type: 'string', required: true, description: 'Gist ID' },
+      action: { type: 'string', required: false, description: 'star (default) or unstar' },
+    },
+  },
+  {
+    name: 'github_check_gist_starred',
+    description: 'Check whether the authenticated user has starred a specific Gist.',
+    category: 'github',
+    connectorId: 'github',
+    parameters: {
+      gist_id: { type: 'string', required: true, description: 'Gist ID' },
+    },
+  },
 ];
 
 export default GITHUB_TOOLS;

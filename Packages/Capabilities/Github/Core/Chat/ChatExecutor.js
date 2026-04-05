@@ -2841,6 +2841,308 @@ export async function executeGithubChatTool(ctx, toolName, params = {}) {
       ].join('\n');
     }
 
+    case 'github_get_authenticated_user': {
+      const user = await GithubAPI.getUser(credentials);
+      return [
+        `Authenticated GitHub User: @${user.login}`,
+        user.name ? `Name: ${user.name}` : '',
+        user.email ? `Email: ${user.email}` : '',
+        user.bio ? `Bio: ${user.bio}` : '',
+        user.company ? `Company: ${user.company}` : '',
+        user.location ? `Location: ${user.location}` : '',
+        user.blog ? `Website: ${user.blog}` : '',
+        `Public repos: ${user.public_repos} | Private repos: ${user.total_private_repos ?? '?'}`,
+        `Followers: ${user.followers} | Following: ${user.following}`,
+        `Plan: ${user.plan?.name ?? 'unknown'}`,
+        `Member since: ${formatDate(user.created_at)}`,
+        `URL: ${user.html_url}`,
+      ]
+        .filter(Boolean)
+        .join('\n');
+    }
+
+    case 'github_update_comment': {
+      const { owner, repo, comment_id, body } = params;
+      if (!owner || !repo || !comment_id || !body)
+        throw new Error('Missing required params: owner, repo, comment_id, body');
+      const comment = await GithubAPI.updateIssueComment(
+        credentials,
+        owner,
+        repo,
+        comment_id,
+        body,
+      );
+      return [
+        `Comment #${comment_id} updated in ${owner}/${repo}`,
+        `URL: ${comment?.html_url ?? `https://github.com/${owner}/${repo}`}`,
+      ].join('\n');
+    }
+
+    case 'github_delete_comment': {
+      const { owner, repo, comment_id } = params;
+      if (!owner || !repo || !comment_id)
+        throw new Error('Missing required params: owner, repo, comment_id');
+      await GithubAPI.deleteIssueComment(credentials, owner, repo, comment_id);
+      return `Comment #${comment_id} deleted from ${owner}/${repo}.`;
+    }
+
+    case 'github_add_reaction_to_issue': {
+      const { owner, repo, issue_number, content } = params;
+      if (!owner || !repo || !issue_number || !content)
+        throw new Error('Missing required params: owner, repo, issue_number, content');
+      const validReactions = ['+1', '-1', 'laugh', 'hooray', 'confused', 'heart', 'rocket', 'eyes'];
+      if (!validReactions.includes(content))
+        throw new Error(`content must be one of: ${validReactions.join(', ')}`);
+      const reaction = await GithubAPI.addReactionToIssue(
+        credentials,
+        owner,
+        repo,
+        Number(issue_number),
+        content,
+      );
+      const emojiMap = {
+        '+1': '👍',
+        '-1': '👎',
+        laugh: '😄',
+        hooray: '🎉',
+        confused: '😕',
+        heart: '❤️',
+        rocket: '🚀',
+        eyes: '👀',
+      };
+      return `Reaction ${emojiMap[content] ?? content} added to ${owner}/${repo}#${issue_number} (reaction ID: ${reaction.id}).`;
+    }
+
+    case 'github_add_reaction_to_comment': {
+      const { owner, repo, comment_id, content } = params;
+      if (!owner || !repo || !comment_id || !content)
+        throw new Error('Missing required params: owner, repo, comment_id, content');
+      const validReactions = ['+1', '-1', 'laugh', 'hooray', 'confused', 'heart', 'rocket', 'eyes'];
+      if (!validReactions.includes(content))
+        throw new Error(`content must be one of: ${validReactions.join(', ')}`);
+      const reaction = await GithubAPI.addReactionToComment(
+        credentials,
+        owner,
+        repo,
+        comment_id,
+        content,
+      );
+      const emojiMap = {
+        '+1': '👍',
+        '-1': '👎',
+        laugh: '😄',
+        hooray: '🎉',
+        confused: '😕',
+        heart: '❤️',
+        rocket: '🚀',
+        eyes: '👀',
+      };
+      return `Reaction ${emojiMap[content] ?? content} added to comment #${comment_id} in ${owner}/${repo} (reaction ID: ${reaction.id}).`;
+    }
+
+    case 'github_get_code_scanning_alerts': {
+      const { owner, repo, state = 'open' } = params;
+      requireRepo(owner, repo);
+      const alerts = await GithubAPI.getCodeScanningAlerts(credentials, owner, repo, state);
+      if (!alerts.length) return `No ${state} code scanning alerts in ${owner}/${repo}.`;
+      return [
+        `Code scanning alerts for ${owner}/${repo} (${alerts.length} ${state}):`,
+        '',
+        ...alerts.slice(0, 20).map((a, i) => {
+          const severity = a.rule?.severity ?? 'unknown';
+          const rule = a.rule?.id ?? 'unknown';
+          const desc = a.rule?.description ?? a.rule?.name ?? '';
+          const ref = a.most_recent_instance?.ref ?? '';
+          return `${i + 1}. [${severity.toUpperCase()}] ${rule}\n   ${desc}${ref ? `\n   Ref: ${ref}` : ''}`;
+        }),
+      ].join('\n');
+    }
+
+    case 'github_get_secret_scanning_alerts': {
+      const { owner, repo, state = 'open' } = params;
+      requireRepo(owner, repo);
+      const alerts = await GithubAPI.getSecretScanningAlerts(credentials, owner, repo, state);
+      if (!alerts.length) return `No ${state} secret scanning alerts in ${owner}/${repo}.`;
+      return [
+        `Secret scanning alerts for ${owner}/${repo} (${alerts.length} ${state}):`,
+        '',
+        ...alerts.slice(0, 20).map((a, i) => {
+          const type = a.secret_type_display_name ?? a.secret_type ?? 'unknown';
+          const validity = a.validity ?? 'unknown';
+          return `${i + 1}. [${a.state}] ${type}\n   Validity: ${validity} | Created: ${formatDate(a.created_at)}`;
+        }),
+      ].join('\n');
+    }
+
+    case 'github_delete_workflow_run': {
+      const { owner, repo, run_id } = params;
+      if (!owner || !repo || !run_id)
+        throw new Error('Missing required params: owner, repo, run_id');
+      await GithubAPI.deleteWorkflowRun(credentials, owner, repo, run_id);
+      return `Workflow run #${run_id} deleted from ${owner}/${repo}.`;
+    }
+
+    case 'github_get_workflow_run_jobs': {
+      const { owner, repo, run_id, filter = 'latest' } = params;
+      if (!owner || !repo || !run_id)
+        throw new Error('Missing required params: owner, repo, run_id');
+      const data = await GithubAPI.getWorkflowRunJobs(credentials, owner, repo, run_id, filter);
+      const jobs = data.jobs ?? [];
+      if (!jobs.length) return `No jobs found for workflow run #${run_id} in ${owner}/${repo}.`;
+      return [
+        `Jobs for workflow run #${run_id} in ${owner}/${repo} (${jobs.length}):`,
+        '',
+        ...jobs.map((job, i) => {
+          const steps = (job.steps ?? [])
+            .slice(0, 5)
+            .map(
+              (s) =>
+                `    ${s.number}. ${s.name}: ${s.status}${s.conclusion ? ` / ${s.conclusion}` : ''}`,
+            )
+            .join('\n');
+          return [
+            `${i + 1}. ${job.name}`,
+            `   Status: ${job.status}${job.conclusion ? ` / ${job.conclusion}` : ''} | Runner: ${job.runner_name ?? 'unknown'}`,
+            `   Started: ${formatDateTime(job.started_at)} | Completed: ${formatDateTime(job.completed_at)}`,
+            steps ? `   Steps:\n${steps}` : '',
+            `   URL: ${job.html_url}`,
+          ]
+            .filter(Boolean)
+            .join('\n');
+        }),
+      ].join('\n');
+    }
+
+    case 'github_check_team_membership': {
+      const { org, team_slug, username } = params;
+      if (!org || !team_slug || !username)
+        throw new Error('Missing required params: org, team_slug, username');
+      const result = await GithubAPI.checkTeamMembership(credentials, org, team_slug, username);
+      return [
+        `Team membership for @${username} in ${org}/${team_slug}:`,
+        `Role: ${result.role ?? 'unknown'}`,
+        `State: ${result.state ?? 'unknown'}`,
+      ].join('\n');
+    }
+
+    case 'github_list_gist_comments': {
+      const { gist_id, count = 30 } = params;
+      if (!gist_id) throw new Error('Missing required param: gist_id');
+      const comments = await GithubAPI.listGistComments(
+        credentials,
+        gist_id,
+        Math.min(Number(count) || 30, 100),
+      );
+      if (!comments.length) return `No comments on gist ${gist_id}.`;
+      return [
+        `Comments on gist ${gist_id} (${comments.length}):`,
+        '',
+        ...comments.map((c, i) => {
+          const body = String(c.body || '')
+            .trim()
+            .slice(0, 300);
+          return `${i + 1}. @${c.user?.login ?? 'unknown'} — ${formatDate(c.created_at)}\n   ${body}${(c.body?.length ?? 0) > 300 ? '...' : ''}`;
+        }),
+      ].join('\n');
+    }
+
+    case 'github_create_gist_comment': {
+      const { gist_id, body } = params;
+      if (!gist_id || !body) throw new Error('Missing required params: gist_id, body');
+      const comment = await GithubAPI.createGistComment(credentials, gist_id, body);
+      return [
+        `Comment posted on gist ${gist_id}`,
+        `Comment ID: ${comment.id}`,
+        `URL: ${comment.url ?? `https://gist.github.com/${gist_id}`}`,
+      ].join('\n');
+    }
+
+    case 'github_get_repo_actions_permissions': {
+      const { owner, repo } = params;
+      requireRepo(owner, repo);
+      const data = await GithubAPI.getRepoActionsPermissions(credentials, owner, repo);
+      return [
+        `Actions permissions for ${owner}/${repo}:`,
+        `Enabled: ${data.enabled ?? false}`,
+        `Allowed actions: ${data.allowed_actions ?? 'unknown'}`,
+        data.selected_actions_url ? `Selected actions URL: ${data.selected_actions_url}` : '',
+      ]
+        .filter(Boolean)
+        .join('\n');
+    }
+
+    case 'github_get_org_webhooks': {
+      const { org } = params;
+      if (!org) throw new Error('Missing required param: org');
+      const hooks = await GithubAPI.getOrgWebhooks(credentials, org);
+      if (!hooks.length) return `No webhooks configured for org "${org}".`;
+      return [
+        `Webhooks for org ${org} (${hooks.length}):`,
+        '',
+        ...hooks.map((h, i) => {
+          const events = (h.events ?? []).join(', ') || 'none';
+          const active = h.active ? 'active' : 'inactive';
+          return `${i + 1}. ${h.config?.url ?? 'no url'} [${active}]\n   Events: ${events}\n   Created: ${formatDate(h.created_at)}`;
+        }),
+      ].join('\n');
+    }
+
+    case 'github_list_user_repo_invitations': {
+      const invitations = await GithubAPI.listUserRepoInvitations(credentials);
+      if (!invitations.length) return 'No pending repository invitations.';
+      return [
+        `Pending repository invitations (${invitations.length}):`,
+        '',
+        ...invitations.map((inv, i) => {
+          const repo = inv.repository?.full_name ?? 'unknown';
+          const inviter = inv.inviter?.login ?? 'unknown';
+          return `${i + 1}. ${repo} — ${inv.permissions} — from @${inviter} on ${formatDate(inv.created_at)}\n   ID: ${inv.id}`;
+        }),
+      ].join('\n');
+    }
+
+    case 'github_accept_repo_invitation': {
+      const { invitation_id } = params;
+      if (!invitation_id) throw new Error('Missing required param: invitation_id');
+      await GithubAPI.acceptRepoInvitation(credentials, invitation_id);
+      return `Repository invitation #${invitation_id} accepted.`;
+    }
+
+    case 'github_decline_repo_invitation': {
+      const { invitation_id } = params;
+      if (!invitation_id) throw new Error('Missing required param: invitation_id');
+      await GithubAPI.declineRepoInvitation(credentials, invitation_id);
+      return `Repository invitation #${invitation_id} declined.`;
+    }
+
+    case 'github_get_user_public_keys': {
+      const { username } = params;
+      if (!username) throw new Error('Missing required param: username');
+      const keys = await GithubAPI.getUserPublicKeys(credentials, username);
+      if (!keys.length) return `@${username} has no public SSH keys.`;
+      return [
+        `Public SSH keys for @${username} (${keys.length}):`,
+        '',
+        ...keys.map((k, i) => `${i + 1}. ID: ${k.id}\n   ${String(k.key).slice(0, 60)}...`),
+      ].join('\n');
+    }
+
+    case 'github_star_gist': {
+      const { gist_id, action = 'star' } = params;
+      if (!gist_id) throw new Error('Missing required param: gist_id');
+      const shouldUnstar = String(action).toLowerCase() === 'unstar';
+      if (shouldUnstar) await GithubAPI.unstarGist(credentials, gist_id);
+      else await GithubAPI.starGist(credentials, gist_id);
+      return `Gist ${gist_id} ${shouldUnstar ? 'unstarred' : 'starred'} successfully.`;
+    }
+
+    case 'github_check_gist_starred': {
+      const { gist_id } = params;
+      if (!gist_id) throw new Error('Missing required param: gist_id');
+      const starred = await GithubAPI.checkGistStarred(credentials, gist_id);
+      return `Gist ${gist_id} is ${starred ? '⭐ starred' : 'not starred'} by you.`;
+    }
+
     default:
       throw new Error(`Unknown GitHub tool: ${toolName}`);
   }

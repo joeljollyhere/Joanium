@@ -31,7 +31,13 @@ const doneTitle = document.getElementById('done-title');
 const STEP_ELS = [stepSplash, stepName, stepProviders, stepDone];
 
 const { goToStep: baseGoToStep } = initStepController({
-  state, STEP_ELS, setupLogo, progressTrack, progressDots, nameInput, doneTitle,
+  state,
+  STEP_ELS,
+  setupLogo,
+  progressTrack,
+  progressDots,
+  nameInput,
+  doneTitle,
 });
 
 function goToStep(nextStep) {
@@ -96,7 +102,7 @@ function serializeProviderConfig(providerId) {
     `;
     canvas.appendChild(p);
   }
-}());
+})();
 
 // ── Splash step ───────────────────────────────────────────────────────────────
 
@@ -212,8 +218,12 @@ function initDragScroll(el) {
     el._wasDragging = false;
   });
 
-  el.addEventListener('mouseleave', () => { isDown = false; });
-  el.addEventListener('mouseup', () => { isDown = false; });
+  el.addEventListener('mouseleave', () => {
+    isDown = false;
+  });
+  el.addEventListener('mouseup', () => {
+    isDown = false;
+  });
 
   el.addEventListener('mousemove', (e) => {
     if (!isDown) return;
@@ -306,20 +316,18 @@ function renderProviderFields() {
   heading.className = 'keys-copy';
   heading.innerHTML = `
     <p class="keys-heading">Connect your selected providers</p>
-    <p class="keys-subheading">Cloud providers use an API key. Ollama and LM Studio use a local server URL and model name.</p>
+    <p class="keys-subheading">Cloud providers use an API key. Ollama and LM Studio use a local server URL, and you can optionally choose a preferred local model.</p>
   `;
   keysSection.appendChild(heading);
 
-  PROVIDERS
-    .filter((p) => state.selectedProviders.has(p.id))
-    .forEach((provider) => {
-      const card = document.createElement('div');
-      card.className = 'provider-config-card';
-      card.style.setProperty('--p-color', provider.color);
+  PROVIDERS.filter((p) => state.selectedProviders.has(p.id)).forEach((provider) => {
+    const card = document.createElement('div');
+    card.className = 'provider-config-card';
+    card.style.setProperty('--p-color', provider.color);
 
-      const header = document.createElement('div');
-      header.className = 'provider-config-header';
-      header.innerHTML = `
+    const header = document.createElement('div');
+    header.className = 'provider-config-header';
+    header.innerHTML = `
         <div class="provider-config-title">
           <span class="key-dot"></span>
           <span>${provider.label}</span>
@@ -327,21 +335,21 @@ function renderProviderFields() {
         <span class="provider-config-badge">${provider.caption}</span>
       `;
 
-      const fields = document.createElement('div');
-      fields.className = `provider-config-fields provider-config-fields--${provider.fields.length > 1 ? 'multi' : 'single'}`;
-      provider.fields.forEach((field) => fields.appendChild(createProviderField(provider.id, field)));
+    const fields = document.createElement('div');
+    fields.className = `provider-config-fields provider-config-fields--${provider.fields.length > 1 ? 'multi' : 'single'}`;
+    provider.fields.forEach((field) => fields.appendChild(createProviderField(provider.id, field)));
 
-      card.append(header, fields);
+    card.append(header, fields);
 
-      if (provider.hint) {
-        const hint = document.createElement('p');
-        hint.className = 'provider-config-hint';
-        hint.textContent = provider.hint;
-        card.appendChild(hint);
-      }
+    if (provider.hint) {
+      const hint = document.createElement('p');
+      hint.className = 'provider-config-hint';
+      hint.textContent = provider.hint;
+      card.appendChild(hint);
+    }
 
-      keysSection.appendChild(card);
-    });
+    keysSection.appendChild(card);
+  });
 }
 
 function updateKeysContinue() {
@@ -374,7 +382,8 @@ async function saveSetup() {
       },
     });
 
-    await window.electronAPI.invoke('save-provider-configs',
+    await window.electronAPI.invoke(
+      'save-provider-configs',
       Object.fromEntries(
         [...state.selectedProviders].map((id) => [id, serializeProviderConfig(id)]),
       ),

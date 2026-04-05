@@ -1,0 +1,7 @@
+{
+  "provider": "ollama",
+  "label": "Ollama",
+  "endpoint": "http://127.0.0.1:11434/v1/chat/completions",
+  "requires_api_key": false,
+  "models": {}
+}

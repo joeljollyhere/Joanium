@@ -56,6 +56,14 @@ const LOCAL_PROVIDER_RUNTIME = {
   },
 };
 
+function readJSON(filePath, fallback) {
+  try {
+    return JSON.parse(fs.readFileSync(filePath, 'utf-8').replace(/^\uFEFF/, ''));
+  } catch {
+    return fallback;
+  }
+}
+
 export function ensureDataDir() {
   if (!fs.existsSync(Paths.DATA_DIR)) {
     fs.mkdirSync(Paths.DATA_DIR, { recursive: true });
@@ -96,6 +104,24 @@ function getLocalProviderRuntime(providerId) {
   return LOCAL_PROVIDER_RUNTIME[providerId] ?? null;
 }
 
+function normalizeModelIndexEntries(indexData) {
+  const rawEntries = Array.isArray(indexData)
+    ? indexData
+    : Array.isArray(indexData?.files)
+      ? indexData.files
+      : Array.isArray(indexData?.providers)
+        ? indexData.providers
+        : [];
+
+  return rawEntries
+    .map((entry) => {
+      if (typeof entry === 'string') return entry.trim();
+      if (entry && typeof entry.file === 'string') return entry.file.trim();
+      return '';
+    })
+    .filter(Boolean);
+}
+
 function normalizeLocalEndpoint(providerId, value) {
   const runtime = getLocalProviderRuntime(providerId);
   const trimmed = String(value ?? '').trim();
@@ -107,17 +133,158 @@ function normalizeLocalEndpoint(providerId, value) {
   return `${normalized}/v1/chat/completions`;
 }
 
-function buildLocalModels(providerId, settings = {}) {
-  const modelId = String(settings.modelId ?? '').trim();
-  const runtime = getLocalProviderRuntime(providerId);
-  if (!modelId || !runtime?.modelTemplate) return {};
+function toOpenAICompatibleBaseUrl(endpoint) {
+  return String(endpoint ?? '')
+    .trim()
+    .replace(/\/+$/, '')
+    .replace(/\/chat\/completions$/i, '');
+}
 
-  return {
-    [modelId]: {
-      ...runtime.modelTemplate,
-      name: modelId,
-    },
-  };
+function toLocalServerBaseUrl(endpoint) {
+  return toOpenAICompatibleBaseUrl(endpoint).replace(/\/v1$/i, '');
+}
+
+function withUniqueValues(values = []) {
+  const seen = new Set();
+  return values.filter((value) => {
+    if (!value || seen.has(value)) return false;
+    seen.add(value);
+    return true;
+  });
+}
+
+function sortModelEntriesByRank(models = {}) {
+  return Object.entries(models).sort(
+    ([leftId, leftInfo], [rightId, rightInfo]) =>
+      (leftInfo?.rank ?? 999) - (rightInfo?.rank ?? 999) ||
+      String(leftInfo?.name ?? leftId).localeCompare(String(rightInfo?.name ?? rightId)),
+  );
+}
+
+function normalizeDiscoveredLocalModels(models = []) {
+  const seen = new Set();
+
+  return models
+    .map((model) => {
+      const id = String(model?.id ?? model?.modelId ?? model?.name ?? '').trim();
+      if (!id || seen.has(id)) return null;
+      seen.add(id);
+
+      return {
+        id,
+        name: String(model?.name ?? id).trim() || id,
+        description: String(model?.description ?? '').trim(),
+        context_window: Number.isFinite(model?.context_window)
+          ? Number(model.context_window)
+          : null,
+        max_output: Number.isFinite(model?.max_output) ? Number(model.max_output) : null,
+      };
+    })
+    .filter(Boolean);
+}
+
+async function fetchJSON(url, { timeoutMs = 1500 } = {}) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetch(url, { signal: controller.signal });
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    return await response.json();
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function discoverOpenAICompatibleModels(endpoint) {
+  const baseUrl = toOpenAICompatibleBaseUrl(endpoint);
+  if (!baseUrl) return [];
+
+  const payload = await fetchJSON(`${baseUrl}/models`);
+  return Array.isArray(payload?.data)
+    ? payload.data.map((model) => ({
+        id: model?.id,
+        name: model?.id,
+      }))
+    : [];
+}
+
+async function discoverOllamaModels(endpoint) {
+  const baseUrl = toLocalServerBaseUrl(endpoint);
+  if (!baseUrl) return [];
+
+  const payload = await fetchJSON(`${baseUrl}/api/tags`);
+  return Array.isArray(payload?.models)
+    ? payload.models.map((model) => ({
+        id: model?.model ?? model?.name,
+        name: model?.name ?? model?.model,
+      }))
+    : [];
+}
+
+async function discoverLocalModels(providerId, endpoint) {
+  const discoverers =
+    providerId === 'ollama'
+      ? [discoverOllamaModels, discoverOpenAICompatibleModels]
+      : [discoverOpenAICompatibleModels];
+
+  for (const discover of discoverers) {
+    try {
+      const models = normalizeDiscoveredLocalModels(await discover(endpoint));
+      if (models.length) return models;
+    } catch {
+      /* local server may not be reachable yet; fall back quietly */
+    }
+  }
+
+  return [];
+}
+
+function buildLocalModels(providerId, settings = {}, baseModels = {}, discoveredModels = []) {
+  const runtime = getLocalProviderRuntime(providerId);
+  if (!runtime?.modelTemplate) return {};
+
+  const preferredModelId = String(settings.modelId ?? '').trim();
+  const staticModelIds = sortModelEntriesByRank(baseModels).map(([modelId]) => modelId);
+  const discovered = normalizeDiscoveredLocalModels(discoveredModels);
+  const discoveredById = new Map(discovered.map((model) => [model.id, model]));
+  const discoveredIds = discovered
+    .map((model) => model.id)
+    .sort((left, right) =>
+      String(discoveredById.get(left)?.name ?? left).localeCompare(
+        String(discoveredById.get(right)?.name ?? right),
+      ),
+    );
+  const modelIds = withUniqueValues([preferredModelId, ...staticModelIds, ...discoveredIds]);
+
+  if (!modelIds.length) return {};
+
+  return Object.fromEntries(
+    modelIds.map((modelId, index) => {
+      const staticModel = baseModels?.[modelId] ?? {};
+      const discoveredModel = discoveredById.get(modelId) ?? {};
+      const model = {
+        ...runtime.modelTemplate,
+        ...staticModel,
+        name: String(discoveredModel.name ?? staticModel.name ?? modelId).trim() || modelId,
+        description:
+          String(discoveredModel.description ?? staticModel.description ?? '').trim() ||
+          runtime.modelTemplate.description,
+        rank: index + 1,
+      };
+
+      if (Number.isFinite(discoveredModel.context_window)) {
+        model.context_window = discoveredModel.context_window;
+      }
+      if (Number.isFinite(discoveredModel.max_output)) {
+        model.max_output = discoveredModel.max_output;
+      }
+
+      return [modelId, model];
+    }),
+  );
 }
 
 export function readUser() {
@@ -144,39 +311,52 @@ export function isFirstRun() {
 }
 
 export function readModels() {
-  return JSON.parse(fs.readFileSync(Paths.MODELS_FILE, 'utf-8'));
+  const indexEntries = normalizeModelIndexEntries(readJSON(Paths.MODELS_INDEX_FILE, null));
+
+  return indexEntries
+    .map((fileName) => readJSON(path.join(Paths.MODELS_DIR, fileName), null))
+    .filter((provider) => provider && typeof provider === 'object' && !Array.isArray(provider));
 }
 
-export function readModelsWithKeys() {
+export async function readModelsWithKeys() {
   const models = readModels();
   const user = readUser();
   const apiKeys = user.api_keys ?? {};
   const providerSettings = user.provider_settings ?? {};
 
-  return models.map((provider) => {
-    const settings = providerSettings[provider.provider] ?? {};
-    const api = String(apiKeys[provider.provider] ?? '').trim();
-    const localRuntime = getLocalProviderRuntime(provider.provider);
-    const endpoint = localRuntime
-      ? normalizeLocalEndpoint(provider.provider, settings.endpoint ?? provider.endpoint)
-      : provider.endpoint;
-    const resolvedModels = localRuntime
-      ? buildLocalModels(provider.provider, settings)
-      : provider.models;
-    const configured =
-      provider.requires_api_key === false
-        ? Boolean(endpoint && Object.keys(resolvedModels ?? {}).length)
-        : Boolean(api);
+  return Promise.all(
+    models.map(async (provider) => {
+      const settings = providerSettings[provider.provider] ?? {};
+      const api = String(apiKeys[provider.provider] ?? '').trim();
+      const localRuntime = getLocalProviderRuntime(provider.provider);
+      const endpoint = localRuntime
+        ? normalizeLocalEndpoint(provider.provider, settings.endpoint ?? provider.endpoint)
+        : provider.endpoint;
+      const discoveredLocalModels =
+        localRuntime && endpoint ? await discoverLocalModels(provider.provider, endpoint) : [];
+      const resolvedModels = localRuntime
+        ? buildLocalModels(
+            provider.provider,
+            settings,
+            provider.models ?? {},
+            discoveredLocalModels,
+          )
+        : (provider.models ?? {});
+      const configured =
+        provider.requires_api_key === false
+          ? Boolean(endpoint && Object.keys(resolvedModels ?? {}).length)
+          : Boolean(api);
 
-    return {
-      ...provider,
-      endpoint,
-      models: resolvedModels,
-      api: api || null,
-      settings,
-      configured,
-    };
-  });
+      return {
+        ...provider,
+        endpoint,
+        models: resolvedModels,
+        api: api || null,
+        settings,
+        configured,
+      };
+    }),
+  );
 }
 
 export function saveApiKeys(keysMap) {

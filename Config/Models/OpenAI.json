@@ -1,0 +1,94 @@
+{
+  "provider": "openai",
+  "label": "ChatGPT",
+  "endpoint": "https://api.openai.com/v1/chat/completions",
+  "auth_header": "Authorization",
+  "auth_prefix": "Bearer ",
+  "models": {
+    "o1": {
+      "name": "o1",
+      "description": "Deep reasoning model for complex problems",
+      "rank": 1,
+      "context_window": 200000,
+      "max_output": 100000,
+      "inputs": {
+        "text": true,
+        "image": false,
+        "pdf": false,
+        "docx": false
+      },
+      "pricing": {
+        "input": 15,
+        "output": 60
+      }
+    },
+    "gpt-4o": {
+      "name": "GPT-4o",
+      "description": "Multimodal model with vision and 128K context",
+      "rank": 2,
+      "context_window": 128000,
+      "max_output": 16384,
+      "inputs": {
+        "text": true,
+        "image": true,
+        "pdf": false,
+        "docx": false
+      },
+      "pricing": {
+        "input": 2.5,
+        "output": 10
+      }
+    },
+    "gpt-4-turbo": {
+      "name": "GPT-4 Turbo",
+      "description": "Legacy high-intelligence model",
+      "rank": 3,
+      "context_window": 128000,
+      "max_output": 4096,
+      "inputs": {
+        "text": true,
+        "image": false,
+        "pdf": false,
+        "docx": false
+      },
+      "pricing": {
+        "input": 5,
+        "output": 15
+      }
+    },
+    "o3-mini": {
+      "name": "o3 Mini",
+      "description": "Compact reasoning model",
+      "rank": 4,
+      "context_window": 200000,
+      "max_output": 100000,
+      "inputs": {
+        "text": true,
+        "image": false,
+        "pdf": false,
+        "docx": false
+      },
+      "pricing": {
+        "input": 1.1,
+        "output": 4.4
+      }
+    },
+    "gpt-4o-mini": {
+      "name": "GPT-4o Mini",
+      "description": "Fast and affordable for focused tasks",
+      "rank": 5,
+      "context_window": 128000,
+      "max_output": 16384,
+      "inputs": {
+        "text": true,
+        "image": true,
+        "pdf": false,
+        "docx": false
+      },
+      "pricing": {
+        "input": 0.15,
+        "output": 0.6
+      }
+    }
+  }
+}

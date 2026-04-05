@@ -1071,3 +1071,150 @@ export async function replaceTopics(credentials, owner, repo, names = []) {
     body: JSON.stringify({ names }),
   });
 }
+
+export async function getAuthenticatedUser(credentials) {
+  return githubFetch('/user', credentials.token);
+}
+
+export async function updateIssueComment(credentials, owner, repo, commentId, body) {
+  return githubFetch(`/repos/${owner}/${repo}/issues/comments/${commentId}`, credentials.token, {
+    method: 'PATCH',
+    body: JSON.stringify({ body }),
+  });
+}
+
+export async function deleteIssueComment(credentials, owner, repo, commentId) {
+  return githubFetch(`/repos/${owner}/${repo}/issues/comments/${commentId}`, credentials.token, {
+    method: 'DELETE',
+  });
+}
+
+export async function addReactionToIssue(credentials, owner, repo, issueNumber, content) {
+  return githubFetch(`/repos/${owner}/${repo}/issues/${issueNumber}/reactions`, credentials.token, {
+    method: 'POST',
+    headers: { Accept: 'application/vnd.github.squirrel-girl-preview+json' },
+    body: JSON.stringify({ content }),
+  });
+}
+
+export async function addReactionToComment(credentials, owner, repo, commentId, content) {
+  return githubFetch(
+    `/repos/${owner}/${repo}/issues/comments/${commentId}/reactions`,
+    credentials.token,
+    {
+      method: 'POST',
+      headers: { Accept: 'application/vnd.github.squirrel-girl-preview+json' },
+      body: JSON.stringify({ content }),
+    },
+  );
+}
+
+export async function getCodeScanningAlerts(
+  credentials,
+  owner,
+  repo,
+  state = 'open',
+  perPage = 20,
+) {
+  return githubFetch(
+    `/repos/${owner}/${repo}/code-scanning/alerts?state=${state}&per_page=${perPage}`,
+    credentials.token,
+  );
+}
+
+export async function getSecretScanningAlerts(
+  credentials,
+  owner,
+  repo,
+  state = 'open',
+  perPage = 20,
+) {
+  return githubFetch(
+    `/repos/${owner}/${repo}/secret-scanning/alerts?state=${state}&per_page=${perPage}`,
+    credentials.token,
+  );
+}
+
+export async function deleteWorkflowRun(credentials, owner, repo, runId) {
+  return githubFetch(`/repos/${owner}/${repo}/actions/runs/${runId}`, credentials.token, {
+    method: 'DELETE',
+  });
+}
+
+export async function getWorkflowRunJobs(
+  credentials,
+  owner,
+  repo,
+  runId,
+  filter = 'latest',
+  perPage = 30,
+) {
+  return githubFetch(
+    `/repos/${owner}/${repo}/actions/runs/${runId}/jobs?filter=${filter}&per_page=${perPage}`,
+    credentials.token,
+  );
+}
+
+export async function checkTeamMembership(credentials, org, teamSlug, username) {
+  return githubFetch(`/orgs/${org}/teams/${teamSlug}/memberships/${username}`, credentials.token);
+}
+
+export async function listGistComments(credentials, gistId, perPage = 30) {
+  return githubFetch(`/gists/${gistId}/comments?per_page=${perPage}`, credentials.token);
+}
+
+export async function createGistComment(credentials, gistId, body) {
+  return githubFetch(`/gists/${gistId}/comments`, credentials.token, {
+    method: 'POST',
+    body: JSON.stringify({ body }),
+  });
+}
+
+export async function getRepoActionsPermissions(credentials, owner, repo) {
+  return githubFetch(`/repos/${owner}/${repo}/actions/permissions`, credentials.token);
+}
+
+export async function getOrgWebhooks(credentials, org, perPage = 30) {
+  return githubFetch(`/orgs/${org}/hooks?per_page=${perPage}`, credentials.token);
+}
+
+export async function listUserRepoInvitations(credentials) {
+  return githubFetch('/user/repository_invitations', credentials.token);
+}
+
+export async function acceptRepoInvitation(credentials, invitationId) {
+  return githubFetch(`/user/repository_invitations/${invitationId}`, credentials.token, {
+    method: 'PATCH',
+  });
+}
+
+export async function declineRepoInvitation(credentials, invitationId) {
+  return githubFetch(`/user/repository_invitations/${invitationId}`, credentials.token, {
+    method: 'DELETE',
+  });
+}
+
+export async function getUserPublicKeys(credentials, username) {
+  return githubFetch(`/users/${username}/keys`, credentials.token);
+}
+
+export async function starGist(credentials, gistId) {
+  return githubFetch(`/gists/${gistId}/star`, credentials.token, {
+    method: 'PUT',
+    headers: { 'Content-Length': '0' },
+  });
+}
+
+export async function unstarGist(credentials, gistId) {
+  return githubFetch(`/gists/${gistId}/star`, credentials.token, { method: 'DELETE' });
+}
+
+export async function checkGistStarred(credentials, gistId) {
+  const res = await fetch(`https://api.github.com/gists/${gistId}/star`, {
+    headers: {
+      Authorization: `Bearer ${credentials.token}`,
+      'X-GitHub-Api-Version': '2022-11-28',
+    },
+  });
+  return res.status === 204;
+}

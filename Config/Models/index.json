@@ -1,0 +1,12 @@
+[
+  "Anthropic.json",
+  "OpenAI.json",
+  "Google.json",
+  "OpenRouter.json",
+  "Mistral.json",
+  "Nvidia.json",
+  "DeepSeek.json",
+  "MiniMax.json",
+  "Ollama.json",
+  "LMStudio.json"
+]

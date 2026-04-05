@@ -28,8 +28,11 @@ export const Paths = {
   get USER_FILE() {
     return path.join(getStateRoot(), 'Config', 'User.json');
   },
-  get MODELS_FILE() {
-    return path.join(getBundledRoot(), 'Config', 'Models.json');
+  get MODELS_DIR() {
+    return path.join(getBundledRoot(), 'Config', 'Models');
+  },
+  get MODELS_INDEX_FILE() {
+    return path.join(getBundledRoot(), 'Config', 'Models', 'index.json');
   },
   get WINDOW_STATE_FILE() {
     return path.join(getStateRoot(), 'Config', 'WindowState.json');

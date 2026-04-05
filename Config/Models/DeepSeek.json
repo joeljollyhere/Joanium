@@ -1,0 +1,43 @@
+{
+  "provider": "deepseek",
+  "label": "DeepSeek",
+  "endpoint": "https://api.deepseek.com/chat/completions",
+  "auth_header": "Authorization",
+  "auth_prefix": "Bearer ",
+  "models": {
+    "deepseek-reasoner": {
+      "name": "DeepSeek Reasoner",
+      "description": "Thinking mode with Chain-of-Thought, powered by DeepSeek-V3.2",
+      "rank": 1,
+      "context_window": 128000,
+      "max_output": 65536,
+      "inputs": {
+        "text": true,
+        "image": false,
+        "pdf": false,
+        "docx": false
+      },
+      "pricing": {
+        "input": 0.28,
+        "output": 0.42
+      }
+    },
+    "deepseek-chat": {
+      "name": "DeepSeek Chat",
+      "description": "General chat mode powered by DeepSeek-V3.2",
+      "rank": 2,
+      "context_window": 128000,
+      "max_output": 8192,
+      "inputs": {
+        "text": true,
+        "image": false,
+        "pdf": false,
+        "docx": false
+      },
+      "pricing": {
+        "input": 0.28,
+        "output": 0.42
+      }
+    }
+  }
+}

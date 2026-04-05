@@ -1,0 +1,123 @@
+{
+  "provider": "nvidia",
+  "label": "NVIDIA",
+  "endpoint": "https://integrate.api.nvidia.com/v1/chat/completions",
+  "api": null,
+  "auth_header": "Authorization",
+  "auth_prefix": "Bearer ",
+  "models": {
+    "moonshotai/kimi-k2-thinking": {
+      "name": "Kimi K2 Thinking",
+      "description": "MoonshotAI reasoning model",
+      "rank": 3,
+      "max_output": 16384,
+      "inputs": {
+        "text": true,
+        "image": false
+      },
+      "pricing": {
+        "input": 1.0,
+        "output": 3.0
+      }
+    },
+    "deepseek-ai/deepseek-v3.2": {
+      "name": "DeepSeek V3.2",
+      "description": "DeepSeek\u0027s latest flagship model",
+      "rank": 4,
+      "max_output": 8192,
+      "inputs": {
+        "text": true,
+        "image": false
+      },
+      "pricing": {
+        "input": 0.27,
+        "output": 0.27
+      }
+    },
+    "openai/gpt-oss-20b": {
+      "name": "GPT OSS 20B",
+      "description": "Open-source GPT model",
+      "rank": 7,
+      "context_window": 131072,
+      "max_output": 8192,
+      "inputs": {
+        "text": true,
+        "image": false,
+        "pdf": false,
+        "docx": false
+      },
+      "pricing": {
+        "input": 0.1,
+        "output": 0.2
+      }
+    },
+    "moonshotai/kimi-k2-instruct": {
+      "name": "Kimi K2 Instruct",
+      "description": "MoonshotAI instruct model",
+      "rank": 8,
+      "context_window": 131072,
+      "max_output": 8192,
+      "inputs": {
+        "text": true,
+        "image": false,
+        "pdf": false,
+        "docx": false
+      },
+      "pricing": {
+        "input": 0.1,
+        "output": 0.2
+      }
+    },
+    "qwen/qwen3-coder-480b-a35b-instruct": {
+      "name": "Qwen 3 Coder 480B A35B Instruct",
+      "description": "Qwen 3 Coder 480B A35B Instruct model",
+      "rank": 8,
+      "context_window": 131072,
+      "max_output": 8192,
+      "inputs": {
+        "text": true,
+        "image": false,
+        "pdf": false,
+        "docx": false
+      },
+      "pricing": {
+        "input": 0.1,
+        "output": 0.2
+      }
+    },
+    "z-ai/glm4.7": {
+      "name": "GLM 4.7",
+      "description": "Z-AI\u0027s GLM 4.7 model",
+      "rank": 8,
+      "context_window": 131072,
+      "max_output": 8192,
+      "inputs": {
+        "text": true,
+        "image": false,
+        "pdf": false,
+        "docx": false
+      },
+      "pricing": {
+        "input": 0.1,
+        "output": 0.2
+      }
+    },
+    "google/gemma-4-31b-it": {
+      "name": "Gemma 4 31B IT",
+      "description": "Google\u0027s Gemma 4 31B IT model",
+      "rank": 8,
+      "context_window": 131072,
+      "max_output": 16384,
+      "inputs": {
+        "text": true,
+        "image": true,
+        "pdf": false,
+        "docx": false
+      },
+      "pricing": {
+        "input": 0.1,
+        "output": 0.2
+      }
+    }
+  }
+}

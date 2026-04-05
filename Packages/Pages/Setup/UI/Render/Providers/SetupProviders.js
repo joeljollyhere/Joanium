@@ -1,11 +1,13 @@
 function apiKeyField(placeholder) {
-  return [{
-    key: 'apiKey',
-    type: 'password',
-    placeholder,
-    required: true,
-    minLength: 8,
-  }];
+  return [
+    {
+      key: 'apiKey',
+      type: 'password',
+      placeholder,
+      required: true,
+      minLength: 8,
+    },
+  ];
 }
 
 function localModelFields(defaultEndpoint, modelIdLabel, modelPlaceholder) {
@@ -24,7 +26,7 @@ function localModelFields(defaultEndpoint, modelIdLabel, modelPlaceholder) {
       label: modelIdLabel,
       type: 'text',
       placeholder: modelPlaceholder,
-      required: true,
+      required: false,
       minLength: 2,
     },
   ];
@@ -131,8 +133,8 @@ export const PROVIDERS = [
     iconFrame: 'soft',
     iconSize: '30px',
     fallback: 'OL',
-    hint: 'Run Ollama, pull a model, then use the local model name below.',
-    fields: localModelFields('http://127.0.0.1:11434', 'Model ID', 'llama3.2'),
+    hint: 'Run Ollama and Joanium will detect the local models it exposes. You can optionally set a preferred model below.',
+    fields: localModelFields('http://127.0.0.1:11434', 'Preferred model (optional)', 'llama3.2'),
   },
   {
     id: 'lmstudio',
@@ -144,10 +146,10 @@ export const PROVIDERS = [
     iconFrame: 'soft',
     iconSize: '30px',
     fallback: 'LM',
-    hint: 'Run the LM Studio local server, then use the loaded model name below.',
+    hint: 'Run the LM Studio local server and Joanium will detect the loaded models. You can optionally set a preferred model below.',
     fields: localModelFields(
       'http://127.0.0.1:1234',
-      'Loaded model ID',
+      'Preferred model (optional)',
       'qwen2.5-coder-7b-instruct',
     ),
   },

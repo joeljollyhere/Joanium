@@ -490,7 +490,7 @@ export class AgentsEngine {
     try {
       const dataText = await collectData(job, this.connectorEngine, this.featureRegistry);
 
-      const allProviders = this.userService.readModelsWithKeys?.() ?? [];
+      const allProviders = (await this.userService.readModelsWithKeys?.()) ?? [];
 
       const systemPrompt = [
         `You are ${agent.name}, a proactive AI agent.`,
