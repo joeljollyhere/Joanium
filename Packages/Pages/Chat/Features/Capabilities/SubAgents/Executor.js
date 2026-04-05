@@ -303,11 +303,6 @@ function buildSynthesis(run, synthesisStyle = 'brief') {
     .trim()
     .toLowerCase();
 
-  if (run.coordinationGoal) {
-    lines.push(`Overall goal: ${run.coordinationGoal}`);
-    lines.push('');
-  }
-
   if (style === 'comparison') {
     lines.push('Delegated comparisons:');
   } else if (style === 'action_items') {

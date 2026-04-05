@@ -472,7 +472,7 @@ function createRunShell(initialRun = {}) {
 
   const body = document.createElement('div');
   body.className = 'agent-subagent-run-body';
-  body.append(goal, summary, synthesis, grid);
+  body.append(goal, summary, grid, synthesis);
 
   root.append(toggle, body);
 
