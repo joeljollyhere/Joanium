@@ -130,10 +130,12 @@
 }
 
 .agent-log-item {
-  display: inline-flex;
-  align-items: center;
+  /* Grid: fixed first column = one line box; tick/dot centered in that strip (not vs whole wrapped block). */
+  display: inline-grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  column-gap: 8px;
+  align-items: start;
   align-self: flex-start;
-  gap: 8px;
   padding: 6px 10px;
   background: var(--bg-tertiary);
   border: 1px solid var(--border-subtle);
@@ -141,6 +143,8 @@
   max-width: 100%;
   min-width: 0;
   box-sizing: border-box;
+  font-size: 12px;
+  line-height: 1.45;
 
   /* start invisible — JS adds --in class to trigger animation */
   opacity: 0;
@@ -148,6 +152,16 @@
   transition:
     opacity 0.2s ease,
     transform 0.2s ease;
+}
+
+.agent-log-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 1.45em;
+  align-self: start;
+  flex-shrink: 0;
 }
 
 .agent-log-item--in {
@@ -172,7 +186,6 @@
   width: 12px;
   height: 12px;
   min-width: 12px;
-  margin-left: -3px;
 }
 
 .agent-log-icon-success svg {
@@ -185,26 +198,34 @@
 
 /* Lets long tool lines (e.g. shell commands) wrap inside the log pill; terminal output is unchanged. */
 .agent-log-item-main {
-  flex: 1;
   min-width: 0;
 }
 
 .agent-log-item-with-icon {
-  display: flex;
-  align-items: flex-start;
-  gap: 5px;
-  flex: 1;
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  column-gap: 5px;
+  align-items: start;
   min-width: 0;
 }
 
-/* Row uses align-items:center vs a tall text line box; flex-start would leave the glyph top-aligned while the tick is mid-line. */
-.agent-log-item-with-icon > :first-child {
+.agent-log-item-glyph {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 1.45em;
+  align-self: start;
   flex-shrink: 0;
-  margin-top: calc(0.5 * (12px * 1.45 - 14px));
+}
+
+.agent-log-item-glyph svg,
+.agent-log-item-glyph img {
+  display: block;
+  flex-shrink: 0;
 }
 
 .agent-log-item-with-icon .agent-log-text {
-  flex: 1;
   min-width: 0;
 }
 
@@ -214,8 +235,11 @@
   font-family: var(--font-ui);
   line-height: 1.45;
   white-space: normal;
+  overflow: visible;
+  text-overflow: unset;
   overflow-wrap: anywhere;
   word-break: break-word;
+  min-width: 0;
 }
 
 @keyframes agentDotPulse {
@@ -774,10 +798,11 @@
 }
 
 .agent-subagent-log-item {
-  display: inline-flex;
-  align-items: center;
+  display: inline-grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  column-gap: 8px;
+  align-items: start;
   align-self: flex-start;
-  gap: 8px;
   padding: 7px 9px;
   border-radius: 10px;
   background: color-mix(in srgb, var(--bg-primary) 12%, transparent);
@@ -785,6 +810,18 @@
   max-width: 100%;
   min-width: 0;
   box-sizing: border-box;
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+
+.agent-subagent-log-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 1.45em;
+  align-self: start;
+  flex-shrink: 0;
 }
 
 .agent-subagent-log-dot {
@@ -804,11 +841,13 @@
 }
 
 .agent-subagent-log-text {
-  flex: 1;
   min-width: 0;
   font-size: 11.5px;
   color: var(--text-secondary);
   line-height: 1.45;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: unset;
   overflow-wrap: anywhere;
   word-break: break-word;
 }

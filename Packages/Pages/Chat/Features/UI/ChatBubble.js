@@ -318,9 +318,12 @@ export function buildLogItem(rawLine) {
   const item = document.createElement('div');
   item.className = 'agent-log-item';
 
+  const statusWrap = document.createElement('span');
+  statusWrap.className = 'agent-log-status';
   const dotSpan = document.createElement('span');
   dotSpan.className = 'agent-log-dot';
-  item.appendChild(dotSpan);
+  statusWrap.appendChild(dotSpan);
+  item.appendChild(statusWrap);
 
   let iconHtml = '';
   let displayText = rawLine;
@@ -356,10 +359,13 @@ export function buildLogItem(rawLine) {
   if (iconHtml) {
     const wrap = document.createElement('span');
     wrap.className = 'agent-log-item-with-icon';
-    wrap.innerHTML = iconHtml;
+    const glyph = document.createElement('span');
+    glyph.className = 'agent-log-item-glyph';
+    glyph.innerHTML = iconHtml;
     const label = document.createElement('span');
     label.className = 'agent-log-text';
     label.textContent = displayText;
+    wrap.appendChild(glyph);
     wrap.appendChild(label);
     item.appendChild(wrap);
   } else {

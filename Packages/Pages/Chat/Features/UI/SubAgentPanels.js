@@ -122,13 +122,16 @@ function createLogItem(log = {}) {
   const item = document.createElement('div');
   item.className = 'agent-subagent-log-item';
 
+  const status = document.createElement('span');
+  status.className = 'agent-subagent-log-status';
   const dot = document.createElement('span');
   dot.className = 'agent-subagent-log-dot';
+  status.appendChild(dot);
 
   const text = document.createElement('span');
   text.className = 'agent-subagent-log-text';
 
-  item.append(dot, text);
+  item.append(status, text);
 
   return {
     root: item,
