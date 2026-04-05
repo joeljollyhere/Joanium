@@ -7,6 +7,8 @@ import { fetchWithTools } from '../../../../../Features/AI/index.js';
  * @returns {{ cleanup: Function }}
  */
 export function createEnhanceFeature({ textarea, enhanceBtn, state }) {
+  const inputBox = textarea?.closest('.input-box');
+
   function updateEnhanceBtn() {
     if (!enhanceBtn || !textarea) return;
     const has = textarea.value.trim().length > 0;
@@ -15,17 +17,28 @@ export function createEnhanceFeature({ textarea, enhanceBtn, state }) {
   }
 
   async function handleEnhance() {
-    if (!textarea?.value.trim() || state.isTyping || !state.selectedProvider || !state.selectedModel) return;
+    if (
+      !textarea?.value.trim() ||
+      state.isTyping ||
+      !state.selectedProvider ||
+      !state.selectedModel
+    )
+      return;
     enhanceBtn.classList.remove('enhance-active');
     enhanceBtn.classList.add('enhance-loading');
     enhanceBtn.disabled = true;
+    inputBox?.classList.add('input-box--enhancing');
+    inputBox?.setAttribute('aria-busy', 'true');
+    const hadFocus = document.activeElement === textarea;
+    textarea.disabled = true;
     const labelEl = enhanceBtn.querySelector('.enhance-btn-label');
     if (labelEl) labelEl.textContent = 'Enhancing...';
     try {
       const result = await fetchWithTools(
-        state.selectedProvider, state.selectedModel,
+        state.selectedProvider,
+        state.selectedModel,
         [{ role: 'user', content: textarea.value.trim(), attachments: [] }],
-        'You are a prompt-enhancement assistant. Rewrite the user\'s message into a clearer, more specific prompt. Keep the same intent. Return ONLY the enhanced prompt — no preamble.',
+        "You are a prompt-enhancement assistant. Rewrite the user's message into a clearer, more specific prompt. Keep the same intent. Return ONLY the enhanced prompt — no preamble.",
         [],
       );
       if (result.type === 'text' && result.text && result.text !== '(empty response)') {
@@ -36,6 +49,10 @@ export function createEnhanceFeature({ textarea, enhanceBtn, state }) {
       console.warn('[Chat] Enhance failed:', err.message);
     } finally {
       enhanceBtn.classList.remove('enhance-loading');
+      inputBox?.classList.remove('input-box--enhancing');
+      inputBox?.removeAttribute('aria-busy');
+      textarea.disabled = false;
+      if (hadFocus) textarea.focus();
       if (labelEl) labelEl.textContent = 'Enhance';
       updateEnhanceBtn();
     }
@@ -50,6 +67,9 @@ export function createEnhanceFeature({ textarea, enhanceBtn, state }) {
     cleanup() {
       enhanceBtn?.removeEventListener('click', handleEnhance);
       textarea?.removeEventListener('input', updateEnhanceBtn);
+      inputBox?.classList.remove('input-box--enhancing');
+      inputBox?.removeAttribute('aria-busy');
+      if (textarea) textarea.disabled = false;
     },
   };
 }
