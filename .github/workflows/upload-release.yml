@@ -1,8 +1,6 @@
 name: Upload Release Asset
-
 on:
   workflow_dispatch:
-
 jobs:
   prepare-release:
     runs-on: ubuntu-latest
@@ -16,12 +14,10 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 'latest'
-
       - name: Set version, commit, tag and create release
         id: prepare
         env:
@@ -30,11 +26,29 @@ jobs:
         run: |
           set -euo pipefail
 
-          VERSION="$(node ./Scripts/SetVersionByDate.mjs)"
+          BASE_VERSION="$(node ./Scripts/SetVersionByDate.mjs)"
+          git fetch --tags
+
+          # Walk up suffixes until a free tag is found
+          VERSION="$BASE_VERSION"
           TAG_NAME="v${VERSION}"
+          COUNTER=1
+          while git rev-parse "${TAG_NAME}" >/dev/null 2>&1; do
+            VERSION="${BASE_VERSION}.${COUNTER}"
+            TAG_NAME="v${VERSION}"
+            COUNTER=$((COUNTER + 1))
+          done
 
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "tag_name=${TAG_NAME}" >> "$GITHUB_OUTPUT"
+
+          # Update package.json to the final version (may differ from what SetVersionByDate wrote)
+          node -e "
+            const fs = require('fs');
+            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+            pkg.version = '${VERSION}';
+            fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
+          "
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -47,21 +61,12 @@ jobs:
             echo "Version already set to ${VERSION}; no commit needed."
           fi
 
-          git fetch --tags
-          if ! git rev-parse "${TAG_NAME}" >/dev/null 2>&1; then
-            git tag "${TAG_NAME}"
-            git push origin "${TAG_NAME}"
-          else
-            echo "Tag ${TAG_NAME} already exists."
-          fi
+          git tag "${TAG_NAME}"
+          git push origin "${TAG_NAME}"
 
-          if ! gh release view "${TAG_NAME}" >/dev/null 2>&1; then
-            gh release create "${TAG_NAME}" \
-              --title "Release ${VERSION}" \
-              --notes "🧠 v${VERSION} — Yes, I’ve released another version. Do try to contain your excitement. This one includes refined internals, improved performance, and the quiet elimination of several bugs that clearly stood no chance against me. Commits have been... corrected, stability has been enforced, and the overall experience is now far less embarrassing. You may pull, build, or deploy at your convenience—just don’t break it again."
-          else
-            echo "Release ${TAG_NAME} already exists."
-          fi
+          gh release create "${TAG_NAME}" \
+            --title "Release ${VERSION}" \
+            --notes "🧠 v${VERSION} — Yes, I've released another version. Do try to contain your excitement. This one includes refined internals, improved performance, and the quiet elimination of several bugs that clearly stood no chance against me. Commits have been... corrected, stability has been enforced, and the overall experience is now far less embarrassing. You may pull, build, or deploy at your convenience—just don't break it again."
 
   build-and-upload:
     needs: prepare-release
@@ -80,30 +85,24 @@ jobs:
             ext: dmg
             target: '--mac dmg'
             new_name: Joanium.dmg
-
     runs-on: ${{ matrix.os }}
     permissions:
       contents: write
-
     steps:
       - name: Checkout tagged release
         uses: actions/checkout@v4
         with:
           ref: ${{ needs.prepare-release.outputs.tag_name }}
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 'latest'
-
       - name: Install dependencies
         run: npm install
-
       - name: Build application
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npm run build -- ${{ matrix.target }} --publish never
-
       - name: Rename and upload executable
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -111,12 +110,10 @@ jobs:
         run: |
           set -euo pipefail
           cd dist
-
           FILE="$(find . -maxdepth 2 -type f -name "*.${{ matrix.ext }}" | head -n 1)"
           if [ -z "$FILE" ]; then
             echo "Could not find any .${{ matrix.ext }} file in the dist folder."
             exit 1
           fi
-
           mv "$FILE" "${{ matrix.new_name }}"
           gh release upload "${{ needs.prepare-release.outputs.tag_name }}" "${{ matrix.new_name }}" --clobber
