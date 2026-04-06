@@ -8,10 +8,10 @@
   --sidebar-w: 52px;
 
   /* M3 Expressive–aligned shape: generous corners, continuous surfaces */
-  --radius-sm: 10px;
-  --radius-md: 20px;
-  --radius-lg: 28px;
-  --radius-xl: 40px;
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
   --radius-full: 9999px;
 
   --font-ui: 'Sora', sans-serif;
@@ -108,6 +108,15 @@ body {
   overflow: hidden;
   user-select: none;
   text-rendering: optimizeLegibility;
+}
+
+/* Smooth programmatic scrolling (buttons/scrollTo/scrollIntoView) */
+html {
+  scroll-behavior: smooth;
+}
+
+* {
+  scroll-behavior: smooth;
 }
 
 h1,

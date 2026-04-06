@@ -132,7 +132,7 @@
   color: var(--text-muted);
   background: var(--bg-secondary);
   border: 1.5px dashed var(--border);
-  border-radius: 20px;
+  border-radius: var(--radius-lg);
 }
 
 /* ── Empty state (no skills at all) ── */
@@ -146,7 +146,7 @@
   text-align: center;
   background: var(--bg-secondary);
   border: 1.5px dashed var(--border);
-  border-radius: 28px;
+  border-radius: var(--radius-lg);
   animation: fadeIn 0.4s var(--ease-out-expo) both;
 }
 
@@ -204,7 +204,7 @@
 .skill-card {
   background: var(--bg-secondary);
   border: 1px solid var(--border-subtle);
-  border-radius: 22px;
+  border-radius: var(--radius-lg);
   padding: 20px;
   display: flex;
   flex-direction: column;

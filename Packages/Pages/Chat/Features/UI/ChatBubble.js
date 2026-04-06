@@ -3,7 +3,7 @@ import { render as renderMarkdown } from '../../../Shared/Content/Markdown.js';
 import { chatMessages } from '../../../Shared/Core/DOM.js';
 import { openHtmlPreviewModal } from '../../../../Modals/HtmlPreviewModal.js';
 import { copyIcon, checkIcon, editIcon, retryIcon, assistantIcon } from './ChatIcons.js';
-import { buildTokenFooter, updateTimeline } from './ChatTimeline.js';
+import { buildTokenFooter, updateTimeline, maybeScrollToBottom } from './ChatTimeline.js';
 import {
   cloneSubAgentRunAttachment,
   createLiveSubAgentRunTracker,
@@ -292,7 +292,10 @@ export function appendTextWithLineBreaks(container, text) {
 }
 
 export function smoothScrollToBottom() {
-  chatMessages.scrollTo({ top: chatMessages.scrollHeight, behavior: 'smooth' });
+  // Follow the AI output only when the user is already at the bottom.
+  // If the user scrolls up even a bit, auto-follow pauses until they
+  // return to the bottom.
+  maybeScrollToBottom({ behavior: 'smooth' });
 }
 
 /* ── Copy event helper ── */

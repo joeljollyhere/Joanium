@@ -22,8 +22,8 @@
       "to": "Config/WindowState.json"
     },
     {
-      "from": "Marketplace/Persona/Joanium/Joana.md",
-      "to": "Marketplace/Persona/Joanium/Joana.md"
+      "from": "Config/WindowState.json",
+      "to": "Config/WindowState.json"
     }
   ],
   "win": {

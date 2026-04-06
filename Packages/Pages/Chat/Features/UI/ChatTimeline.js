@@ -8,15 +8,16 @@ export function buildTokenFooter(usage, provider, modelId) {
 
   const pricing = provider?.models?.[modelId]?.pricing;
   const cost = pricing
-    ? (inp / 1_000_000 * (pricing.input ?? 0)) + (out / 1_000_000 * (pricing.output ?? 0))
+    ? (inp / 1_000_000) * (pricing.input ?? 0) + (out / 1_000_000) * (pricing.output ?? 0)
     : null;
 
-  const fmtN = n => n >= 1_000_000
-    ? `${(n / 1_000_000).toFixed(2)}M`
-    : n >= 1_000
-      ? `${(n / 1_000).toFixed(1)}K`
-      : String(n);
-  const fmtCost = c => c === 0 ? '$0.000' : c < 0.001 ? '<$0.001' : `~$${c.toFixed(3)}`;
+  const fmtN = (n) =>
+    n >= 1_000_000
+      ? `${(n / 1_000_000).toFixed(2)}M`
+      : n >= 1_000
+        ? `${(n / 1_000).toFixed(1)}K`
+        : String(n);
+  const fmtCost = (c) => (c === 0 ? '$0.000' : c < 0.001 ? '<$0.001' : `~$${c.toFixed(3)}`);
 
   const el = document.createElement('div');
   el.className = 'token-footer';
@@ -24,9 +25,11 @@ export function buildTokenFooter(usage, provider, modelId) {
     <span class="tf-item tf-in">&#8593; ${fmtN(inp)}</span>
     <span class="tf-sep">&#183;</span>
     <span class="tf-item tf-out">&#8595; ${fmtN(out)}</span>
-    ${cost !== null
-      ? `<span class="tf-sep">&#183;</span><span class="tf-item tf-cost">${fmtCost(cost)}</span>`
-      : ''}
+    ${
+      cost !== null
+        ? `<span class="tf-sep">&#183;</span><span class="tf-item tf-cost">${fmtCost(cost)}</span>`
+        : ''
+    }
   `.trim();
   return el;
 }
@@ -48,7 +51,7 @@ export function updateTimeline() {
     }
 
     timeline.classList.add('visible');
-    timeline.querySelectorAll('.chat-timeline-tick').forEach(t => t.remove());
+    timeline.querySelectorAll('.chat-timeline-tick').forEach((t) => t.remove());
 
     const totalHeight = chatMessages.scrollHeight;
     if (totalHeight === 0) return;
@@ -64,7 +67,8 @@ export function updateTimeline() {
       const textEl = row.querySelector('.bubble-text');
       const attachmentCount = row.querySelectorAll('.bubble-attachment').length;
       let raw = (textEl?.textContent || '').trim();
-      if (!raw && attachmentCount > 0) raw = `${attachmentCount} attachment${attachmentCount > 1 ? 's' : ''}`;
+      if (!raw && attachmentCount > 0)
+        raw = `${attachmentCount} attachment${attachmentCount > 1 ? 's' : ''}`;
       const preview = raw.slice(0, 55) + (raw.length > 55 ? '…' : '');
       tick.dataset.preview = preview || 'Message';
 
@@ -73,7 +77,10 @@ export function updateTimeline() {
         row.style.transition = 'background 0.2s ease, border-radius 0.2s ease';
         row.style.background = 'color-mix(in srgb, var(--accent) 5%, transparent)';
         row.style.borderRadius = '16px';
-        setTimeout(() => { row.style.background = ''; row.style.borderRadius = ''; }, 700);
+        setTimeout(() => {
+          row.style.background = '';
+          row.style.borderRadius = '';
+        }, 700);
       });
 
       timeline.appendChild(tick);
@@ -83,6 +90,37 @@ export function updateTimeline() {
 
 /* ── Scroll-to-bottom button ── */
 let _newMsgsSinceScrolled = 0;
+let _followBottom = true;
+const BOTTOM_FOLLOW_THRESHOLD_PX = 36;
+
+function distFromBottomPx() {
+  if (!chatMessages) return Infinity;
+  return chatMessages.scrollHeight - chatMessages.scrollTop - chatMessages.clientHeight;
+}
+
+function isNearBottom(thresholdPx = BOTTOM_FOLLOW_THRESHOLD_PX) {
+  return distFromBottomPx() <= thresholdPx;
+}
+
+export function isFollowingBottom() {
+  return _followBottom;
+}
+
+export function setFollowBottom(next) {
+  _followBottom = Boolean(next);
+}
+
+export function maybeScrollToBottom({
+  behavior = 'smooth',
+  thresholdPx = BOTTOM_FOLLOW_THRESHOLD_PX,
+} = {}) {
+  if (!chatMessages) return false;
+  // Only follow while user is at/near the bottom. If they scroll up even a bit,
+  // we stop auto-follow until they return to bottom (see scroll handler).
+  if (!_followBottom && !isNearBottom(thresholdPx)) return false;
+  chatMessages.scrollTo({ top: chatMessages.scrollHeight, behavior });
+  return true;
+}
 
 export function setupScrollFeatures() {
   const btn = document.getElementById('scroll-to-bottom');
@@ -97,6 +135,10 @@ export function setupScrollFeatures() {
     const shouldShow = distFromBottom > 220;
     btn.classList.toggle('visible', shouldShow);
 
+    // If the user scrolls up even a little, stop following.
+    // Once they come back to the bottom, re-enable follow.
+    _followBottom = distFromBottom <= BOTTOM_FOLLOW_THRESHOLD_PX;
+
     if (!shouldShow) {
       _newMsgsSinceScrolled = 0;
       const badge = btn.querySelector('.scroll-to-bottom-badge');
@@ -105,6 +147,7 @@ export function setupScrollFeatures() {
   });
 
   btn.addEventListener('click', () => {
+    _followBottom = true;
     chatMessages.scrollTo({ top: chatMessages.scrollHeight, behavior: 'smooth' });
     _newMsgsSinceScrolled = 0;
     const badge = btn.querySelector('.scroll-to-bottom-badge');
