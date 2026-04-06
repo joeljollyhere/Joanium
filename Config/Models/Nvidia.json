@@ -118,6 +118,40 @@
         "input": 0.1,
         "output": 0.2
       }
+    },
+    "nvidia/nemotron-3-super-120b-a12b": {
+      "name": "Nemotron 3 Super 120B A12B",
+      "description": "NVIDIA's Nemotron 3 Super 120B A12B model",
+      "rank": 9,
+      "context_window": 131072,
+      "max_output": 16384,
+      "inputs": {
+        "text": true,
+        "image": false,
+        "pdf": false,
+        "docx": false
+      },
+      "pricing": {
+        "input": 0.01,
+        "output": 0.02
+      }
+    },
+    "qwen/qwen3.5-397b-a17b": {
+      "name": "Qwen 3.5 397B A17B",
+      "description": "Qwen 3.5 397B A17B model",
+      "rank": 10,
+      "context_window": 131072,
+      "max_output": 16384,
+      "inputs": {
+        "text": true,
+        "image": false,
+        "pdf": false,
+        "docx": false
+      },
+      "pricing": {
+        "input": 0.01,
+        "output": 0.02
+      }
     }
   }
 }
