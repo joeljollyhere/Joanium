@@ -9,14 +9,18 @@ import { loadDataSources } from './loadDataSources.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const DATA_SOURCES_DIR = path.resolve(__dirname, '..', 'DataSources');
+const MAX_HISTORY = 30;
+const MAX_CONCURRENT_JOBS = 3;
+const USAGE_RECORD_LIMIT = 20_000;
+const USAGE_FLUSH_DEBOUNCE_MS = 400;
+const DEFAULT_TRIGGER = { type: 'daily', time: '08:00' };
 
-async function trackUsage({ usageFile, provider, model, modelName, inputTokens, outputTokens }) {
-  try {
-    if (!usageFile) return;
+const usageFileCache = new Map();
 
-    const dir = path.dirname(usageFile);
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+function getUsageCache(usageFile) {
+  if (!usageFile) return null;
 
+  if (!usageFileCache.has(usageFile)) {
     let data = { records: [] };
     if (fs.existsSync(usageFile)) {
       try {
@@ -27,8 +31,42 @@ async function trackUsage({ usageFile, provider, model, modelName, inputTokens, 
     }
 
     if (!Array.isArray(data.records)) data.records = [];
+    usageFileCache.set(usageFile, { data, timer: null });
+  }
 
-    data.records.push({
+  return usageFileCache.get(usageFile);
+}
+
+function flushUsageFile(usageFile) {
+  const cache = usageFileCache.get(usageFile);
+  if (!cache) return;
+
+  if (cache.timer) {
+    clearTimeout(cache.timer);
+    cache.timer = null;
+  }
+
+  const dir = path.dirname(usageFile);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  if (cache.data.records.length > USAGE_RECORD_LIMIT) {
+    cache.data.records = cache.data.records.slice(-USAGE_RECORD_LIMIT);
+  }
+  fs.writeFileSync(usageFile, JSON.stringify(cache.data, null, 2), 'utf-8');
+}
+
+function flushAllUsageFiles() {
+  for (const usageFile of usageFileCache.keys()) {
+    flushUsageFile(usageFile);
+  }
+}
+
+async function trackUsage({ usageFile, provider, model, modelName, inputTokens, outputTokens }) {
+  try {
+    if (!usageFile) return;
+    const cache = getUsageCache(usageFile);
+    if (!cache) return;
+
+    cache.data.records.push({
       timestamp: new Date().toISOString(),
       provider: provider ?? 'unknown',
       model: model ?? 'unknown',
@@ -38,8 +76,18 @@ async function trackUsage({ usageFile, provider, model, modelName, inputTokens, 
       chatId: null,
     });
 
-    if (data.records.length > 20_000) data.records = data.records.slice(-20_000);
-    fs.writeFileSync(usageFile, JSON.stringify(data, null, 2), 'utf-8');
+    if (cache.data.records.length > USAGE_RECORD_LIMIT) {
+      cache.data.records = cache.data.records.slice(-USAGE_RECORD_LIMIT);
+    }
+
+    if (cache.timer) clearTimeout(cache.timer);
+    cache.timer = setTimeout(() => {
+      try {
+        flushUsageFile(usageFile);
+      } catch (err) {
+        console.warn('[AutomationEngine] trackUsage flush failed:', err.message);
+      }
+    }, USAGE_FLUSH_DEBOUNCE_MS);
   } catch (err) {
     console.warn('[AutomationEngine] trackUsage failed:', err.message);
   }
@@ -128,7 +176,6 @@ async function callModel(providerData, modelId, systemPrompt, userMessage) {
 
 async function callAIWithFailover(automation, systemPrompt, userMessage, allProviders, usageFile) {
   const candidates = [];
-  const seenCandidates = new Set();
 
   function addCandidate(providerId, modelId) {
     if (!providerId || !modelId) return;
@@ -136,18 +183,10 @@ async function callAIWithFailover(automation, systemPrompt, userMessage, allProv
     const provider = allProviders.find((item) => item.provider === providerId);
     if (!provider?.configured) return;
 
-    const key = `${provider.provider}::${modelId}`;
-    if (seenCandidates.has(key)) return;
-
-    seenCandidates.add(key);
     candidates.push({ provider, modelId });
   }
 
   addCandidate(automation.primaryModel?.provider, automation.primaryModel?.modelId);
-
-  for (const fallback of automation.fallbackModels ?? []) {
-    addCandidate(fallback?.provider, fallback?.modelId);
-  }
 
   if (!candidates.length) {
     throw new Error('No AI model configured for this automation.');
@@ -173,6 +212,102 @@ async function callAIWithFailover(automation, systemPrompt, userMessage, allProv
   }
 
   throw lastErr ?? new Error('All models failed');
+}
+
+function normalizeTrigger(trigger = {}) {
+  const type = trigger?.type ?? DEFAULT_TRIGGER.type;
+
+  if (type === 'interval') {
+    return {
+      type,
+      minutes: Math.max(1, parseInt(trigger.minutes, 10) || 30),
+    };
+  }
+
+  if (type === 'daily') {
+    return { type, time: trigger.time || DEFAULT_TRIGGER.time };
+  }
+
+  if (type === 'weekly') {
+    return {
+      type,
+      day: trigger.day || 'monday',
+      time: trigger.time || DEFAULT_TRIGGER.time,
+    };
+  }
+
+  if (type === 'hourly' || type === 'on_startup') {
+    return { type };
+  }
+
+  return { ...DEFAULT_TRIGGER };
+}
+
+function normalizeModelSelection(model) {
+  if (!model?.provider || !model?.modelId) return null;
+  return {
+    provider: String(model.provider),
+    modelId: String(model.modelId),
+  };
+}
+
+function normalizeJobHistory(history = []) {
+  if (!Array.isArray(history)) return [];
+
+  return history.slice(0, MAX_HISTORY).map((entry) => ({
+    timestamp: entry?.timestamp ?? new Date().toISOString(),
+    acted: entry?.acted === true,
+    skipped: entry?.skipped === true,
+    nothingToReport: entry?.nothingToReport === true,
+    error: entry?.error ? String(entry.error) : null,
+    skipReason: entry?.skipReason ? String(entry.skipReason) : null,
+    summary: String(entry?.summary ?? ''),
+    fullResponse: String(entry?.fullResponse ?? ''),
+  }));
+}
+
+function normalizeDataSources(job = {}) {
+  if (Array.isArray(job.dataSources)) {
+    return job.dataSources
+      .filter((source) => source && typeof source === 'object')
+      .map((source) => ({ ...source }));
+  }
+
+  if (job.dataSource?.type) {
+    return [{ ...job.dataSource }];
+  }
+
+  return [];
+}
+
+function normalizeJob(job = {}) {
+  return {
+    id: String(job.id ?? ''),
+    name: String(job.name ?? '').trim(),
+    enabled: job.enabled !== false,
+    trigger: normalizeTrigger(job.trigger),
+    dataSources: normalizeDataSources(job),
+    instruction: String(job.instruction ?? '').trim(),
+    output:
+      job.output && typeof job.output === 'object' && !Array.isArray(job.output)
+        ? { ...job.output }
+        : { type: '' },
+    history: normalizeJobHistory(job.history),
+    lastRun: job.lastRun ?? null,
+  };
+}
+
+function normalizeAutomation(automation = {}) {
+  return {
+    id: String(automation.id ?? ''),
+    name: String(automation.name ?? '').trim(),
+    description: String(automation.description ?? '').trim(),
+    enabled: automation.enabled !== false,
+    primaryModel: normalizeModelSelection(automation.primaryModel),
+    jobs: Array.isArray(automation.jobs)
+      ? automation.jobs.map((job) => normalizeJob(job)).filter((job) => job.id)
+      : [],
+  };
 }
 
 let dataSourceCollectorMap = null;
@@ -348,6 +483,9 @@ export class AutomationEngine {
     this.automations = [];
     this._ticker = null;
     this._running = new Map();
+    this._queue = [];
+    this._queuedRunKeys = new Set();
+    this._persistTimer = null;
   }
 
   start() {
@@ -361,6 +499,20 @@ export class AutomationEngine {
       clearInterval(this._ticker);
       this._ticker = null;
     }
+
+    if (this._persistTimer) {
+      clearTimeout(this._persistTimer);
+      this._persistTimer = null;
+    }
+
+    this._flushPersist();
+    flushAllUsageFiles();
+
+    while (this._queue.length) {
+      const task = this._queue.shift();
+      this._queuedRunKeys.delete(task.runKey);
+      task.reject(new Error('App shutting down'));
+    }
   }
 
   reload() {
@@ -368,7 +520,6 @@ export class AutomationEngine {
   }
 
   getAll() {
-    this._load();
     return this.automations;
   }
 
@@ -389,26 +540,33 @@ export class AutomationEngine {
 
   saveAutomation(automation) {
     this._load();
-    const index = this.automations.findIndex((item) => item.id === automation.id);
+    const normalized = normalizeAutomation(automation);
+    if (!normalized.id) throw new Error('Automation id is required.');
+    if (!normalized.name) throw new Error('Automation name is required.');
+    if (normalized.jobs.length && !normalized.primaryModel) {
+      throw new Error('Choose a primary model.');
+    }
+
+    const index = this.automations.findIndex((item) => item.id === normalized.id);
 
     if (index >= 0) {
       const existing = this.automations[index];
-      const updatedJobs = (automation.jobs ?? []).map((newJob) => {
+      const updatedJobs = normalized.jobs.map((newJob) => {
         const oldJob = (existing.jobs ?? []).find((job) => job.id === newJob.id);
         return oldJob
           ? { ...newJob, history: oldJob.history ?? [], lastRun: oldJob.lastRun ?? null }
           : { ...newJob, history: [], lastRun: null };
       });
-      this.automations[index] = { ...existing, ...automation, jobs: updatedJobs };
+      this.automations[index] = { ...existing, ...normalized, jobs: updatedJobs };
     } else {
       this.automations.push({
-        ...automation,
-        jobs: (automation.jobs ?? []).map((job) => ({ ...job, history: [], lastRun: null })),
+        ...normalized,
+        jobs: normalized.jobs.map((job) => ({ ...job, history: [], lastRun: null })),
       });
     }
 
     this._persist();
-    return this.automations.find((item) => item.id === automation.id) ?? automation;
+    return this.automations.find((item) => item.id === normalized.id) ?? normalized;
   }
 
   deleteAutomation(id) {
@@ -431,17 +589,25 @@ export class AutomationEngine {
     const automation = this.automations.find((item) => item.id === automationId);
     if (!automation) throw new Error(`Automation "${automationId}" not found`);
 
-    for (const job of automation.jobs ?? []) {
-      await this._executeJob(automation, job, 'manual');
-    }
+    await Promise.all(
+      (automation.jobs ?? []).map((job) => this._enqueueJobRun(automation.id, job.id, 'manual')),
+    );
+    this._flushPersist();
+    flushAllUsageFiles();
 
     return { ok: true };
   }
 
   _load() {
     try {
+      if (this._persistTimer) {
+        this._flushPersist();
+      }
       const data = this.storage.load(() => ({ automations: [] }));
-      this.automations = Array.isArray(data?.automations) ? data.automations : [];
+      const automations = Array.isArray(data?.automations) ? data.automations : [];
+      this.automations = automations
+        .map((automation) => normalizeAutomation(automation))
+        .filter((automation) => automation.id);
     } catch (err) {
       console.error('[AutomationEngine] _load error:', err);
       this.automations = [];
@@ -456,12 +622,28 @@ export class AutomationEngine {
     }
   }
 
+  _schedulePersist() {
+    if (this._persistTimer) clearTimeout(this._persistTimer);
+    this._persistTimer = setTimeout(() => {
+      this._persistTimer = null;
+      this._persist();
+    }, 150);
+  }
+
+  _flushPersist() {
+    if (this._persistTimer) {
+      clearTimeout(this._persistTimer);
+      this._persistTimer = null;
+    }
+    this._persist();
+  }
+
   _runStartupJobs() {
     for (const automation of this.automations) {
       if (!automation.enabled) continue;
       for (const job of automation.jobs ?? []) {
         if (job.enabled !== false && job.trigger?.type === 'on_startup') {
-          this._executeJob(automation, job, 'startup');
+          this._enqueueJobRun(automation.id, job.id, 'startup');
         }
       }
     }
@@ -476,11 +658,72 @@ export class AutomationEngine {
         if (
           job.enabled !== false &&
           !this._running.has(runKey) &&
+          !this._queuedRunKeys.has(runKey) &&
           shouldRunNow({ trigger: job.trigger, lastRun: job.lastRun ?? null }, now)
         ) {
-          this._executeJob(automation, job, 'scheduled');
+          this._enqueueJobRun(automation.id, job.id, 'scheduled');
         }
       }
+    }
+  }
+
+  _findLiveJob(automationId, jobId) {
+    const automation = this.automations.find((item) => item.id === automationId);
+    const job = automation?.jobs?.find((item) => item.id === jobId);
+    return { automation, job };
+  }
+
+  _enqueueJobRun(automationId, jobId, triggerKind = 'scheduled') {
+    const runKey = `${automationId}__${jobId}`;
+    if (this._running.has(runKey)) {
+      return Promise.resolve({ ok: false, skipped: true, reason: 'already running' });
+    }
+
+    const queuedTask = this._queue.find((task) => task.runKey === runKey);
+    if (queuedTask) return queuedTask.promise;
+
+    let resolveTask;
+    let rejectTask;
+    const promise = new Promise((resolve, reject) => {
+      resolveTask = resolve;
+      rejectTask = reject;
+    });
+
+    this._queue.push({
+      automationId,
+      jobId,
+      triggerKind,
+      runKey,
+      promise,
+      resolve: resolveTask,
+      reject: rejectTask,
+    });
+    this._queuedRunKeys.add(runKey);
+    this._drainQueue();
+
+    return promise;
+  }
+
+  _drainQueue() {
+    while (this._running.size < MAX_CONCURRENT_JOBS && this._queue.length) {
+      const task = this._queue.shift();
+      this._queuedRunKeys.delete(task.runKey);
+
+      const { automation, job } = this._findLiveJob(task.automationId, task.jobId);
+      if (!automation || !job) {
+        task.resolve({ ok: false, skipped: true, reason: 'missing automation or job' });
+        continue;
+      }
+
+      if (task.triggerKind !== 'manual' && (!automation.enabled || job.enabled === false)) {
+        task.resolve({ ok: false, skipped: true, reason: 'disabled' });
+        continue;
+      }
+
+      this._executeJob(automation, job, task.triggerKind)
+        .then(task.resolve)
+        .catch(task.reject)
+        .finally(() => this._drainQueue());
     }
   }
 
@@ -488,6 +731,10 @@ export class AutomationEngine {
     const runKey = `${automation.id}__${job.id}`;
     const automationId = automation.id;
     const jobId = job.id;
+
+    if (this._running.has(runKey)) {
+      return { ok: false, skipped: true, reason: 'already running' };
+    }
 
     this._running.set(runKey, {
       automationId,
@@ -595,14 +842,22 @@ export class AutomationEngine {
     if (liveAutomation && liveJob) {
       if (!Array.isArray(liveJob.history)) liveJob.history = [];
       liveJob.history.unshift(entry);
-      if (liveJob.history.length > 30) liveJob.history = liveJob.history.slice(0, 30);
+      if (liveJob.history.length > MAX_HISTORY) {
+        liveJob.history = liveJob.history.slice(0, MAX_HISTORY);
+      }
       liveJob.lastRun = entry.timestamp;
-      this._persist();
+      this._schedulePersist();
     } else {
       console.warn(
         `[AutomationEngine] Automation/job ${automationId}/${jobId} not found after run.`,
       );
     }
+
+    return {
+      ok: !entry.error,
+      skipped: entry.skipped,
+      entry,
+    };
   }
 }
 

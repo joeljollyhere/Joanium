@@ -72,7 +72,28 @@ async function tryFeatureExecutor(toolName, params) {
   });
 }
 
-export async function executeTool(toolName, params, onStage = () => {}) {
+function normalizeExecuteHooks(onStageOrHooks, maybeHooks = null) {
+  const hooks =
+    onStageOrHooks && typeof onStageOrHooks === 'object'
+      ? { ...onStageOrHooks }
+      : { ...(maybeHooks ?? {}) };
+
+  if (typeof onStageOrHooks === 'function') {
+    hooks.onStage = onStageOrHooks;
+  } else if (typeof maybeHooks === 'function') {
+    hooks.onStage = maybeHooks;
+  }
+
+  if (typeof hooks.onStage !== 'function') {
+    hooks.onStage = () => {};
+  }
+
+  return hooks;
+}
+
+export async function executeTool(toolName, params, onStageOrHooks = () => {}, maybeHooks = null) {
+  const hooks = normalizeExecuteHooks(onStageOrHooks, maybeHooks);
+
   try {
     const featureResult = await tryFeatureExecutor(toolName, params);
     if (featureResult != null) return featureResult;
@@ -80,7 +101,7 @@ export async function executeTool(toolName, params, onStage = () => {}) {
 
   for (const executor of EXECUTORS) {
     if (await executorHandles(executor, toolName)) {
-      return executor.execute(toolName, params, onStage);
+      return executor.execute(toolName, params, hooks);
     }
   }
 
@@ -93,7 +114,7 @@ export async function executeTool(toolName, params, onStage = () => {}) {
   for (const executor of EXECUTORS) {
     if (await executorHandles(executor, normalized)) {
       console.warn(`[Executors] Normalized tool name "${toolName}" -> "${normalized}"`);
-      return executor.execute(normalized, params, onStage);
+      return executor.execute(normalized, params, hooks);
     }
   }
 

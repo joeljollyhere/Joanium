@@ -1,8 +1,15 @@
 import { createExecutor } from '../Shared/createExecutor.js';
 import { state } from '../../../../../System/State.js';
 
-function resolveWorkingDirectory(explicitPath) {
-  return explicitPath?.trim() || state.workspacePath || '';
+function resolveWorkingDirectory(explicitPath, hooks = {}) {
+  const directPath = explicitPath?.trim();
+  if (directPath) return directPath;
+
+  if (Object.prototype.hasOwnProperty.call(hooks, 'workspacePath')) {
+    return String(hooks.workspacePath ?? '').trim();
+  }
+
+  return state.workspacePath || '';
 }
 
 function formatRisk(risk) {
@@ -158,8 +165,8 @@ export const { handles, execute } = createExecutor({
     'delete_item',
   ],
   handlers: {
-    inspect_workspace: async (params, onStage) => {
-      const rootPath = resolveWorkingDirectory(params.path);
+    inspect_workspace: async (params, onStage, hooks) => {
+      const rootPath = resolveWorkingDirectory(params.path, hooks);
       if (!rootPath) throw new Error('No workspace is open. Set a workspace or provide a path.');
 
       onStage(`📂 Inspecting workspace ${rootPath}`);
@@ -168,8 +175,8 @@ export const { handles, execute } = createExecutor({
       return formatWorkspaceSummary(result.summary);
     },
 
-    search_workspace: async (params, onStage) => {
-      const rootPath = resolveWorkingDirectory(params.path);
+    search_workspace: async (params, onStage, hooks) => {
+      const rootPath = resolveWorkingDirectory(params.path, hooks);
       if (!rootPath) throw new Error('No workspace is open. Set a workspace or provide a path.');
       if (!params.query?.trim()) throw new Error('Missing required param: query');
 
@@ -189,8 +196,8 @@ export const { handles, execute } = createExecutor({
       ].join('\n');
     },
 
-    find_file_by_name: async (params, onStage) => {
-      const rootPath = resolveWorkingDirectory(params.path);
+    find_file_by_name: async (params, onStage, hooks) => {
+      const rootPath = resolveWorkingDirectory(params.path, hooks);
       if (!rootPath) throw new Error('No workspace is open. Set a workspace or provide a path.');
       if (!params.name?.trim()) throw new Error('Missing required param: name');
 
@@ -221,11 +228,11 @@ export const { handles, execute } = createExecutor({
       return formatRisk(result.risk) || 'Risk: **low**';
     },
 
-    run_shell_command: async (params, onStage) => {
+    run_shell_command: async (params, onStage, hooks) => {
       const { command, timeout_seconds = 30, allow_risky = false } = params;
       if (!command?.trim()) throw new Error('Missing required param: command');
 
-      const workingDirectory = resolveWorkingDirectory(params.working_directory);
+      const workingDirectory = resolveWorkingDirectory(params.working_directory, hooks);
       onStage(`💻 Running: \`${command.slice(0, 80)}${command.length > 80 ? '…' : ''}\``);
 
       const result = await window.electronAPI?.invoke?.('run-shell-command', {
@@ -467,8 +474,8 @@ export const { handles, execute } = createExecutor({
       return `✅ Moved ${result.source} -> ${result.destination}`;
     },
 
-    git_status: async (params, onStage) => {
-      const workingDirectory = resolveWorkingDirectory(params.working_directory);
+    git_status: async (params, onStage, hooks) => {
+      const workingDirectory = resolveWorkingDirectory(params.working_directory, hooks);
       if (!workingDirectory)
         throw new Error('No workspace is open. Set a workspace or provide working_directory.');
 
@@ -485,8 +492,8 @@ export const { handles, execute } = createExecutor({
       ].join('\n');
     },
 
-    git_diff: async (params, onStage) => {
-      const workingDirectory = resolveWorkingDirectory(params.working_directory);
+    git_diff: async (params, onStage, hooks) => {
+      const workingDirectory = resolveWorkingDirectory(params.working_directory, hooks);
       if (!workingDirectory)
         throw new Error('No workspace is open. Set a workspace or provide working_directory.');
 
@@ -504,8 +511,8 @@ export const { handles, execute } = createExecutor({
       ].join('\n');
     },
 
-    git_create_branch: async (params, onStage) => {
-      const workingDirectory = resolveWorkingDirectory(params.working_directory);
+    git_create_branch: async (params, onStage, hooks) => {
+      const workingDirectory = resolveWorkingDirectory(params.working_directory, hooks);
       if (!workingDirectory)
         throw new Error('No workspace is open. Set a workspace or provide working_directory.');
       if (!params.branch_name?.trim()) throw new Error('Missing required param: branch_name');
@@ -525,8 +532,8 @@ export const { handles, execute } = createExecutor({
       ].join('\n');
     },
 
-    run_project_checks: async (params, onStage) => {
-      const workingDirectory = resolveWorkingDirectory(params.working_directory);
+    run_project_checks: async (params, onStage, hooks) => {
+      const workingDirectory = resolveWorkingDirectory(params.working_directory, hooks);
       if (!workingDirectory)
         throw new Error('No workspace is open. Set a workspace or provide working_directory.');
 
@@ -563,11 +570,11 @@ export const { handles, execute } = createExecutor({
       return `✅ Successfully deleted: ${itemPath}`;
     },
 
-    start_local_server: async (params, onStage) => {
+    start_local_server: async (params, onStage, hooks) => {
       const { command } = params;
       if (!command?.trim()) throw new Error('Missing required param: command');
 
-      const workingDirectory = resolveWorkingDirectory(params.working_directory);
+      const workingDirectory = resolveWorkingDirectory(params.working_directory, hooks);
       onStage(`🚀 Starting server: ${command}`);
       const invokePayload = { command, cwd: workingDirectory };
       if (params.settle_ms != null && params.settle_ms !== '') {

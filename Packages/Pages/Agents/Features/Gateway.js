@@ -24,7 +24,10 @@ function buildScheduledSystemPrompt(agent) {
     `You are ${agent.name}, an autonomous scheduled AI agent.`,
     agent.description ? `Description: ${agent.description}` : '',
     'The user message contains your standing task for this run.',
-    'You can use all available chat tools, workspace tools, connectors, MCP tools, and browser tools.',
+    agent.workspacePath
+      ? `Default workspace for this run: ${agent.workspacePath}`
+      : 'No default workspace is bound for this run. Do not assume access to the currently open folder or project.',
+    'You can use all available chat tools, connectors, MCP tools, and browser tools. Workspace-specific tools are only available when this agent has a bound workspace.',
     'Take action directly when the task calls for it.',
     'Finish with a concise plain-language summary of what you did, what changed, and any blockers.',
   ]
@@ -52,7 +55,7 @@ async function getModelSelection(agent) {
     selectedProvider,
     selectedModel: agent.primaryModel.modelId,
     providers,
-    fallbackModels: agent.fallbackModels ?? [],
+    allowImplicitFailover: false,
   };
 }
 
@@ -69,8 +72,12 @@ export function initScheduledAgentGateway() {
       }
 
       const modelSelection = await getModelSelection(agent);
+      const runtimeContext = {
+        workspacePath: agent.workspacePath ?? agent.project?.rootPath ?? null,
+        activeProject: agent.project ?? null,
+      };
       const messages = [{ role: 'user', content: agent.prompt ?? '', attachments: [] }];
-      const plan = await planRequest(messages, modelSelection);
+      const plan = await planRequest(messages, { ...modelSelection, ...runtimeContext });
 
       const { text, usage, usedProvider, usedModel } = await agentLoop(
         messages,
@@ -79,7 +86,7 @@ export function initScheduledAgentGateway() {
         plan.toolCalls,
         buildScheduledSystemPrompt(agent),
         null,
-        modelSelection,
+        { ...modelSelection, ...runtimeContext },
       );
 
       await trackUsage(usage, `scheduled-agent:${agent.id}`, usedProvider, usedModel);

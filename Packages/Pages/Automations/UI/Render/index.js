@@ -164,7 +164,6 @@ export function mount(outlet) {
     primaryModelBtn: document.getElementById('primary-model-btn'),
     primaryModelLabel: document.getElementById('primary-model-label'),
     primaryModelMenu: document.getElementById('primary-model-menu'),
-    fallbackListEl: document.getElementById('fallback-models-list'),
     jobsListEl: document.getElementById('jobs-list'),
     addJobBtn: document.getElementById('add-job-btn'),
     jobsBadge: document.getElementById('jobs-count-badge'),
@@ -184,7 +183,6 @@ export function mount(outlet) {
     primaryModelBtn: elements.primaryModelBtn,
     primaryModelLabel: elements.primaryModelLabel,
     primaryModelMenu: elements.primaryModelMenu,
-    fallbackListEl: elements.fallbackListEl,
   });
   const jobsController = createJobsController({
     state,
@@ -311,7 +309,6 @@ export function mount(outlet) {
     state.editingId = automation?.id ?? null;
     state.editingEnabled = automation?.enabled ?? true;
     state.primaryModel = automation?.primaryModel ? { ...automation.primaryModel } : null;
-    state.fallbackModels = automation?.fallbackModels ? [...automation.fallbackModels] : [];
     state.jobs = cloneJobsForEditing(automation);
 
     if (elements.modalTitleEl) {
@@ -321,7 +318,6 @@ export function mount(outlet) {
     if (elements.descInput) elements.descInput.value = automation?.description ?? '';
 
     modelPicker.syncPrimaryModelLabel();
-    modelPicker.renderFallbackList();
     jobsController.renderJobsList();
 
     elements.modalBackdrop?.classList.add('open');
@@ -382,7 +378,6 @@ export function mount(outlet) {
       description: elements.descInput?.value.trim() ?? '',
       enabled: state.editingEnabled,
       primaryModel: state.primaryModel ? { ...state.primaryModel } : null,
-      fallbackModels: state.fallbackModels.map((model) => ({ ...model })),
       jobs: configuredJobs,
     };
 

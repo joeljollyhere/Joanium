@@ -113,6 +113,22 @@ function resolveModelSelection(options = {}) {
     selectedModel: options.selectedModel ?? state.selectedModel,
     providers: Array.isArray(options.providers) ? options.providers : state.providers,
     fallbackModels: Array.isArray(options.fallbackModels) ? options.fallbackModels : [],
+    allowImplicitFailover: options.allowImplicitFailover !== false,
+  };
+}
+
+function hasOwnOption(options = {}, key) {
+  return Object.prototype.hasOwnProperty.call(options, key);
+}
+
+function resolveRuntimeContext(options = {}) {
+  return {
+    workspacePath: hasOwnOption(options, 'workspacePath')
+      ? String(options.workspacePath ?? '').trim() || null
+      : state.workspacePath,
+    activeProject: hasOwnOption(options, 'activeProject')
+      ? (options.activeProject ?? null)
+      : state.activeProject,
   };
 }
 
@@ -121,6 +137,7 @@ export function buildFailoverCandidates(
   selectedModel,
   providers = state.providers,
   fallbackModels = [],
+  allowImplicitFailover = true,
 ) {
   if (!selectedProvider || !selectedModel) return [];
   const candidates = [];
@@ -140,6 +157,10 @@ export function buildFailoverCandidates(
         note: `Falling back to ${provider.label ?? provider.provider} - ${getModelDisplayName(provider, modelId)}...`,
       });
     }
+    return candidates;
+  }
+
+  if (!allowImplicitFailover) {
     return candidates;
   }
 
@@ -189,11 +210,11 @@ async function loadEnabledSkills() {
   }
 }
 
-async function loadWorkspaceSummary() {
-  if (!state.workspacePath) return null;
+async function loadWorkspaceSummary(workspacePath = state.workspacePath) {
+  if (!workspacePath) return null;
   try {
     const res = await window.electronAPI?.invoke?.('inspect-workspace', {
-      rootPath: state.workspacePath,
+      rootPath: workspacePath,
     });
     return res?.ok ? res.summary : null;
   } catch {
@@ -201,18 +222,18 @@ async function loadWorkspaceSummary() {
   }
 }
 
-function buildActiveProjectHint(mode = 'runtime') {
-  if (!state.activeProject) return '';
+function buildActiveProjectHint(activeProject = state.activeProject, mode = 'runtime') {
+  if (!activeProject) return '';
 
   const lines = [
     '[ACTIVE PROJECT]',
-    `Name: ${state.activeProject.name}`,
-    `Workspace: ${state.activeProject.rootPath}`,
+    `Name: ${activeProject.name}`,
+    `Workspace: ${activeProject.rootPath}`,
   ];
 
-  if (state.activeProject.context) {
+  if (activeProject.context) {
     lines.push('Project info to keep in mind:');
-    lines.push(state.activeProject.context);
+    lines.push(activeProject.context);
   }
 
   if (mode === 'planning') {
@@ -311,11 +332,11 @@ function buildWorkspaceHint(summary, mode = 'runtime') {
   return lines.join('\n');
 }
 
-function buildWorkspaceFilePolicyHint() {
-  if (state.workspacePath) {
+function buildWorkspaceFilePolicyHint(workspacePath = state.workspacePath) {
+  if (workspacePath) {
     return [
       '## Workspace File Policy',
-      `A workspace directory is open at: ${state.workspacePath}`,
+      `A workspace directory is open at: ${workspacePath}`,
       'When the user asks for code, bug fixes, or file changes, prefer using the available workspace/file tools to create or update the real files inside that workspace.',
       'Do not stop at code snippets when you can safely complete the request directly in the open workspace.',
     ].join('\n');
@@ -743,6 +764,7 @@ function buildToolResultContext(
 
 export async function planRequest(messages, options = {}) {
   const { selectedProvider, selectedModel } = resolveModelSelection(options);
+  const { workspacePath, activeProject } = resolveRuntimeContext(options);
   if (!selectedProvider || !selectedModel || !messages?.length) {
     return { skills: [], toolCalls: [] };
   }
@@ -756,13 +778,13 @@ export async function planRequest(messages, options = {}) {
 
   const [skills, availableTools, workspaceSummary] = await Promise.all([
     loadEnabledSkills(),
-    getAvailableTools(),
-    loadWorkspaceSummary(),
+    getAvailableTools({ workspacePath }),
+    loadWorkspaceSummary(workspacePath),
   ]);
   const browserTools = getBrowserAutomationTools(availableTools);
   const browserPlanningHint = buildBrowserPlanningHint(browserTools);
   const subAgentPlanningHint = buildSubAgentPlanningHint(availableTools);
-  const workspaceFilePolicyHint = buildWorkspaceFilePolicyHint();
+  const workspaceFilePolicyHint = buildWorkspaceFilePolicyHint(workspacePath);
 
   const planPrompt = [
     'You are a planning assistant for an AI agent.',
@@ -775,7 +797,7 @@ export async function planRequest(messages, options = {}) {
     '',
     'Recent conversation:',
     recentMessages,
-    state.activeProject ? `\n${buildActiveProjectHint('planning')}` : '',
+    activeProject ? `\n${buildActiveProjectHint(activeProject, 'planning')}` : '',
     workspaceSummary ? `\n${buildWorkspaceHint(workspaceSummary, 'planning')}` : '',
     `\n${workspaceFilePolicyHint}`,
     browserPlanningHint ? `\n${browserPlanningHint}` : '',
@@ -834,8 +856,9 @@ export async function agentLoop(
   signal = null,
   options = {},
 ) {
-  const { selectedProvider, selectedModel, providers, fallbackModels } =
+  const { selectedProvider, selectedModel, providers, fallbackModels, allowImplicitFailover } =
     resolveModelSelection(options);
+  const { workspacePath, activeProject } = resolveRuntimeContext(options);
   const loopMessages = [...messages];
   const MAX_TURNS = 100;
   const MAX_REWRITE_ATTEMPTS = 5;
@@ -844,9 +867,9 @@ export async function agentLoop(
   const totalUsage = { inputTokens: 0, outputTokens: 0 };
 
   const [rawAvailableTools, allSkills, workspaceSummary] = await Promise.all([
-    getAvailableTools(),
+    getAvailableTools({ workspacePath }),
     loadEnabledSkills(),
-    loadWorkspaceSummary(),
+    loadWorkspaceSummary(workspacePath),
   ]);
   const availableTools = filterToolsForRun(rawAvailableTools, options);
 
@@ -856,9 +879,9 @@ export async function agentLoop(
     getBrowserAutomationTools(availableTools),
   );
   const selectedSkillBlock = buildSelectedSkillsBlock(plannedSkills, allSkills);
-  const projectHint = buildActiveProjectHint('runtime');
+  const projectHint = buildActiveProjectHint(activeProject, 'runtime');
   const workspaceHint = buildWorkspaceHint(workspaceSummary, 'runtime');
-  const workspaceFilePolicyHint = buildWorkspaceFilePolicyHint();
+  const workspaceFilePolicyHint = buildWorkspaceFilePolicyHint(workspacePath);
   const basePrompt = [
     systemPrompt,
     toolPrivacyBlock,
@@ -877,7 +900,13 @@ export async function agentLoop(
 
   const candidates = [
     { provider: selectedProvider, modelId: selectedModel, note: null },
-    ...buildFailoverCandidates(selectedProvider, selectedModel, providers, fallbackModels),
+    ...buildFailoverCandidates(
+      selectedProvider,
+      selectedModel,
+      providers,
+      fallbackModels,
+      allowImplicitFailover,
+    ),
   ].filter((candidate) => candidate.provider && candidate.modelId);
 
   let usedProvider = selectedProvider;
@@ -1074,6 +1103,7 @@ export async function agentLoop(
             : executionHooks && typeof executionHooks === 'object'
               ? executionHooks
               : {}),
+          workspacePath,
           signal,
         });
       } catch (err) {

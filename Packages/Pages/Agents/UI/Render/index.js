@@ -4,6 +4,7 @@ import { createResponseViewer } from './Components/ResponseViewer.js';
 import { generateAgentId, resolveModelLabel } from './Utils/Utils.js';
 import { getAgentsHTML } from './Templates/Template.js';
 import { createCardPool } from '../../../../System/CardPool.js';
+import { state as appState } from '../../../../../System/State.js';
 
 const SCHEDULE_OPTIONS = [
   { minutes: 1, label: 'Every 1 minute' },
@@ -30,6 +31,26 @@ function truncate(text, limit = 180) {
     .trim();
   if (normalized.length <= limit) return normalized;
   return `${normalized.slice(0, limit - 3)}...`;
+}
+
+function normalizeWorkspacePath(workspacePath) {
+  const value = String(workspacePath ?? '').trim();
+  return value || null;
+}
+
+function cloneProjectSnapshot(project) {
+  if (!project?.rootPath) return null;
+  return {
+    id: project.id ?? null,
+    name: project.name ?? 'Workspace',
+    rootPath: project.rootPath,
+    context: project.context ?? '',
+  };
+}
+
+function formatWorkspaceLabel(workspacePath) {
+  if (!workspacePath) return '';
+  return workspacePath.length > 64 ? `...${workspacePath.slice(-61)}` : workspacePath;
 }
 
 function timeAgo(iso) {
@@ -307,7 +328,8 @@ export function mount(outlet) {
     deletingId: null,
     editingEnabled: true,
     primaryModel: null,
-    fallbackModels: [],
+    boundWorkspacePath: null,
+    boundProject: null,
   };
 
   const elements = {
@@ -324,10 +346,15 @@ export function mount(outlet) {
     descInput: document.getElementById('agent-desc'),
     promptInput: document.getElementById('agent-prompt'),
     scheduleSelect: document.getElementById('agent-schedule-select'),
+    workspacePanel: document.getElementById('agent-workspace-panel'),
+    workspaceTitle: document.getElementById('agent-workspace-title'),
+    workspacePath: document.getElementById('agent-workspace-path'),
+    workspacePickBtn: document.getElementById('agent-workspace-pick-btn'),
+    workspaceCurrentBtn: document.getElementById('agent-workspace-current-btn'),
+    workspaceClearBtn: document.getElementById('agent-workspace-clear-btn'),
     primaryModelBtn: document.getElementById('primary-model-btn'),
     primaryModelLabel: document.getElementById('primary-model-label'),
     primaryModelMenu: document.getElementById('primary-model-menu'),
-    fallbackListEl: document.getElementById('fallback-models-list'),
     confirmOverlay: document.getElementById('confirm-overlay'),
     confirmCancelBtn: document.getElementById('confirm-cancel'),
     confirmDeleteBtn: document.getElementById('confirm-delete'),
@@ -343,8 +370,80 @@ export function mount(outlet) {
     primaryModelBtn: elements.primaryModelBtn,
     primaryModelLabel: elements.primaryModelLabel,
     primaryModelMenu: elements.primaryModelMenu,
-    fallbackListEl: elements.fallbackListEl,
   });
+
+  function getCurrentWorkspaceBinding() {
+    const activeProject = cloneProjectSnapshot(appState.activeProject);
+    const workspacePath = normalizeWorkspacePath(activeProject?.rootPath ?? appState.workspacePath);
+    return {
+      workspacePath,
+      project: activeProject && activeProject.rootPath === workspacePath ? activeProject : null,
+    };
+  }
+
+  function applyWorkspaceBinding(workspacePath, project = undefined) {
+    state.boundWorkspacePath = normalizeWorkspacePath(workspacePath);
+
+    if (!state.boundWorkspacePath) {
+      state.boundProject = null;
+      return;
+    }
+
+    if (project !== undefined) {
+      state.boundProject = cloneProjectSnapshot(project);
+      return;
+    }
+
+    if (state.boundProject?.rootPath === state.boundWorkspacePath) {
+      state.boundProject = cloneProjectSnapshot(state.boundProject);
+      return;
+    }
+
+    const current = getCurrentWorkspaceBinding();
+    state.boundProject =
+      current.project?.rootPath === state.boundWorkspacePath ? current.project : null;
+  }
+
+  function syncWorkspaceBindingUI() {
+    const current = getCurrentWorkspaceBinding();
+    const hasBoundWorkspace = Boolean(state.boundWorkspacePath);
+    const hasCurrentWorkspace = Boolean(current.workspacePath);
+
+    if (elements.workspacePanel) {
+      elements.workspacePanel.classList.toggle('is-empty', !hasBoundWorkspace);
+    }
+
+    if (elements.workspaceTitle) {
+      elements.workspaceTitle.textContent = hasBoundWorkspace
+        ? state.boundProject
+          ? state.boundProject.name || 'Bound project'
+          : 'Bound folder'
+        : 'No workspace selected';
+    }
+
+    if (elements.workspacePath) {
+      elements.workspacePath.textContent = hasBoundWorkspace
+        ? state.boundWorkspacePath
+        : 'This agent will run without a default workspace. It will not inherit the folder or project currently open in chat.';
+      elements.workspacePath.title = hasBoundWorkspace ? state.boundWorkspacePath : '';
+    }
+
+    if (elements.workspaceCurrentBtn) {
+      elements.workspaceCurrentBtn.disabled = !hasCurrentWorkspace;
+      elements.workspaceCurrentBtn.textContent = current.project
+        ? 'Use Current Project'
+        : hasCurrentWorkspace
+          ? 'Use Current Folder'
+          : 'No Current Workspace';
+      elements.workspaceCurrentBtn.title = hasCurrentWorkspace
+        ? formatWorkspaceLabel(current.workspacePath)
+        : 'Open a folder or project in chat to use it here.';
+    }
+
+    if (elements.workspaceClearBtn) {
+      elements.workspaceClearBtn.disabled = !hasBoundWorkspace;
+    }
+  }
 
   async function fetchAgents() {
     const response = await window.electronAPI?.invoke?.('get-agents').catch(() => null);
@@ -450,7 +549,7 @@ export function mount(outlet) {
     state.editingId = agent?.id ?? null;
     state.editingEnabled = agent?.enabled ?? true;
     state.primaryModel = agent?.primaryModel ? { ...agent.primaryModel } : null;
-    state.fallbackModels = agent?.fallbackModels ? [...agent.fallbackModels] : [];
+    applyWorkspaceBinding(agent?.workspacePath ?? agent?.project?.rootPath ?? null, agent?.project);
 
     if (elements.modalTitleEl) {
       elements.modalTitleEl.textContent = agent ? 'Edit Agent' : 'New Agent';
@@ -463,7 +562,7 @@ export function mount(outlet) {
     }
 
     modelPicker.syncPrimaryModelLabel();
-    modelPicker.renderFallbackList();
+    syncWorkspaceBindingUI();
 
     elements.modalBackdrop?.classList.add('open');
     document.body.classList.add('modal-open');
@@ -505,11 +604,20 @@ export function mount(outlet) {
       prompt,
       enabled: state.editingEnabled,
       primaryModel: { ...state.primaryModel },
-      fallbackModels: state.fallbackModels.map((model) => ({ ...model })),
       trigger: {
         type: 'interval',
         minutes,
       },
+      workspacePath: state.boundWorkspacePath,
+      project:
+        state.boundWorkspacePath && state.boundProject
+          ? {
+              id: state.boundProject.id ?? null,
+              name: state.boundProject.name ?? 'Workspace',
+              rootPath: state.boundProject.rootPath ?? state.boundWorkspacePath,
+              context: state.boundProject.context ?? '',
+            }
+          : null,
     };
 
     elements.saveBtn.disabled = true;
@@ -549,14 +657,39 @@ export function mount(outlet) {
   };
 
   const onCreateClick = () => openModal();
+  const onPickWorkspaceClick = async () => {
+    const defaultPath =
+      state.boundWorkspacePath ?? getCurrentWorkspaceBinding().workspacePath ?? undefined;
+    const response = await window.electronAPI?.invoke?.('select-directory', { defaultPath });
+    if (!response?.ok || !response.path) return;
+
+    applyWorkspaceBinding(response.path);
+    syncWorkspaceBindingUI();
+  };
+  const onUseCurrentWorkspaceClick = () => {
+    const current = getCurrentWorkspaceBinding();
+    if (!current.workspacePath) return;
+    applyWorkspaceBinding(current.workspacePath, current.project);
+    syncWorkspaceBindingUI();
+  };
+  const onClearWorkspaceClick = () => {
+    applyWorkspaceBinding(null, null);
+    syncWorkspaceBindingUI();
+  };
+  const onWorkspaceChanged = () => syncWorkspaceBindingUI();
 
   elements.addHeaderBtn?.addEventListener('click', onCreateClick);
   elements.addEmptyBtn?.addEventListener('click', onCreateClick);
   elements.modalCloseBtn?.addEventListener('click', closeModal);
   elements.cancelBtn?.addEventListener('click', closeModal);
+  elements.workspacePickBtn?.addEventListener('click', onPickWorkspaceClick);
+  elements.workspaceCurrentBtn?.addEventListener('click', onUseCurrentWorkspaceClick);
+  elements.workspaceClearBtn?.addEventListener('click', onClearWorkspaceClick);
   elements.saveBtn?.addEventListener('click', saveModal);
   elements.modalBackdrop?.addEventListener('click', onBackdropClick);
   document.addEventListener('keydown', onEscapeKey);
+  window.addEventListener('ow:workspace-changed', onWorkspaceChanged);
+  window.addEventListener('ow:project-changed', onWorkspaceChanged);
 
   async function load() {
     await loadModels();
@@ -574,8 +707,13 @@ export function mount(outlet) {
     elements.addEmptyBtn?.removeEventListener('click', onCreateClick);
     elements.modalCloseBtn?.removeEventListener('click', closeModal);
     elements.cancelBtn?.removeEventListener('click', closeModal);
+    elements.workspacePickBtn?.removeEventListener('click', onPickWorkspaceClick);
+    elements.workspaceCurrentBtn?.removeEventListener('click', onUseCurrentWorkspaceClick);
+    elements.workspaceClearBtn?.removeEventListener('click', onClearWorkspaceClick);
     elements.saveBtn?.removeEventListener('click', saveModal);
     elements.modalBackdrop?.removeEventListener('click', onBackdropClick);
+    window.removeEventListener('ow:workspace-changed', onWorkspaceChanged);
+    window.removeEventListener('ow:project-changed', onWorkspaceChanged);
 
     grid.clear();
     modelPicker.cleanup();

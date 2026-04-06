@@ -75,6 +75,23 @@ export function getAgentsHTML() {
       </div>
 
       <div class="auto-section">
+        <div class="auto-section-label">Workspace</div>
+        <div class="agent-field">
+          <label class="agent-field-label">Run inside folder <span class="field-optional">optional</span></label>
+          <div class="agent-workspace-panel is-empty" id="agent-workspace-panel">
+            <div class="agent-workspace-title" id="agent-workspace-title">No workspace selected</div>
+            <div class="agent-workspace-path" id="agent-workspace-path">This agent will run without a default workspace. It will not inherit the folder or project currently open in chat.</div>
+          </div>
+          <div class="agent-workspace-actions">
+            <button type="button" class="agent-workspace-btn" id="agent-workspace-pick-btn">Choose Folder</button>
+            <button type="button" class="agent-workspace-btn" id="agent-workspace-current-btn">Use Current Workspace</button>
+            <button type="button" class="agent-workspace-btn danger" id="agent-workspace-clear-btn">Clear</button>
+          </div>
+          <div class="agent-field-hint">Leave this empty if the agent should run without a workspace. In that case it will not fall back to the currently open folder or project.</div>
+        </div>
+      </div>
+
+      <div class="auto-section">
         <div class="auto-section-label">Models</div>
         <div class="agent-field">
           <label class="agent-field-label">Main model <span class="field-required">*</span></label>
@@ -87,14 +104,6 @@ export function getAgentsHTML() {
             </button>
             <div class="agent-model-menu" id="primary-model-menu"></div>
           </div>
-        </div>
-
-        <div class="agent-field">
-          <label class="agent-field-label">Fallback models <span class="field-optional">optional</span></label>
-          <div class="agent-fallback-list" id="fallback-models-list">
-            <div style="font-size:12px;color:var(--text-muted);padding:4px">Connect a provider in Settings to see available models.</div>
-          </div>
-          <div class="agent-field-hint">If the main model fails, these are tried in order so the agent can keep going.</div>
         </div>
       </div>
     </div>

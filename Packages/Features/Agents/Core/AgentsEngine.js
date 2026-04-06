@@ -5,6 +5,7 @@ import { shouldRunNow } from '../../Automation/Scheduling/Scheduling.js';
 
 const RUN_TIMEOUT_MS = 10 * 60_000;
 const MAX_HISTORY = 30;
+const MAX_CONCURRENT_AGENTS = 3;
 const DEFAULT_TRIGGER = { type: 'interval', minutes: 30 };
 
 function normalizeTrigger(trigger = {}) {
@@ -44,8 +45,23 @@ function normalizeModelSelection(model) {
   };
 }
 
-function normalizeFallbacks(fallbacks = []) {
-  return fallbacks.map((fallback) => normalizeModelSelection(fallback)).filter(Boolean);
+function normalizeWorkspacePath(workspacePath) {
+  const value = String(workspacePath ?? '').trim();
+  return value || null;
+}
+
+function normalizeProjectSnapshot(project) {
+  if (!project || typeof project !== 'object') return null;
+
+  const rootPath = normalizeWorkspacePath(project.rootPath);
+  if (!rootPath) return null;
+
+  return {
+    id: project.id ? String(project.id) : null,
+    name: String(project.name ?? '').trim() || 'Workspace',
+    rootPath,
+    context: String(project.context ?? '').trim(),
+  };
 }
 
 function normalizeHistory(history = []) {
@@ -71,8 +87,9 @@ function normalizeAgent(agent = {}) {
     prompt: String(agent.prompt ?? '').trim(),
     enabled: agent.enabled !== false,
     primaryModel: normalizeModelSelection(agent.primaryModel),
-    fallbackModels: normalizeFallbacks(agent.fallbackModels),
     trigger: normalizeTrigger(agent.trigger ?? agent.schedule),
+    workspacePath: normalizeWorkspacePath(agent.workspacePath ?? agent.project?.rootPath),
+    project: normalizeProjectSnapshot(agent.project),
     history: normalizeHistory(agent.history),
     lastRun: agent.lastRun ?? null,
   };
@@ -95,8 +112,9 @@ function stripRuntimeFields(agent = {}) {
     prompt: agent.prompt,
     enabled: agent.enabled,
     primaryModel: agent.primaryModel,
-    fallbackModels: agent.fallbackModels,
     trigger: agent.trigger,
+    workspacePath: agent.workspacePath ?? null,
+    project: agent.project ?? null,
   };
 }
 
@@ -107,6 +125,8 @@ export class AgentsEngine {
     this._ticker = null;
     this._running = new Map();
     this._pending = new Map();
+    this._queue = [];
+    this._queuedAgentIds = new Set();
     this._mainWindow = null;
     this._startupDispatched = false;
   }
@@ -142,6 +162,12 @@ export class AgentsEngine {
       pending.reject(new Error('App shutting down'));
     }
     this._pending.clear();
+
+    while (this._queue.length) {
+      const task = this._queue.shift();
+      this._queuedAgentIds.delete(task.agentId);
+      task.reject(new Error('App shutting down'));
+    }
   }
 
   reload() {
@@ -214,8 +240,10 @@ export class AgentsEngine {
     this._load();
     const agent = this.agents.find((item) => item.id === agentId);
     if (!agent) throw new Error(`Agent "${agentId}" not found.`);
-    if (this._running.has(agent.id)) throw new Error('This agent is already running.');
-    await this._executeAgent(agent, 'manual');
+    if (this._running.has(agent.id) || this._queuedAgentIds.has(agent.id)) {
+      throw new Error('This agent is already running.');
+    }
+    await this._enqueueAgentRun(agent.id, 'manual');
     return { ok: true };
   }
 
@@ -252,8 +280,8 @@ export class AgentsEngine {
     for (const agent of this.agents) {
       if (!agent.enabled) continue;
       if (agent.trigger?.type !== 'on_startup') continue;
-      if (this._running.has(agent.id)) continue;
-      this._executeAgent(agent, 'startup');
+      if (this._running.has(agent.id) || this._queuedAgentIds.has(agent.id)) continue;
+      this._enqueueAgentRun(agent.id, 'startup');
     }
   }
 
@@ -264,7 +292,7 @@ export class AgentsEngine {
     for (const agent of this.agents) {
       if (!agent.enabled) continue;
       if (agent.trigger?.type === 'on_startup') continue;
-      if (this._running.has(agent.id)) continue;
+      if (this._running.has(agent.id) || this._queuedAgentIds.has(agent.id)) continue;
 
       if (
         shouldRunNow(
@@ -275,8 +303,63 @@ export class AgentsEngine {
           now,
         )
       ) {
-        this._executeAgent(agent, 'scheduled');
+        this._enqueueAgentRun(agent.id, 'scheduled');
       }
+    }
+  }
+
+  _findLiveAgent(agentId) {
+    return this.agents.find((item) => item.id === agentId) ?? null;
+  }
+
+  _enqueueAgentRun(agentId, triggerKind = 'scheduled') {
+    if (this._running.has(agentId)) {
+      return Promise.resolve({ ok: false, skipped: true, reason: 'already running' });
+    }
+
+    const queuedTask = this._queue.find((task) => task.agentId === agentId);
+    if (queuedTask) return queuedTask.promise;
+
+    let resolveTask;
+    let rejectTask;
+    const promise = new Promise((resolve, reject) => {
+      resolveTask = resolve;
+      rejectTask = reject;
+    });
+
+    this._queue.push({
+      agentId,
+      triggerKind,
+      promise,
+      resolve: resolveTask,
+      reject: rejectTask,
+    });
+    this._queuedAgentIds.add(agentId);
+    this._drainQueue();
+
+    return promise;
+  }
+
+  _drainQueue() {
+    while (this._running.size < MAX_CONCURRENT_AGENTS && this._queue.length) {
+      const task = this._queue.shift();
+      this._queuedAgentIds.delete(task.agentId);
+
+      const agent = this._findLiveAgent(task.agentId);
+      if (!agent) {
+        task.resolve({ ok: false, skipped: true, reason: 'missing agent' });
+        continue;
+      }
+
+      if (task.triggerKind !== 'manual' && !agent.enabled) {
+        task.resolve({ ok: false, skipped: true, reason: 'disabled' });
+        continue;
+      }
+
+      this._executeAgent(agent, task.triggerKind)
+        .then(task.resolve)
+        .catch(task.reject)
+        .finally(() => this._drainQueue());
     }
   }
 
@@ -314,7 +397,9 @@ export class AgentsEngine {
 
   async _executeAgent(agent, triggerKind = 'scheduled') {
     const runKey = agent.id;
-    if (this._running.has(runKey)) return;
+    if (this._running.has(runKey)) {
+      return { ok: false, skipped: true, reason: 'already running' };
+    }
 
     const startedAt = new Date().toISOString();
     this._running.set(runKey, {
@@ -375,6 +460,12 @@ export class AgentsEngine {
     }
     liveAgent.lastRun = entry.timestamp;
     this._persist();
+
+    return {
+      ok: entry.status !== 'error',
+      skipped: false,
+      entry,
+    };
   }
 }
 

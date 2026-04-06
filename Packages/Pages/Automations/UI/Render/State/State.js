@@ -6,7 +6,6 @@ export function createAgentsPageState() {
     deletingId: null,
     editingEnabled: true,
     primaryModel: null,
-    fallbackModels: [],
     jobs: [],
   };
 }

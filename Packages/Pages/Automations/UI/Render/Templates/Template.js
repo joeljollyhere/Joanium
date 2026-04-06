@@ -108,16 +108,6 @@ export function getAutomationsHTML() {
           </div>
           <div class="agent-field-hint">This model handles the reasoning for every job in the automation.</div>
         </div>
-
-        <div class="agent-field">
-          <label class="agent-field-label">Fallback Models <span
-              style="color:var(--text-muted);font-weight:400">(optional)</span></label>
-          <div class="agent-fallback-list" id="fallback-models-list">
-            <div style="font-size:12px;color:var(--text-muted);padding:4px">Connect a provider in Settings to see available
-              models.</div>
-          </div>
-          <div class="agent-field-hint">If the main model fails, Joanium will try these in order so the automation still finishes.</div>
-        </div>
       </div>
 
       <div class="agent-section">

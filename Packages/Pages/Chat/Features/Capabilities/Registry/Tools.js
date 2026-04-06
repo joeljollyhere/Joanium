@@ -175,8 +175,8 @@ function filterToolListByConnectors(tools = [], connectorStatuses = {}) {
   });
 }
 
-function filterToolListByWorkspace(tools = []) {
-  if (state.workspacePath) return tools;
+function filterToolListByWorkspace(tools = [], workspacePath = state.workspacePath) {
+  if (workspacePath) return tools;
   return tools.filter((tool) => !WORKSPACE_SCOPED_TOOL_NAMES.has(tool.name));
 }
 
@@ -184,7 +184,10 @@ export function filterToolsByConnectors(connectorStatuses = {}) {
   return filterToolListByConnectors(STATIC_TOOLS, connectorStatuses);
 }
 
-export async function getAvailableTools() {
+export async function getAvailableTools(options = {}) {
+  const workspacePath = Object.prototype.hasOwnProperty.call(options, 'workspacePath')
+    ? String(options.workspacePath ?? '').trim()
+    : state.workspacePath;
   let connectorStatuses = {};
   try {
     connectorStatuses = (await window.electronAPI?.invoke?.('get-connectors')) ?? {};
@@ -203,8 +206,14 @@ export async function getAvailableTools() {
   } catch {}
 
   return dedupeTools([
-    ...filterToolListByWorkspace(filterToolListByConnectors(featureTools, connectorStatuses)),
-    ...filterToolListByWorkspace(filterToolListByConnectors(STATIC_TOOLS, connectorStatuses)),
+    ...filterToolListByWorkspace(
+      filterToolListByConnectors(featureTools, connectorStatuses),
+      workspacePath,
+    ),
+    ...filterToolListByWorkspace(
+      filterToolListByConnectors(STATIC_TOOLS, connectorStatuses),
+      workspacePath,
+    ),
     ...mcpTools,
   ]);
 }
