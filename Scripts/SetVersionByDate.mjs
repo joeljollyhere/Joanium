@@ -1,10 +1,8 @@
 import fs from 'fs';
 import path from 'path';
 
-function formatDateVersion(date) {
-  // Emit YEAR.MONTHDAY as the base version (e.g. 2026.406 for April 6th).
-  // The CI workflow appends the per-day build counter as the patch component,
-  // producing valid 3-part semver: 2026.406.1, 2026.406.2, etc.
+function dateBase(date) {
+  // Returns the 2-part date prefix, e.g. "2026.406" for April 6th.
   // Concatenating month+day avoids leading zeros (406, not 0406).
   const year = date.getFullYear();
   const month = date.getMonth() + 1;
@@ -23,15 +21,29 @@ if (!fs.existsSync(manifestPath)) {
 const manifestRaw = fs.readFileSync(manifestPath, 'utf8');
 const manifest = JSON.parse(manifestRaw);
 
-const nextVersion = formatDateVersion(new Date());
-const prevVersion = manifest.version;
+const base = dateBase(new Date());          // e.g. "2026.406"
+const prevVersion = manifest.version ?? ''; // e.g. "2026.406.0"
 
-manifest.version = nextVersion;
-
-if (prevVersion === nextVersion) {
-  process.stdout.write(`${nextVersion}\n`);
-  process.exit(0);
+// Determine the patch component:
+//   - Same day  → reuse the existing patch so local builds are idempotent.
+//   - New day   → reset patch to 0.
+let patch = 0;
+const prefix = `${base}.`;
+if (prevVersion.startsWith(prefix)) {
+  const prevPatch = parseInt(prevVersion.slice(prefix.length), 10);
+  if (!Number.isNaN(prevPatch)) patch = prevPatch;
 }
 
-fs.writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
-process.stdout.write(`${nextVersion}\n`);
+const fullVersion = `${base}.${patch}`; // valid 3-part semver, e.g. "2026.406.0"
+
+// Always write the full 3-part version to package.json so that electron-builder
+// never sees a 2-part string and rejects it during a local build.
+if (prevVersion !== fullVersion) {
+  manifest.version = fullVersion;
+  fs.writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
+}
+
+// Output only the 2-part base to stdout.
+// The CI workflow reads this and appends its own counter to form the release tag,
+// then overwrites package.json with the final version before building.
+process.stdout.write(`${base}\n`);
