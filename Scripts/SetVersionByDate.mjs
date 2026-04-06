@@ -1,15 +1,15 @@
 import fs from 'fs';
 import path from 'path';
 
-function pad2(value) {
-  return String(value).padStart(2, '0');
-}
-
 function formatDateVersion(date) {
+  // Emit YEAR.MONTHDAY as the base version (e.g. 2026.406 for April 6th).
+  // The CI workflow appends the per-day build counter as the patch component,
+  // producing valid 3-part semver: 2026.406.1, 2026.406.2, etc.
+  // Concatenating month+day avoids leading zeros (406, not 0406).
   const year = date.getFullYear();
-  const month = pad2(date.getMonth() + 1);
-  const day = pad2(date.getDate());
-  return `${year}.${month}.${day}`;
+  const month = date.getMonth() + 1;
+  const day = date.getDate();
+  return `${year}.${month * 100 + day}`;
 }
 
 const repoRoot = process.cwd();

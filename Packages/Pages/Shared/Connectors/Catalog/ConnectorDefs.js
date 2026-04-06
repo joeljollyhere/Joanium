@@ -19,19 +19,19 @@ export const STATIC_CONNECTORS = [
     subServices: [
       {
         key: 'gmail',
-        icon: '📧',
+        icon: '<img src="../../../Assets/Icons/Gmail.png" alt="Gmail" style="width: 26px; height: 26px; object-fit: contain;" />',
         name: 'Gmail',
         apiUrl: 'https://console.cloud.google.com/apis/library/gmail.googleapis.com',
       },
       {
         key: 'drive',
-        icon: '🗂️',
+        icon: '<img src="../../../Assets/Icons/Drive.png" alt="Drive" style="width: 26px; height: 26px; object-fit: contain;" />',
         name: 'Google Drive',
         apiUrl: 'https://console.cloud.google.com/apis/library/drive.googleapis.com',
       },
       {
         key: 'calendar',
-        icon: '📅',
+        icon: '<img src="../../../Assets/Icons/Calendar.png" alt="Calendar" style="width: 26px; height: 26px; object-fit: contain;" />',
         name: 'Google Calendar',
         apiUrl: 'https://console.cloud.google.com/apis/library/calendar-json.googleapis.com',
       },
@@ -78,7 +78,7 @@ export const STATIC_CONNECTORS = [
   {
     id: 'github',
     name: 'GitHub',
-    icon: '🐙',
+    icon: '<img src="../../../Assets/Icons/Github.png" alt="Github" style="width: 26px; height: 26px; object-fit: contain;" />',
     description:
       'Browse repos, load code into chat, track issues & PRs, and monitor notifications.',
     helpUrl: 'https://github.com/settings/tokens/new?scopes=repo,read:user,notifications',
@@ -153,7 +153,7 @@ export const STATIC_FREE_CONNECTORS = [
   {
     id: 'open_meteo',
     name: 'Open-Meteo',
-    icon: '🌤️',
+    icon: '<img src="../../../Assets/Icons/OpenMeteo.png" alt="OpenMeteo" style="width: 26px; height: 26px; object-fit: contain;" />',
     description:
       'Real-time weather for any city — temperature, humidity, wind, and 3-day forecast.',
     noKey: true,
@@ -163,7 +163,7 @@ export const STATIC_FREE_CONNECTORS = [
   {
     id: 'coingecko',
     name: 'CoinGecko',
-    icon: '🦎',
+    icon: '<img src="../../../Assets/Icons/CoinGecko.png" alt="CoinGecko" style="width: 26px; height: 26px; object-fit: contain;" />',
     description:
       'Live crypto prices, market caps, 24h changes, and trending coins. 10,000+ tokens.',
     noKey: true,
@@ -204,7 +204,7 @@ export const STATIC_FREE_CONNECTORS = [
   {
     id: 'openweathermap',
     name: 'OpenWeatherMap',
-    icon: '🌦️',
+    icon: '<img src="../../../Assets/Icons/OpenWeatherMap.png" alt="OpenWeatherMap" style="width: 26px; height: 26px; object-fit: contain;" />',
     description: 'Detailed weather with hourly forecasts, air quality, and historical data.',
     noKey: false,
     optionalKey: false,
@@ -217,7 +217,7 @@ export const STATIC_FREE_CONNECTORS = [
   {
     id: 'unsplash',
     name: 'Unsplash',
-    icon: '📷',
+    icon: '<img src="../../../Assets/Icons/Unsplash.png" alt="Unsplash" style="width: 26px; height: 26px; object-fit: contain;" />',
     description: 'Search millions of high-quality free photos by topic.',
     noKey: false,
     optionalKey: false,
@@ -230,7 +230,7 @@ export const STATIC_FREE_CONNECTORS = [
   {
     id: 'wikipedia',
     name: 'Wikipedia',
-    icon: '📚',
+    icon: '<img src="../../../Assets/Icons/Wikipedia.png" alt="Wikipedia" style="width: 26px; height: 26px; object-fit: contain;" />',
     description: 'Search any topic — get summaries, descriptions, and direct links.',
     noKey: true,
     docsUrl: 'https://en.wikipedia.org',
@@ -284,7 +284,7 @@ export const STATIC_FREE_CONNECTORS = [
   {
     id: 'nasa',
     name: 'NASA / Astronomy',
-    icon: '🔭',
+    icon: '<img src="../../../Assets/Icons/Nasa.png" alt="Nasa" style="width: 26px; height: 26px; object-fit: contain;" />',
     description: 'NASA Astronomy Picture of the Day and real-time ISS tracking.',
     noKey: false,
     optionalKey: true,
@@ -297,7 +297,7 @@ export const STATIC_FREE_CONNECTORS = [
   {
     id: 'hackernews',
     name: 'Hacker News',
-    icon: '🔶',
+    icon: '<img src="../../../Assets/Icons/HackerNews.png" alt="HackerNews" style="width: 26px; height: 26px; object-fit: contain;" />',
     description: 'Top stories from Hacker News — the leading tech and startup news aggregator.',
     noKey: true,
     docsUrl: 'https://news.ycombinator.com',

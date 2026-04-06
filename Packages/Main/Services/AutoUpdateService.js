@@ -1,4 +1,4 @@
-import { autoUpdater } from 'electron-updater';
+import electronUpdater from 'electron-updater';
 import log from 'electron-log';
 
 let enabled = false;
@@ -8,6 +8,18 @@ export function setupAutoUpdates() {
   // Ensure we only wire this once per app session.
   if (enabled) return;
   enabled = true;
+
+  // Access the autoUpdater getter lazily inside the function so that a bad
+  // app version (e.g. during development) throws here and can be caught,
+  // rather than crashing the whole app at module-evaluation time.
+  let autoUpdater;
+  try {
+    autoUpdater = electronUpdater.autoUpdater;
+  } catch (err) {
+    const message = err?.stack ?? err?.message ?? String(err);
+    log.warn('[AutoUpdate] Could not initialise autoUpdater (skipping):', message);
+    return;
+  }
 
   // Keep update logs in files inside userData so failures are debuggable.
   autoUpdater.logger = log;

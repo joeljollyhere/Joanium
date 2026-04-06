@@ -29,14 +29,15 @@ jobs:
           BASE_VERSION="$(node ./Scripts/SetVersionByDate.mjs)"
           git fetch --tags
 
-          # Walk up suffixes until a free tag is found
-          VERSION="$BASE_VERSION"
-          TAG_NAME="v${VERSION}"
+          # Build a valid 3-part semver: YEAR.MONTHDAY.BUILD
+          # e.g. first release on Apr 6 → 2026.406.1, second → 2026.406.2
           COUNTER=1
+          VERSION="${BASE_VERSION}.${COUNTER}"
+          TAG_NAME="v${VERSION}"
           while git rev-parse "${TAG_NAME}" >/dev/null 2>&1; do
+            COUNTER=$((COUNTER + 1))
             VERSION="${BASE_VERSION}.${COUNTER}"
             TAG_NAME="v${VERSION}"
-            COUNTER=$((COUNTER + 1))
           done
 
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
