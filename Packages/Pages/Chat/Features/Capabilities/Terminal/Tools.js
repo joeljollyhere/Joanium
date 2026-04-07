@@ -2520,4 +2520,572 @@ export const TERMINAL_TOOLS = [
       },
     },
   },
+  // ─────────────────────────────────────────────────────────────────────────────
+  // 20 NEW FINDING TOOLS — paste these objects at the end of TERMINAL_TOOLS[]
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  {
+    name: 'find_largest_files',
+    description:
+      'List the N largest files in a directory tree, sorted by size. Instantly surfaces bloated assets, accidentally committed binaries, or runaway log files.',
+    category: 'terminal',
+    parameters: {
+      path: {
+        type: 'string',
+        required: false,
+        description: 'Root directory to scan. Defaults to opened workspace.',
+      },
+      limit: {
+        type: 'number',
+        required: false,
+        description: 'How many files to return (default: 20).',
+      },
+      extensions: {
+        type: 'string',
+        required: false,
+        description: 'Comma-separated extensions to restrict the scan, e.g. "js,ts,json".',
+      },
+      max_depth: {
+        type: 'number',
+        required: false,
+        description: 'Maximum directory depth to recurse into (default: 6).',
+      },
+    },
+  },
+
+  {
+    name: 'find_files_by_extension',
+    description:
+      'List every file matching one or more extensions in a directory tree, grouped by extension. Faster than find_file_by_name when you want all files of a given type.',
+    category: 'terminal',
+    parameters: {
+      extensions: {
+        type: 'string',
+        required: true,
+        description: 'Comma-separated file extensions to find, e.g. "ts,tsx,js".',
+      },
+      path: {
+        type: 'string',
+        required: false,
+        description: 'Root directory to scan. Defaults to opened workspace.',
+      },
+      max_results: {
+        type: 'number',
+        required: false,
+        description: 'Maximum files to return (default: 200).',
+      },
+      max_depth: {
+        type: 'number',
+        required: false,
+        description: 'Maximum directory depth to recurse (default: 8).',
+      },
+    },
+  },
+
+  {
+    name: 'find_empty_files',
+    description:
+      'Locate zero-byte files and optionally whitespace-only files in a directory tree. Catches accidental empty creates, broken codegen output, or placeholder stubs.',
+    category: 'terminal',
+    parameters: {
+      path: {
+        type: 'string',
+        required: false,
+        description: 'Root directory to scan. Defaults to opened workspace.',
+      },
+      include_whitespace_only: {
+        type: 'boolean',
+        required: false,
+        description: 'Set true to also report files that contain only whitespace (default: true).',
+      },
+    },
+  },
+
+  {
+    name: 'find_long_lines',
+    description:
+      'Find every line in a file that exceeds a character-width threshold. Essential for enforcing line-length lint rules before they fail in CI.',
+    category: 'terminal',
+    parameters: {
+      path: {
+        type: 'string',
+        required: true,
+        description: 'Absolute path to the file.',
+      },
+      threshold: {
+        type: 'number',
+        required: false,
+        description: 'Minimum line length to flag (default: 100 characters).',
+      },
+      max_results: {
+        type: 'number',
+        required: false,
+        description: 'Maximum number of long lines to return (default: 100).',
+      },
+    },
+  },
+
+  {
+    name: 'find_console_statements',
+    description:
+      'Locate every console.log / print / debugger / logger call left in source files. Prevents debug noise from reaching production. Works on a single file or across the workspace.',
+    category: 'terminal',
+    parameters: {
+      path: {
+        type: 'string',
+        required: false,
+        description: 'Absolute path to a single file to scan.',
+      },
+      workspace_path: {
+        type: 'string',
+        required: false,
+        description: 'Workspace root to scan across all files. Used when path is not provided.',
+      },
+      patterns: {
+        type: 'string',
+        required: false,
+        description:
+          'Comma-separated regex patterns to treat as debug statements (overrides defaults).',
+      },
+    },
+  },
+
+  {
+    name: 'find_hardcoded_values',
+    description:
+      'Surface magic numbers, hardcoded URLs, and string literals that should be constants or config. Reports each with the line number and surrounding context.',
+    category: 'terminal',
+    parameters: {
+      path: {
+        type: 'string',
+        required: true,
+        description: 'Absolute path to the file to scan.',
+      },
+      find_numbers: {
+        type: 'boolean',
+        required: false,
+        description: 'Set false to skip magic number detection (default: true).',
+      },
+      find_strings: {
+        type: 'boolean',
+        required: false,
+        description: 'Set false to skip string literal detection (default: true).',
+      },
+      find_urls: {
+        type: 'boolean',
+        required: false,
+        description: 'Set false to skip URL detection (default: true).',
+      },
+      min_magic_number: {
+        type: 'number',
+        required: false,
+        description: 'Only flag numbers ≥ this value (default: 3, avoids flagging 0/1/2).',
+      },
+    },
+  },
+
+  {
+    name: 'find_imports_of',
+    description:
+      'Find every file in the workspace that imports a specific module or package. Answers "what depends on X?" — the reverse of map_imports.',
+    category: 'terminal',
+    parameters: {
+      module: {
+        type: 'string',
+        required: true,
+        description: 'Module or package name to search for (e.g. "react", "./utils", "lodash").',
+      },
+      workspace_path: {
+        type: 'string',
+        required: false,
+        description: 'Workspace root path. Defaults to opened workspace.',
+      },
+    },
+  },
+
+  {
+    name: 'find_files_without_pattern',
+    description:
+      'Return all source files in a directory that do NOT contain a given pattern. Finds files missing required license headers, use-strict directives, specific imports, or boilerplate.',
+    category: 'terminal',
+    parameters: {
+      directory: {
+        type: 'string',
+        required: true,
+        description: 'Absolute path of the directory to scan.',
+      },
+      pattern: {
+        type: 'string',
+        required: true,
+        description: 'String pattern that should be present. Files lacking it are returned.',
+      },
+      extensions: {
+        type: 'string',
+        required: false,
+        description:
+          'Comma-separated extensions to check (default: "js,ts,jsx,tsx,py,rb,go,java,cs,php,rs").',
+      },
+      max_results: {
+        type: 'number',
+        required: false,
+        description: 'Maximum number of non-matching files to return (default: 50).',
+      },
+    },
+  },
+
+  {
+    name: 'find_nth_occurrence',
+    description:
+      'Find the exact position of the Nth occurrence of a pattern in a file with surrounding context. Use when you need to navigate to a specific instance of a repeated construct.',
+    category: 'terminal',
+    parameters: {
+      path: {
+        type: 'string',
+        required: true,
+        description: 'Absolute path to the file.',
+      },
+      pattern: {
+        type: 'string',
+        required: true,
+        description: 'String or regex pattern to search for.',
+      },
+      n: {
+        type: 'number',
+        required: false,
+        description: 'Which occurrence to locate (1-based, default: 1 = first).',
+      },
+      context_lines: {
+        type: 'number',
+        required: false,
+        description: 'Lines of context to show above and below the match (default: 10).',
+      },
+      regex: {
+        type: 'boolean',
+        required: false,
+        description: 'Set true to treat pattern as a regex (default: false).',
+      },
+      case_sensitive: {
+        type: 'boolean',
+        required: false,
+        description: 'Set true for case-sensitive matching (default: false).',
+      },
+    },
+  },
+
+  {
+    name: 'find_all_urls',
+    description:
+      'Extract every URL from a file or workspace, grouped by domain. Useful for auditing external dependencies, broken links, or hardcoded endpoints.',
+    category: 'terminal',
+    parameters: {
+      path: {
+        type: 'string',
+        required: false,
+        description: 'Absolute path to a single file to scan.',
+      },
+      workspace_path: {
+        type: 'string',
+        required: false,
+        description: 'Workspace root to scan all files. Used when path is not provided.',
+      },
+      schemes: {
+        type: 'string',
+        required: false,
+        description: 'Comma-separated URL schemes to look for (default: "http,https").',
+      },
+      show_locations: {
+        type: 'boolean',
+        required: false,
+        description: 'Set false to omit file:line locations for each URL (default: true).',
+      },
+    },
+  },
+
+  {
+    name: 'find_commented_code_blocks',
+    description:
+      'Detect consecutive runs of commented-out code lines (≥ N lines), distinguishing actual code from prose documentation. Surfaces dead code candidates for removal.',
+    category: 'terminal',
+    parameters: {
+      path: {
+        type: 'string',
+        required: true,
+        description: 'Absolute path to the file.',
+      },
+      min_block_size: {
+        type: 'number',
+        required: false,
+        description: 'Minimum consecutive commented-code lines to flag as a block (default: 3).',
+      },
+    },
+  },
+
+  {
+    name: 'find_similar_lines',
+    description:
+      'Detect near-duplicate lines in a file using trigram similarity. Catches copy-paste errors, redundant switch cases, and accidental duplication that exact-dupe detection misses.',
+    category: 'terminal',
+    parameters: {
+      path: {
+        type: 'string',
+        required: true,
+        description: 'Absolute path to the file.',
+      },
+      similarity_threshold: {
+        type: 'number',
+        required: false,
+        description: 'Minimum similarity ratio 0–1 to flag a pair (default: 0.85 = 85% similar).',
+      },
+      min_length: {
+        type: 'number',
+        required: false,
+        description: 'Minimum character length for a line to be considered (default: 20).',
+      },
+    },
+  },
+
+  {
+    name: 'find_functions_over_length',
+    description:
+      'Workspace-wide scan for functions that exceed a line-count threshold. Surfaces complex, hard-to-test functions across the whole project in one call.',
+    category: 'terminal',
+    parameters: {
+      workspace_path: {
+        type: 'string',
+        required: false,
+        description: 'Workspace root path. Defaults to opened workspace.',
+      },
+      threshold: {
+        type: 'number',
+        required: false,
+        description: 'Line count above which a function is flagged (default: 50).',
+      },
+      extensions: {
+        type: 'string',
+        required: false,
+        description:
+          'Comma-separated file extensions to scan (default: "js,ts,jsx,tsx,py,java,cs,go,rb").',
+      },
+    },
+  },
+
+  {
+    name: 'find_unclosed_markers',
+    description:
+      'Scan a file for start markers (e.g. "BEGIN", "<!-- start -->", "@region") that have no matching end marker. Catches unbalanced template slots, open code regions, or stray comment blocks.',
+    category: 'terminal',
+    parameters: {
+      path: {
+        type: 'string',
+        required: true,
+        description: 'Absolute path to the file.',
+      },
+      start_marker: {
+        type: 'string',
+        required: true,
+        description: 'Text that marks the opening of a block (plain substring).',
+      },
+      end_marker: {
+        type: 'string',
+        required: true,
+        description: 'Text that marks the closing of a block (plain substring).',
+      },
+    },
+  },
+
+  {
+    name: 'find_pattern_near_pattern',
+    description:
+      'Find lines where pattern A appears within N lines of pattern B. Detects co-occurrences like "useEffect near setState", "try near setTimeout", or "TODO near a specific function call".',
+    category: 'terminal',
+    parameters: {
+      path: {
+        type: 'string',
+        required: true,
+        description: 'Absolute path to the file.',
+      },
+      pattern_a: {
+        type: 'string',
+        required: true,
+        description: 'First pattern to find.',
+      },
+      pattern_b: {
+        type: 'string',
+        required: true,
+        description: 'Second pattern that must appear near pattern A.',
+      },
+      proximity: {
+        type: 'number',
+        required: false,
+        description: 'Maximum number of lines apart the two patterns may be (default: 5).',
+      },
+      regex: {
+        type: 'boolean',
+        required: false,
+        description: 'Set true to treat both patterns as regexes (default: false).',
+      },
+    },
+  },
+
+  {
+    name: 'find_all_string_literals',
+    description:
+      'Extract every unique string literal (single-quoted, double-quoted, or template) from a file, grouped by quote style. Use for finding all user-visible text, i18n keys, error messages, or hardcoded values.',
+    category: 'terminal',
+    parameters: {
+      path: {
+        type: 'string',
+        required: true,
+        description: 'Absolute path to the file.',
+      },
+      min_length: {
+        type: 'number',
+        required: false,
+        description: 'Minimum string length to include (default: 2).',
+      },
+      max_length: {
+        type: 'number',
+        required: false,
+        description: 'Maximum string length to include (default: 200).',
+      },
+      deduplicate: {
+        type: 'boolean',
+        required: false,
+        description:
+          'Set false to include all occurrences rather than unique values (default: true).',
+      },
+    },
+  },
+
+  {
+    name: 'find_lines_by_length_range',
+    description:
+      'Return all lines in a file whose character count falls within [min_length, max_length]. Useful for finding short stub lines, detecting minified code, or isolating lines of a specific structural width.',
+    category: 'terminal',
+    parameters: {
+      path: {
+        type: 'string',
+        required: true,
+        description: 'Absolute path to the file.',
+      },
+      min_length: {
+        type: 'number',
+        required: false,
+        description: 'Minimum character length (inclusive). Omit for no lower bound.',
+      },
+      max_length: {
+        type: 'number',
+        required: false,
+        description: 'Maximum character length (inclusive). Omit for no upper bound.',
+      },
+      skip_blank: {
+        type: 'boolean',
+        required: false,
+        description: 'Set false to include blank lines in the results (default: true — skipped).',
+      },
+      max_results: {
+        type: 'number',
+        required: false,
+        description: 'Maximum matching lines to return (default: 200).',
+      },
+    },
+  },
+
+  {
+    name: 'find_first_match',
+    description:
+      'Find the very first occurrence of a pattern in a file and show generous surrounding context. Ideal for a quick "where does X begin?" — faster than search_in_file when you only care about the first hit.',
+    category: 'terminal',
+    parameters: {
+      path: {
+        type: 'string',
+        required: true,
+        description: 'Absolute path to the file.',
+      },
+      pattern: {
+        type: 'string',
+        required: true,
+        description: 'String or regex pattern to find.',
+      },
+      context_before: {
+        type: 'number',
+        required: false,
+        description: 'Lines to show before the match (default: 10).',
+      },
+      context_after: {
+        type: 'number',
+        required: false,
+        description: 'Lines to show after the match (default: 20).',
+      },
+      regex: {
+        type: 'boolean',
+        required: false,
+        description: 'Set true to treat pattern as a regex (default: false).',
+      },
+      case_sensitive: {
+        type: 'boolean',
+        required: false,
+        description: 'Set true for case-sensitive matching (default: false).',
+      },
+    },
+  },
+
+  {
+    name: 'find_multiline_pattern',
+    description:
+      'Search for a regex pattern that spans multiple lines using dot-all mode. Finds multi-line function signatures, JSX blocks, SQL clauses, or any construct a single-line search would miss.',
+    category: 'terminal',
+    parameters: {
+      path: {
+        type: 'string',
+        required: true,
+        description: 'Absolute path to the file.',
+      },
+      pattern: {
+        type: 'string',
+        required: true,
+        description: 'JavaScript regex pattern (may include \\n to match newlines explicitly).',
+      },
+      flags: {
+        type: 'string',
+        required: false,
+        description: 'Regex flags (default: "gis" — global, case-insensitive, dot-all).',
+      },
+      context_lines: {
+        type: 'number',
+        required: false,
+        description: 'Extra lines of context to show around each match (default: 3).',
+      },
+      max_matches: {
+        type: 'number',
+        required: false,
+        description: 'Maximum number of matches to return (default: 20).',
+      },
+    },
+  },
+
+  {
+    name: 'find_symbol_definitions',
+    description:
+      'Find only the definition sites of a named symbol (function, class, const, type, etc.) across the workspace — filtering out call sites and imports. Faster than trace_symbol when you just need to jump to the declaration.',
+    category: 'terminal',
+    parameters: {
+      symbol: {
+        type: 'string',
+        required: true,
+        description: 'Exact symbol name to find definitions for.',
+      },
+      workspace_path: {
+        type: 'string',
+        required: false,
+        description: 'Workspace root path. Defaults to opened workspace.',
+      },
+      language: {
+        type: 'string',
+        required: false,
+        description:
+          'Hint the language to narrow patterns: "js", "ts", "python", "java", etc. (default: auto-detect).',
+      },
+    },
+  },
 ];

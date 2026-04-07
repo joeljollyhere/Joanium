@@ -448,6 +448,26 @@ export const { handles, execute } = createExecutor({
     'rotate_lines',
     'replace_char',
     'count_lines_in_range',
+    'find_largest_files',
+    'find_files_by_extension',
+    'find_empty_files',
+    'find_long_lines',
+    'find_console_statements',
+    'find_hardcoded_values',
+    'find_imports_of',
+    'find_files_without_pattern',
+    'find_nth_occurrence',
+    'find_all_urls',
+    'find_commented_code_blocks',
+    'find_similar_lines',
+    'find_functions_over_length',
+    'find_unclosed_markers',
+    'find_pattern_near_pattern',
+    'find_all_string_literals',
+    'find_lines_by_length_range',
+    'find_first_match',
+    'find_multiline_pattern',
+    'find_symbol_definitions',
   ],
   handlers: {
     inspect_workspace: async (params, onStage) => {
@@ -4185,6 +4205,1205 @@ export const { handles, execute } = createExecutor({
         }
       }
 
+      return output.join('\n');
+    },
+
+    // 1. FIND LARGEST FILES
+    // Lists the N largest files in a directory tree, sorted by size descending.
+    // Instantly surfaces bloated assets, accidental binary commits, or log files.
+    find_largest_files: async (params, onStage) => {
+      const rootPath = resolveWorkingDirectory(params.path);
+      if (!rootPath) throw new Error('No workspace is open. Provide path.');
+
+      const limit = params.limit ?? 20;
+      const extensions = params.extensions
+        ? params.extensions.split(',').map((e) => e.trim().replace(/^\./, '').toLowerCase())
+        : null;
+
+      onStage(`📦 Finding largest files in ${rootPath}`);
+
+      const extFilter = extensions
+        ? `\\( ${extensions.map((e) => `-name "*.${e}"`).join(' -o ')} \\)`
+        : '';
+      const shellResult = await window.electronAPI?.invoke?.('run-shell-command', {
+        command: `find "${rootPath}" -type f ${extFilter} -not -path "*/node_modules/*" -not -path "*/.git/*" -printf "%s\t%p\n" 2>/dev/null | sort -rn | head -${limit}`,
+        cwd: rootPath,
+        timeout: 15000,
+        allowRisky: false,
+      });
+
+      if (!shellResult?.ok || !shellResult.stdout?.trim()) {
+        return `Could not list files. Ensure the workspace path is valid: ${rootPath}`;
+      }
+
+      const files = shellResult.stdout
+        .trim()
+        .split('\n')
+        .map((line) => {
+          const tab = line.indexOf('\t');
+          return { size: parseInt(line.slice(0, tab), 10), path: line.slice(tab + 1) };
+        })
+        .filter((f) => !isNaN(f.size));
+
+      if (!files.length) return `No files found matching criteria in ${rootPath}.`;
+
+      const lines = [
+        `Largest ${files.length} file${files.length !== 1 ? 's' : ''} in ${rootPath}:`,
+        '',
+        ...files.map((f, i) => {
+          const kb = (f.size / 1024).toFixed(1);
+          const mb = f.size >= 1_048_576 ? ` (${(f.size / 1_048_576).toFixed(2)} MB)` : '';
+          return `  ${String(i + 1).padStart(3)}. ${kb} KB${mb}  ${f.path}`;
+        }),
+      ];
+      return lines.join('\n');
+    },
+
+    // 2. FIND FILES BY EXTENSION
+    // Lists every file with one or more given extensions in a directory tree.
+    // Fast alternative to find_file_by_name when you want all files of a type.
+    find_files_by_extension: async (params, onStage) => {
+      const rootPath = resolveWorkingDirectory(params.path);
+      if (!rootPath) throw new Error('No workspace is open. Provide path.');
+      if (!params.extensions?.trim()) throw new Error('Missing required param: extensions');
+
+      const exts = params.extensions
+        .split(',')
+        .map((e) => e.trim().replace(/^\./, '').toLowerCase());
+      const maxResults = params.max_results ?? 200;
+
+      onStage(`🔎 Finding [${exts.join(', ')}] files in ${rootPath}`);
+
+      const extPatterns = exts.map((e) => `-name "*.${e}"`).join(' -o ');
+      const shellResult = await window.electronAPI?.invoke?.('run-shell-command', {
+        command: `find "${rootPath}" -type f \\( ${extPatterns} \\) -not -path "*/node_modules/*" -not -path "*/.git/*" | head -${maxResults + 10}`,
+        cwd: rootPath,
+        timeout: 15000,
+        allowRisky: false,
+      });
+
+      if (!shellResult?.ok || !shellResult.stdout?.trim()) {
+        return `No files with extension${exts.length > 1 ? 's' : ''} [${exts.join(', ')}] found in ${rootPath}.`;
+      }
+
+      const files = shellResult.stdout.trim().split('\n').filter(Boolean).slice(0, maxResults);
+
+      const grouped = {};
+      for (const f of files) {
+        const ext = f.split('.').pop().toLowerCase();
+        (grouped[ext] = grouped[ext] || []).push(f);
+      }
+
+      const output = [
+        `Files with [${exts.join(', ')}] in ${rootPath}:`,
+        `Found ${files.length}${files.length >= maxResults ? '+' : ''} file${files.length !== 1 ? 's' : ''}`,
+        '',
+      ];
+
+      for (const [ext, list] of Object.entries(grouped)) {
+        output.push(`### .${ext.toUpperCase()} (${list.length})`);
+        for (const f of list) output.push(`  ${f}`);
+        output.push('');
+      }
+
+      return output.join('\n');
+    },
+
+    // 3. FIND EMPTY FILES
+    // Locates zero-byte and optionally whitespace-only files.
+    find_empty_files: async (params, onStage) => {
+      const rootPath = resolveWorkingDirectory(params.path);
+      if (!rootPath) throw new Error('No workspace is open. Provide path.');
+
+      const includeWhitespaceOnly = params.include_whitespace_only !== false;
+      onStage(`🔍 Finding empty files in ${rootPath}`);
+
+      const shellResult = await window.electronAPI?.invoke?.('run-shell-command', {
+        command: `find "${rootPath}" -type f -not -path "*/node_modules/*" -not -path "*/.git/*" -empty`,
+        cwd: rootPath,
+        timeout: 15000,
+        allowRisky: false,
+      });
+
+      const emptyFiles =
+        shellResult?.ok && shellResult.stdout?.trim()
+          ? shellResult.stdout.trim().split('\n').filter(Boolean)
+          : [];
+
+      let whitespaceFiles = [];
+      if (includeWhitespaceOnly) {
+        const smallFiles = await window.electronAPI?.invoke?.('run-shell-command', {
+          command: `find "${rootPath}" -type f -not -path "*/node_modules/*" -not -path "*/.git/*" -size +0c -size -4k \\( -name "*.js" -o -name "*.ts" -o -name "*.py" -o -name "*.rb" -o -name "*.go" \\) | head -100`,
+          cwd: rootPath,
+          timeout: 15000,
+          allowRisky: false,
+        });
+        if (smallFiles?.ok && smallFiles.stdout?.trim()) {
+          for (const fp of smallFiles.stdout.trim().split('\n').filter(Boolean).slice(0, 50)) {
+            try {
+              const { content } = await ipcReadFile(fp);
+              if (content.trim() === '' && content.length > 0) whitespaceFiles.push(fp);
+            } catch {
+              /* skip */
+            }
+          }
+        }
+      }
+
+      if (!emptyFiles.length && !whitespaceFiles.length) {
+        return `No empty files found in ${rootPath}.`;
+      }
+
+      const output = [`Empty files in ${rootPath}:`, ''];
+      if (emptyFiles.length) {
+        output.push(`### ZERO-BYTE FILES (${emptyFiles.length})`);
+        emptyFiles.forEach((f) => output.push(`  ${f}`));
+        output.push('');
+      }
+      if (whitespaceFiles.length) {
+        output.push(`### WHITESPACE-ONLY FILES (${whitespaceFiles.length})`);
+        whitespaceFiles.forEach((f) => output.push(`  ${f}`));
+      }
+      return output.join('\n');
+    },
+
+    // 4. FIND LONG LINES
+    // Finds lines exceeding a character-width threshold in a file.
+    find_long_lines: async (params, onStage) => {
+      const { path: filePath } = params;
+      if (!filePath?.trim()) throw new Error('Missing required param: path');
+
+      const threshold = params.threshold ?? 100;
+      const maxResults = params.max_results ?? 100;
+
+      onStage(`📏 Finding lines longer than ${threshold} chars in ${filePath}`);
+      const { content, totalLines } = await ipcReadFile(filePath);
+      const lines = splitLines(content);
+
+      const hits = [];
+      for (let i = 0; i < lines.length; i++) {
+        if (lines[i].length > threshold) {
+          hits.push({ num: i + 1, len: lines[i].length, text: lines[i] });
+          if (hits.length >= maxResults) break;
+        }
+      }
+
+      if (!hits.length)
+        return `No lines exceed ${threshold} characters in ${filePath} (${totalLines} lines).`;
+
+      const longest = hits.reduce((a, b) => (b.len > a.len ? b : a));
+      return [
+        `Lines > ${threshold} chars in ${filePath}:`,
+        `${hits.length}${hits.length >= maxResults ? '+' : ''} long lines | Longest: ${longest.len} chars (line ${longest.num})`,
+        '',
+        ...hits.map(
+          (h) =>
+            `  Line ${h.num} (${h.len}): ${h.text.slice(0, 140)}${h.text.length > 140 ? '…' : ''}`,
+        ),
+      ].join('\n');
+    },
+
+    // 5. FIND CONSOLE STATEMENTS
+    // Locates every console.log / print / debugger call left in source files.
+    find_console_statements: async (params, onStage) => {
+      const rootPath = params.workspace_path
+        ? resolveWorkingDirectory(params.workspace_path)
+        : null;
+      const filePath = params.path?.trim();
+      if (!filePath && !rootPath) throw new Error('Provide path (single file) or workspace_path.');
+
+      const defaultPatterns = [
+        'console\\.log',
+        'console\\.warn',
+        'console\\.error',
+        'console\\.debug',
+        'console\\.info',
+        'console\\.trace',
+        'debugger',
+        'print\\(',
+        'pprint\\(',
+        'System\\.out\\.println',
+        'NSLog\\(',
+        'fmt\\.Print',
+      ];
+      const patterns = params.patterns
+        ? params.patterns.split(',').map((p) => p.trim())
+        : defaultPatterns;
+      const patternRe = new RegExp(patterns.join('|'), 'i');
+
+      onStage(`🔍 Scanning for console/debug statements`);
+
+      const hits = [];
+
+      if (filePath) {
+        const { content } = await ipcReadFile(filePath);
+        splitLines(content).forEach((line, i) => {
+          if (
+            patternRe.test(line) &&
+            !line.trim().startsWith('//') &&
+            !line.trim().startsWith('#')
+          ) {
+            hits.push({ path: filePath, line: i + 1, text: line.trim() });
+          }
+        });
+      } else {
+        const result = await window.electronAPI?.invoke?.('search-workspace', {
+          rootPath,
+          query: 'console.log',
+          maxResults: 300,
+        });
+        for (const m of result?.matches ?? []) {
+          if (patternRe.test(m.line) && !m.line.trim().startsWith('//')) {
+            hits.push({ path: m.path, line: m.lineNumber, text: m.line.trim() });
+          }
+        }
+      }
+
+      if (!hits.length) return `No console/debug statements found.`;
+
+      const byFile = {};
+      for (const h of hits) (byFile[h.path] = byFile[h.path] || []).push(h);
+
+      const output = [
+        `Console/debug statements: ${hits.length} across ${Object.keys(byFile).length} file${Object.keys(byFile).length !== 1 ? 's' : ''}`,
+        '',
+      ];
+      for (const [fp, fileHits] of Object.entries(byFile)) {
+        output.push(`📄 ${fp} (${fileHits.length})`);
+        fileHits
+          .slice(0, 15)
+          .forEach((h) => output.push(`  Line ${h.line}: ${h.text.slice(0, 120)}`));
+        if (fileHits.length > 15) output.push(`  … +${fileHits.length - 15} more`);
+        output.push('');
+      }
+      return output.join('\n');
+    },
+
+    // 6. FIND HARDCODED VALUES
+    // Surfaces magic numbers, hardcoded URLs, and string literals.
+    find_hardcoded_values: async (params, onStage) => {
+      const { path: filePath } = params;
+      if (!filePath?.trim()) throw new Error('Missing required param: path');
+
+      const findNumbers = params.find_numbers !== false;
+      const findStrings = params.find_strings !== false;
+      const findUrls = params.find_urls !== false;
+      const minMagicNumber = params.min_magic_number ?? 3;
+
+      onStage(`🔍 Scanning for hardcoded values in ${filePath}`);
+      const { content, totalLines } = await ipcReadFile(filePath);
+      const lines = splitLines(content);
+
+      const results = { numbers: [], strings: [], urls: [] };
+      const urlRe = /https?:\/\/[^\s'"`,;)>]+/gi;
+      const stringRe = /("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|`(?:[^`\\]|\\.)*`)/g;
+      const magicNumRe = /(?<![a-zA-Z_$0-9.])\b([0-9]+(?:\.[0-9]+)?)\b/g;
+
+      for (let i = 0; i < lines.length; i++) {
+        const trimmed = lines[i].trim();
+        if (/^\s*(\/\/|#|\/\*|\*|<!--)/.test(trimmed)) continue;
+
+        if (findUrls) {
+          urlRe.lastIndex = 0;
+          let m;
+          while ((m = urlRe.exec(lines[i])) !== null) {
+            results.urls.push({ line: i + 1, value: m[0] });
+          }
+        }
+        if (findNumbers) {
+          magicNumRe.lastIndex = 0;
+          let m;
+          while ((m = magicNumRe.exec(lines[i])) !== null) {
+            if (parseFloat(m[1]) >= minMagicNumber) {
+              results.numbers.push({ line: i + 1, value: m[1], context: trimmed.slice(0, 80) });
+            }
+          }
+        }
+        if (findStrings && !trimmed.startsWith('import') && !trimmed.startsWith('from')) {
+          stringRe.lastIndex = 0;
+          let m;
+          while ((m = stringRe.exec(lines[i])) !== null) {
+            const inner = m[1].slice(1, -1);
+            if (inner.length >= 3 && inner.trim()) {
+              results.strings.push({ line: i + 1, value: m[1].slice(0, 60) });
+            }
+          }
+        }
+      }
+
+      const total = results.numbers.length + results.strings.length + results.urls.length;
+      if (!total) return `No hardcoded values found in ${filePath} (${totalLines} lines).`;
+
+      const output = [
+        `Hardcoded values in ${filePath}:`,
+        `Magic numbers: ${results.numbers.length} | String literals: ${results.strings.length} | URLs: ${results.urls.length}`,
+        '',
+      ];
+      if (results.numbers.length) {
+        output.push(`### MAGIC NUMBERS (≥ ${minMagicNumber})`);
+        results.numbers
+          .slice(0, 40)
+          .forEach((r) => output.push(`  Line ${r.line}: ${r.value}  ← ${r.context}`));
+        if (results.numbers.length > 40) output.push(`  … +${results.numbers.length - 40} more`);
+        output.push('');
+      }
+      if (results.urls.length) {
+        output.push('### HARDCODED URLs');
+        results.urls.slice(0, 20).forEach((r) => output.push(`  Line ${r.line}: ${r.value}`));
+        if (results.urls.length > 20) output.push(`  … +${results.urls.length - 20} more`);
+        output.push('');
+      }
+      if (results.strings.length) {
+        output.push('### STRING LITERALS (3+ chars)');
+        results.strings.slice(0, 40).forEach((r) => output.push(`  Line ${r.line}: ${r.value}`));
+        if (results.strings.length > 40) output.push(`  … +${results.strings.length - 40} more`);
+      }
+      return output.join('\n');
+    },
+
+    // 7. FIND IMPORTS OF
+    // Across the whole workspace, finds every file that imports a specific module.
+    find_imports_of: async (params, onStage) => {
+      const { module: moduleName } = params;
+      if (!moduleName?.trim()) throw new Error('Missing required param: module');
+      const rootPath = resolveWorkingDirectory(params.workspace_path);
+      if (!rootPath) throw new Error('No workspace is open. Provide workspace_path.');
+
+      onStage(`🔗 Finding all files that import "${moduleName}"`);
+      const result = await window.electronAPI?.invoke?.('search-workspace', {
+        rootPath,
+        query: moduleName,
+        maxResults: 300,
+      });
+      if (!result?.ok) throw new Error(result?.error ?? 'Workspace search failed');
+
+      const escaped = moduleName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const importRe = new RegExp(
+        `(?:import|from|require)\\s*(?:\\(?\\s*)?['"` +
+          '`' +
+          `]([^'"` +
+          '`' +
+          `]*${escaped}[^'"` +
+          '`' +
+          `]*)['"` +
+          '`' +
+          `]`,
+        'i',
+      );
+
+      const hits = [];
+      for (const m of result.matches ?? []) {
+        if (importRe.test(m.line)) {
+          hits.push({ path: m.path, line: m.lineNumber, text: m.line.trim() });
+        }
+      }
+
+      if (!hits.length) return `No files import "${moduleName}" in ${rootPath}.`;
+
+      const byFile = {};
+      for (const h of hits) (byFile[h.path] = byFile[h.path] || []).push(h);
+
+      const output = [
+        `Files importing "${moduleName}":`,
+        `${Object.keys(byFile).length} file${Object.keys(byFile).length !== 1 ? 's' : ''} (${hits.length} import statement${hits.length !== 1 ? 's' : ''})`,
+        '',
+      ];
+      for (const [fp, fileHits] of Object.entries(byFile)) {
+        output.push(`📄 ${fp}`);
+        fileHits.forEach((h) => output.push(`   line ${h.line}: ${h.text.slice(0, 120)}`));
+      }
+      return output.join('\n');
+    },
+
+    // 8. FIND FILES WITHOUT PATTERN
+    // Returns all files that do NOT contain a given pattern.
+    find_files_without_pattern: async (params, onStage) => {
+      const { directory, pattern } = params;
+      if (!directory?.trim()) throw new Error('Missing required param: directory');
+      if (!pattern?.trim()) throw new Error('Missing required param: pattern');
+
+      const extensions = params.extensions
+        ? params.extensions.split(',').map((e) => e.trim().replace(/^\./, '').toLowerCase())
+        : ['js', 'ts', 'jsx', 'tsx', 'py', 'rb', 'go', 'java', 'cs', 'php', 'rs'];
+      const maxResults = params.max_results ?? 50;
+
+      onStage(`🔍 Finding files WITHOUT "${pattern}" in ${directory}`);
+
+      const extPatterns = extensions.map((e) => `-name "*.${e}"`).join(' -o ');
+      const listResult = await window.electronAPI?.invoke?.('run-shell-command', {
+        command: `find "${directory}" -type f \\( ${extPatterns} \\) -not -path "*/node_modules/*" -not -path "*/.git/*"`,
+        cwd: directory,
+        timeout: 20000,
+        allowRisky: false,
+      });
+
+      if (!listResult?.ok || !listResult.stdout?.trim())
+        return `Could not list files in ${directory}.`;
+
+      const allFiles = listResult.stdout.trim().split('\n').filter(Boolean);
+      const searchResult = await window.electronAPI?.invoke?.('search-workspace', {
+        rootPath: directory,
+        query: pattern,
+        maxResults: allFiles.length + 100,
+      });
+      const filesWithPattern = new Set((searchResult?.matches ?? []).map((m) => m.path));
+      const missingFiles = allFiles.filter((f) => !filesWithPattern.has(f)).slice(0, maxResults);
+
+      if (!missingFiles.length) return `All scanned files contain "${pattern}" in ${directory}.`;
+
+      const byExt = {};
+      for (const f of missingFiles) {
+        const ext = f.split('.').pop().toLowerCase();
+        (byExt[ext] = byExt[ext] || []).push(f);
+      }
+
+      const output = [
+        `Files NOT containing "${pattern}" in ${directory}:`,
+        `${missingFiles.length}${missingFiles.length >= maxResults ? '+' : ''} of ${allFiles.length} files are missing this pattern`,
+        '',
+      ];
+      for (const [ext, files] of Object.entries(byExt)) {
+        output.push(`### .${ext.toUpperCase()} (${files.length})`);
+        files.forEach((f) => output.push(`  ${f}`));
+        output.push('');
+      }
+      return output.join('\n');
+    },
+
+    // 9. FIND NTH OCCURRENCE
+    // Locates the exact position of the Nth occurrence of a pattern in a file.
+    find_nth_occurrence: async (params, onStage) => {
+      const { path: filePath, pattern } = params;
+      if (!filePath?.trim()) throw new Error('Missing required param: path');
+      if (!pattern?.trim()) throw new Error('Missing required param: pattern');
+
+      const n = Math.max(1, params.n ?? 1);
+      const contextRadius = params.context_lines ?? 10;
+      const useRegex = params.regex === true;
+      const caseSensitive = params.case_sensitive === true;
+
+      onStage(`🔢 Finding occurrence #${n} of "${pattern}" in ${filePath}`);
+      const { content, totalLines } = await ipcReadFile(filePath);
+      const lines = splitLines(content);
+
+      let regex;
+      try {
+        regex = useRegex
+          ? new RegExp(pattern, caseSensitive ? '' : 'i')
+          : new RegExp(pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), caseSensitive ? '' : 'i');
+      } catch (e) {
+        throw new Error(`Invalid pattern: ${e.message}`);
+      }
+
+      let found = 0;
+      let targetLine = -1;
+      const allOccurrences = [];
+      for (let i = 0; i < lines.length; i++) {
+        if (regex.test(lines[i])) {
+          found++;
+          allOccurrences.push(i + 1);
+          if (found === n) targetLine = i;
+        }
+      }
+
+      if (targetLine === -1) {
+        return [
+          `Occurrence #${n} of "${pattern}" not found in ${filePath}.`,
+          `Total occurrences: ${found}`,
+          found > 0 ? `Found at lines: ${allOccurrences.join(', ')}` : '',
+        ]
+          .filter(Boolean)
+          .join('\n');
+      }
+
+      const from = Math.max(0, targetLine - contextRadius);
+      const to = Math.min(lines.length - 1, targetLine + contextRadius);
+      const output = [
+        `Occurrence #${n} of "${pattern}" in ${filePath}:`,
+        `Line ${targetLine + 1} of ${totalLines} | Total occurrences: ${found}`,
+        found > 1 ? `All at lines: ${allOccurrences.join(', ')}` : '',
+        '',
+      ].filter(Boolean);
+      for (let i = from; i <= to; i++) {
+        output.push(`${String(i + 1).padStart(5)}${i === targetLine ? '▶' : ' '} ${lines[i]}`);
+      }
+      return output.join('\n');
+    },
+
+    // 10. FIND ALL URLS
+    // Extracts every URL from a file or workspace, grouped by domain.
+    find_all_urls: async (params, onStage) => {
+      const filePath = params.path?.trim();
+      const rootPath = params.workspace_path
+        ? resolveWorkingDirectory(params.workspace_path)
+        : null;
+      if (!filePath && !rootPath) throw new Error('Provide path or workspace_path.');
+
+      const schemes = (params.schemes ?? 'http,https').split(',').map((s) => s.trim());
+      const urlRe = new RegExp(`(${schemes.join('|')})://[^\\s'"` + '`' + `<>)\\]},;]+`, 'gi');
+
+      onStage(`🔗 Extracting URLs from ${filePath ?? rootPath}`);
+
+      const urlMap = new Map();
+      const scanLine = (line, source, lineNum) => {
+        urlRe.lastIndex = 0;
+        let m;
+        while ((m = urlRe.exec(line)) !== null) {
+          const url = m[0].replace(/[.,;)>\]'"]+$/, '');
+          if (!urlMap.has(url)) urlMap.set(url, new Set());
+          urlMap.get(url).add(`${source}:${lineNum}`);
+        }
+      };
+
+      if (filePath) {
+        const { content } = await ipcReadFile(filePath);
+        splitLines(content).forEach((line, i) => scanLine(line, filePath, i + 1));
+      } else {
+        const result = await window.electronAPI?.invoke?.('search-workspace', {
+          rootPath,
+          query: '://',
+          maxResults: 500,
+        });
+        for (const m of result?.matches ?? []) scanLine(m.line, m.path, m.lineNumber);
+      }
+
+      if (!urlMap.size) return `No URLs found.`;
+
+      const byDomain = {};
+      for (const [url, locs] of urlMap.entries()) {
+        const domain = url.match(/^https?:\/\/([^/]+)/)?.[1] ?? 'other';
+        (byDomain[domain] = byDomain[domain] || []).push({ url, locs: [...locs] });
+      }
+
+      const output = [
+        `URLs in ${filePath ?? rootPath}:`,
+        `${urlMap.size} unique URL${urlMap.size !== 1 ? 's' : ''} across ${Object.keys(byDomain).length} domain${Object.keys(byDomain).length !== 1 ? 's' : ''}`,
+        '',
+      ];
+      for (const [domain, entries] of Object.entries(byDomain)) {
+        output.push(`### ${domain} (${entries.length})`);
+        for (const { url, locs } of entries) {
+          output.push(`  ${url}`);
+          if (params.show_locations !== false) {
+            locs.slice(0, 3).forEach((l) => output.push(`    ↳ ${l}`));
+            if (locs.length > 3) output.push(`    ↳ … +${locs.length - 3} more`);
+          }
+        }
+        output.push('');
+      }
+      return output.join('\n');
+    },
+
+    // 11. FIND COMMENTED CODE BLOCKS
+    // Detects runs of commented-out code lines.
+    find_commented_code_blocks: async (params, onStage) => {
+      const { path: filePath } = params;
+      if (!filePath?.trim()) throw new Error('Missing required param: path');
+
+      const minBlockSize = params.min_block_size ?? 3;
+      onStage(`🔍 Finding commented-out code blocks in ${filePath}`);
+      const { content, totalLines } = await ipcReadFile(filePath);
+      const lines = splitLines(content);
+      const style = getCommentStyle(filePath, null);
+      const marker = style.single || '//';
+      const codeSmellRe = /[{}();=<>[\]]/;
+
+      const isCommentedCode = (line) => {
+        const t = line.trim();
+        if (!t.startsWith(marker)) return false;
+        const inner = t.slice(marker.length).trim();
+        return codeSmellRe.test(inner) && inner.length > 3;
+      };
+
+      const blocks = [];
+      let blockStart = -1;
+      let blockLines = [];
+
+      for (let i = 0; i < lines.length; i++) {
+        if (isCommentedCode(lines[i])) {
+          if (blockStart === -1) blockStart = i;
+          blockLines.push({ lineNum: i + 1, text: lines[i].trim() });
+        } else {
+          if (blockStart !== -1 && blockLines.length >= minBlockSize) {
+            blocks.push({ start: blockStart + 1, end: i, lines: [...blockLines] });
+          }
+          blockStart = -1;
+          blockLines = [];
+        }
+      }
+      if (blockStart !== -1 && blockLines.length >= minBlockSize) {
+        blocks.push({ start: blockStart + 1, end: lines.length, lines: blockLines });
+      }
+
+      if (!blocks.length)
+        return `No commented-out code blocks (≥ ${minBlockSize} lines) found in ${filePath}.`;
+
+      const output = [
+        `Commented-out code blocks in ${filePath}:`,
+        `${blocks.length} block${blocks.length !== 1 ? 's' : ''} across ${totalLines} lines`,
+        '',
+      ];
+      for (const block of blocks) {
+        output.push(`### Lines ${block.start}–${block.end} (${block.lines.length} lines)`);
+        block.lines
+          .slice(0, 8)
+          .forEach((l) => output.push(`  ${l.lineNum}: ${l.text.slice(0, 100)}`));
+        if (block.lines.length > 8) output.push(`  … +${block.lines.length - 8} more`);
+        output.push('');
+      }
+      return output.join('\n');
+    },
+
+    // 12. FIND SIMILAR LINES
+    // Detects near-duplicate lines using trigram similarity.
+    find_similar_lines: async (params, onStage) => {
+      const { path: filePath } = params;
+      if (!filePath?.trim()) throw new Error('Missing required param: path');
+
+      const threshold = params.similarity_threshold ?? 0.85;
+      const minLength = params.min_length ?? 20;
+      const maxComparisons = 2000;
+
+      onStage(`🔍 Scanning for near-duplicate lines in ${filePath}`);
+      const { content } = await ipcReadFile(filePath);
+      const lines = splitLines(content);
+
+      const candidates = lines
+        .map((text, idx) => ({ idx, text: text.trim() }))
+        .filter((l) => l.text.length >= minLength && !l.text.match(/^\s*(\/\/|#|\*)/));
+
+      if (candidates.length > maxComparisons) {
+        return `Too many candidate lines (${candidates.length}). Narrow the range.`;
+      }
+
+      const trigrams = (s) => {
+        const tg = new Set();
+        for (let i = 0; i < s.length - 2; i++) tg.add(s.slice(i, i + 3));
+        return tg;
+      };
+      const sim = (a, b) => {
+        const ta = trigrams(a),
+          tb = trigrams(b);
+        let inter = 0;
+        for (const t of ta) if (tb.has(t)) inter++;
+        return inter / (ta.size + tb.size - inter || 1);
+      };
+
+      const pairs = [];
+      for (let i = 0; i < candidates.length; i++) {
+        for (let j = i + 1; j < candidates.length; j++) {
+          if (candidates[i].text === candidates[j].text) continue;
+          const s = sim(candidates[i].text, candidates[j].text);
+          if (s >= threshold) {
+            pairs.push({
+              lineA: candidates[i].idx + 1,
+              lineB: candidates[j].idx + 1,
+              textA: candidates[i].text,
+              textB: candidates[j].text,
+              pct: Math.round(s * 100),
+            });
+          }
+        }
+      }
+
+      if (!pairs.length) return `No similar lines (≥ ${Math.round(threshold * 100)}%) found.`;
+      pairs.sort((a, b) => b.pct - a.pct);
+
+      const output = [
+        `Similar lines in ${filePath} (≥ ${Math.round(threshold * 100)}% similar):`,
+        `${pairs.length} pair${pairs.length !== 1 ? 's' : ''}`,
+        '',
+      ];
+      for (const p of pairs.slice(0, 30)) {
+        output.push(`### ${p.pct}% — Lines ${p.lineA} & ${p.lineB}`);
+        output.push(`  L${p.lineA}: ${p.textA.slice(0, 100)}`);
+        output.push(`  L${p.lineB}: ${p.textB.slice(0, 100)}`);
+        output.push('');
+      }
+      if (pairs.length > 30) output.push(`… +${pairs.length - 30} more pairs`);
+      return output.join('\n');
+    },
+
+    // 13. FIND FUNCTIONS OVER LENGTH
+    // Workspace-wide scan for functions exceeding N lines.
+    find_functions_over_length: async (params, onStage) => {
+      const rootPath = resolveWorkingDirectory(params.workspace_path);
+      if (!rootPath) throw new Error('No workspace is open.');
+
+      const threshold = params.threshold ?? 50;
+      const extensions = params.extensions
+        ? params.extensions.split(',').map((e) => e.trim().replace(/^\./, '').toLowerCase())
+        : ['js', 'ts', 'jsx', 'tsx', 'py', 'java', 'cs', 'go', 'rb'];
+
+      onStage(`📊 Scanning workspace for functions > ${threshold} lines`);
+
+      const extPatterns = extensions.map((e) => `-name "*.${e}"`).join(' -o ');
+      const listResult = await window.electronAPI?.invoke?.('run-shell-command', {
+        command: `find "${rootPath}" -type f \\( ${extPatterns} \\) -not -path "*/node_modules/*" -not -path "*/.git/*"`,
+        cwd: rootPath,
+        timeout: 20000,
+        allowRisky: false,
+      });
+
+      if (!listResult?.ok || !listResult.stdout?.trim())
+        return `No source files found in ${rootPath}.`;
+
+      const files = listResult.stdout.trim().split('\n').filter(Boolean);
+      onStage(`Analyzing ${files.length} files…`);
+
+      const fnRe =
+        /^(?:export\s+)?(?:async\s+)?function\s+(\w+)|^(?:export\s+)?(?:const|let|var)\s+(\w+)\s*=\s*(?:async\s*)?\(|^class\s+(\w+)|^(?:async\s+)?def\s+(\w+)/;
+      const longFunctions = [];
+
+      for (const fp of files.slice(0, 200)) {
+        try {
+          const { content } = await ipcReadFile(fp);
+          const fileLines = splitLines(content);
+          let current = null,
+            depth = 0;
+          for (let i = 0; i < fileLines.length; i++) {
+            const t = fileLines[i].trim();
+            const m = t.match(fnRe);
+            if (m && depth <= 1) {
+              if (current) {
+                current.length = i - current.startLine;
+                if (current.length > threshold) longFunctions.push({ ...current, path: fp });
+              }
+              current = {
+                name: m[1] || m[2] || m[3] || m[4] || '(anon)',
+                startLine: i + 1,
+                length: 0,
+              };
+            }
+            depth = Math.max(
+              0,
+              depth + (t.match(/\{/g) || []).length - (t.match(/\}/g) || []).length,
+            );
+          }
+          if (current) {
+            current.length = fileLines.length - current.startLine;
+            if (current.length > threshold) longFunctions.push({ ...current, path: fp });
+          }
+        } catch {
+          /* skip */
+        }
+      }
+
+      if (!longFunctions.length) return `No functions over ${threshold} lines found.`;
+      longFunctions.sort((a, b) => b.length - a.length);
+
+      const byFile = {};
+      for (const f of longFunctions) (byFile[f.path] = byFile[f.path] || []).push(f);
+
+      const output = [
+        `Functions over ${threshold} lines in ${rootPath}:`,
+        `${longFunctions.length} function${longFunctions.length !== 1 ? 's' : ''} across ${Object.keys(byFile).length} files`,
+        '',
+      ];
+      for (const [fp, fns] of Object.entries(byFile)) {
+        output.push(`📄 ${fp}`);
+        fns.forEach((fn) =>
+          output.push(`   ${fn.name}()  line ${fn.startLine}  (${fn.length} lines)`),
+        );
+      }
+      return output.join('\n');
+    },
+
+    // 14. FIND UNCLOSED MARKERS
+    // Scans for start markers that have no matching end marker.
+    find_unclosed_markers: async (params, onStage) => {
+      const { path: filePath, start_marker, end_marker } = params;
+      if (!filePath?.trim()) throw new Error('Missing required param: path');
+      if (!start_marker?.trim()) throw new Error('Missing required param: start_marker');
+      if (!end_marker?.trim()) throw new Error('Missing required param: end_marker');
+
+      onStage(`🔍 Checking marker balance in ${filePath}`);
+      const { content, totalLines } = await ipcReadFile(filePath);
+      const lines = splitLines(content);
+
+      const opens = [];
+      const matched = [];
+      for (let i = 0; i < lines.length; i++) {
+        if (lines[i].includes(start_marker)) opens.push({ line: i + 1, text: lines[i].trim() });
+        if (lines[i].includes(end_marker) && opens.length > 0)
+          matched.push({ open: opens.pop(), close: { line: i + 1 } });
+      }
+
+      // Extra closes: end markers without a matching open
+      const matchedCloseLines = new Set(matched.map((m) => m.close.line));
+      const extraCloses = [];
+      for (let i = 0; i < lines.length; i++) {
+        if (lines[i].includes(end_marker) && !matchedCloseLines.has(i + 1)) {
+          extraCloses.push({ line: i + 1, text: lines[i].trim() });
+        }
+      }
+
+      if (!opens.length && !extraCloses.length) {
+        return `All "${start_marker}" markers are properly closed. Matched pairs: ${matched.length}`;
+      }
+
+      const output = [
+        `Marker balance: "${start_marker}" … "${end_marker}" in ${filePath}`,
+        `Matched: ${matched.length} | Unclosed: ${opens.length} | Extra closes: ${extraCloses.length}`,
+        '',
+      ];
+      if (opens.length) {
+        output.push(`### UNCLOSED "${start_marker}"`);
+        opens.forEach((u) => output.push(`  Line ${u.line}: ${u.text.slice(0, 100)}`));
+        output.push('');
+      }
+      if (extraCloses.length) {
+        output.push(`### EXTRA "${end_marker}" (no matching open)`);
+        extraCloses.forEach((e) => output.push(`  Line ${e.line}: ${e.text.slice(0, 100)}`));
+      }
+      return output.join('\n');
+    },
+
+    // 15. FIND PATTERN NEAR PATTERN
+    // Finds lines where pattern A appears within N lines of pattern B.
+    find_pattern_near_pattern: async (params, onStage) => {
+      const { path: filePath, pattern_a, pattern_b } = params;
+      if (!filePath?.trim()) throw new Error('Missing required param: path');
+      if (!pattern_a?.trim()) throw new Error('Missing required param: pattern_a');
+      if (!pattern_b?.trim()) throw new Error('Missing required param: pattern_b');
+
+      const proximity = params.proximity ?? 5;
+      const useRegex = params.regex === true;
+
+      onStage(
+        `🔍 Finding "${pattern_a}" within ${proximity} lines of "${pattern_b}" in ${filePath}`,
+      );
+      const { content, totalLines } = await ipcReadFile(filePath);
+      const lines = splitLines(content);
+
+      const makeRe = (p) =>
+        useRegex ? new RegExp(p, 'i') : new RegExp(p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+
+      const reA = makeRe(pattern_a),
+        reB = makeRe(pattern_b);
+      const linesA = [],
+        linesB = [];
+      for (let i = 0; i < lines.length; i++) {
+        if (reA.test(lines[i])) linesA.push(i);
+        if (reB.test(lines[i])) linesB.push(i);
+      }
+
+      if (!linesA.length) return `Pattern A "${pattern_a}" not found in ${filePath}.`;
+      if (!linesB.length) return `Pattern B "${pattern_b}" not found in ${filePath}.`;
+
+      const pairs = [];
+      for (const a of linesA) {
+        for (const b of linesB) {
+          if (a !== b && Math.abs(a - b) <= proximity) {
+            pairs.push({ a: a + 1, b: b + 1, dist: Math.abs(a - b) });
+          }
+        }
+      }
+
+      if (!pairs.length)
+        return `No co-occurrences within ${proximity} lines. A at: ${linesA
+          .slice(0, 5)
+          .map((l) => l + 1)
+          .join(', ')} | B at: ${linesB
+          .slice(0, 5)
+          .map((l) => l + 1)
+          .join(', ')}`;
+
+      pairs.sort((a, b) => a.a - b.a);
+      const output = [
+        `"${pattern_a}" within ${proximity} lines of "${pattern_b}" in ${filePath}:`,
+        `${pairs.length} co-occurrence${pairs.length !== 1 ? 's' : ''}`,
+        '',
+      ];
+
+      for (const p of pairs.slice(0, 30)) {
+        const lo = Math.max(0, Math.min(p.a, p.b) - 2);
+        const hi = Math.min(lines.length - 1, Math.max(p.a, p.b));
+        output.push(`--- A:${p.a} / B:${p.b} (${p.dist} line${p.dist !== 1 ? 's' : ''} apart) ---`);
+        for (let i = lo; i <= hi; i++) {
+          const tag = i + 1 === p.a ? 'A' : i + 1 === p.b ? 'B' : ' ';
+          output.push(`  ${String(i + 1).padStart(5)} ${tag} ${lines[i].trimEnd().slice(0, 100)}`);
+        }
+        output.push('');
+      }
+      return output.join('\n');
+    },
+
+    // 16. FIND ALL STRING LITERALS
+    // Extracts every unique string literal value from a file.
+    find_all_string_literals: async (params, onStage) => {
+      const { path: filePath } = params;
+      if (!filePath?.trim()) throw new Error('Missing required param: path');
+
+      const minLength = params.min_length ?? 2;
+      const maxLength = params.max_length ?? 200;
+      const dedup = params.deduplicate !== false;
+
+      onStage(`📝 Extracting string literals from ${filePath}`);
+      const { content, totalLines } = await ipcReadFile(filePath);
+      const lines = splitLines(content);
+
+      const found = [];
+      const stringRe = /("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|`(?:[^`\\]|\\.)*`)/g;
+
+      for (let i = 0; i < lines.length; i++) {
+        const t = lines[i].trim();
+        if (/^\s*(\/\/|#|\/\*|\*|import\s|from\s|require\()/.test(t)) continue;
+        stringRe.lastIndex = 0;
+        let m;
+        while ((m = stringRe.exec(lines[i])) !== null) {
+          const inner = m[1].slice(1, -1).replace(/\\./g, (s) => s[1]);
+          if (inner.length >= minLength && inner.length <= maxLength && inner.trim()) {
+            const quote = m[1][0] === '"' ? 'double' : m[1][0] === "'" ? 'single' : 'template';
+            found.push({ line: i + 1, value: inner, raw: m[1], quote });
+          }
+        }
+      }
+
+      if (!found.length) return `No string literals found in ${filePath} (${totalLines} lines).`;
+
+      let results = found;
+      if (dedup) {
+        const seen = new Set();
+        results = found.filter(({ value }) => (seen.has(value) ? false : (seen.add(value), true)));
+      }
+
+      const byQuote = { double: [], single: [], template: [] };
+      for (const r of results) byQuote[r.quote].push(r);
+
+      const output = [
+        `String literals in ${filePath}:`,
+        `Total: ${found.length} (${dedup ? results.length + ' unique' : 'all'}) | " ${byQuote.double.length} | ' ${byQuote.single.length} | \` ${byQuote.template.length}`,
+        '',
+      ];
+      for (const [qType, items] of Object.entries(byQuote)) {
+        if (!items.length) continue;
+        output.push(`### ${qType.toUpperCase()} QUOTES (${items.length})`);
+        items
+          .slice(0, 50)
+          .forEach((item) => output.push(`  Line ${item.line}: ${item.raw.slice(0, 80)}`));
+        if (items.length > 50) output.push(`  … +${items.length - 50} more`);
+        output.push('');
+      }
+      return output.join('\n');
+    },
+
+    // 17. FIND LINES BY LENGTH RANGE
+    // Returns lines whose character count falls within [min, max].
+    find_lines_by_length_range: async (params, onStage) => {
+      const { path: filePath } = params;
+      if (!filePath?.trim()) throw new Error('Missing required param: path');
+      if (params.min_length == null && params.max_length == null)
+        throw new Error('Provide min_length or max_length.');
+
+      const minLen = params.min_length ?? 0;
+      const maxLen = params.max_length ?? Infinity;
+      const skipBlank = params.skip_blank !== false;
+      const maxResults = params.max_results ?? 200;
+
+      onStage(
+        `📏 Finding lines ${minLen}–${maxLen === Infinity ? '∞' : maxLen} chars in ${filePath}`,
+      );
+      const { content, totalLines } = await ipcReadFile(filePath);
+      const lines = splitLines(content);
+
+      const hits = [];
+      for (let i = 0; i < lines.length; i++) {
+        if (skipBlank && !lines[i].trim()) continue;
+        if (lines[i].length >= minLen && lines[i].length <= maxLen) {
+          hits.push({ num: i + 1, len: lines[i].length, text: lines[i] });
+          if (hits.length >= maxResults) break;
+        }
+      }
+
+      if (!hits.length)
+        return `No lines with length ${minLen}–${maxLen === Infinity ? '∞' : maxLen} found.`;
+
+      const avg = Math.round(hits.reduce((a, h) => a + h.len, 0) / hits.length);
+      return [
+        `Lines ${minLen}–${maxLen === Infinity ? '∞' : maxLen} chars in ${filePath}:`,
+        `${hits.length}${hits.length >= maxResults ? '+' : ''} lines | avg length: ${avg} chars`,
+        '',
+        ...hits.map(
+          (h) =>
+            `  Line ${h.num} (${h.len}): ${h.text.slice(0, 120)}${h.text.length > 120 ? '…' : ''}`,
+        ),
+      ].join('\n');
+    },
+
+    // 18. FIND FIRST MATCH
+    // Finds the very first occurrence of a pattern with generous surrounding context.
+    find_first_match: async (params, onStage) => {
+      const { path: filePath, pattern } = params;
+      if (!filePath?.trim()) throw new Error('Missing required param: path');
+      if (!pattern?.trim()) throw new Error('Missing required param: pattern');
+
+      const contextBefore = params.context_before ?? 10;
+      const contextAfter = params.context_after ?? 20;
+      const useRegex = params.regex === true;
+      const caseSensitive = params.case_sensitive === true;
+
+      onStage(`🔍 Finding first "${pattern}" in ${filePath}`);
+      const { content, totalLines } = await ipcReadFile(filePath);
+      const lines = splitLines(content);
+
+      let regex;
+      try {
+        regex = useRegex
+          ? new RegExp(pattern, caseSensitive ? '' : 'i')
+          : new RegExp(pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), caseSensitive ? '' : 'i');
+      } catch (e) {
+        throw new Error(`Invalid pattern: ${e.message}`);
+      }
+
+      let matchLine = -1;
+      let totalMatches = 0;
+      for (let i = 0; i < lines.length; i++) {
+        if (regex.test(lines[i])) {
+          if (matchLine === -1) matchLine = i;
+          totalMatches++;
+        }
+      }
+
+      if (matchLine === -1)
+        return `Pattern "${pattern}" not found in ${filePath} (${totalLines} lines).`;
+
+      const from = Math.max(0, matchLine - contextBefore);
+      const to = Math.min(lines.length - 1, matchLine + contextAfter);
+
+      const output = [
+        `First match of "${pattern}" in ${filePath}:`,
+        `Line ${matchLine + 1} of ${totalLines} | Total occurrences: ${totalMatches}`,
+        '',
+      ];
+      for (let i = from; i <= to; i++) {
+        output.push(`${String(i + 1).padStart(5)}${i === matchLine ? '▶' : ' '} ${lines[i]}`);
+      }
+      return output.join('\n');
+    },
+
+    // 19. FIND MULTILINE PATTERN
+    // Searches for a regex spanning multiple lines using dot-all mode.
+    find_multiline_pattern: async (params, onStage) => {
+      const { path: filePath, pattern } = params;
+      if (!filePath?.trim()) throw new Error('Missing required param: path');
+      if (!pattern?.trim()) throw new Error('Missing required param: pattern');
+
+      const contextLines = params.context_lines ?? 3;
+      const maxMatches = params.max_matches ?? 20;
+      const flags = params.flags ?? 'gis';
+
+      onStage(`🔍 Multi-line search in ${filePath}`);
+      const { content, totalLines } = await ipcReadFile(filePath);
+      const lines = splitLines(content);
+
+      let regex;
+      try {
+        regex = new RegExp(pattern, flags);
+      } catch (e) {
+        throw new Error(`Invalid regex: ${e.message}`);
+      }
+
+      const matches = [];
+      let m;
+      regex.lastIndex = 0;
+      while ((m = regex.exec(content)) !== null && matches.length < maxMatches) {
+        const startLineIdx = content.slice(0, m.index).split('\n').length - 1;
+        const matchLineCount = m[0].split('\n').length;
+        matches.push({
+          startLine: startLineIdx + 1,
+          endLine: startLineIdx + matchLineCount,
+          matchLines: matchLineCount,
+        });
+        if (m[0].length === 0) regex.lastIndex++;
+      }
+
+      if (!matches.length)
+        return `No multi-line matches for pattern in ${filePath} (${totalLines} lines).`;
+
+      const output = [
+        `Multi-line matches in ${filePath}:`,
+        `${matches.length}${matches.length >= maxMatches ? '+' : ''} match${matches.length !== 1 ? 'es' : ''}`,
+        '',
+      ];
+      for (const match of matches) {
+        const from = Math.max(0, match.startLine - 1 - contextLines);
+        const to = Math.min(lines.length - 1, match.endLine - 1 + contextLines);
+        output.push(
+          `### Match: lines ${match.startLine}–${match.endLine} (${match.matchLines} lines)`,
+        );
+        for (let i = from; i <= to; i++) {
+          const inMatch = i + 1 >= match.startLine && i + 1 <= match.endLine;
+          output.push(`${String(i + 1).padStart(5)}${inMatch ? '▶' : ' '} ${lines[i]}`);
+        }
+        output.push('');
+      }
+      return output.join('\n');
+    },
+
+    // 20. FIND SYMBOL DEFINITIONS
+    // Finds only definition sites of a named symbol across the workspace.
+    find_symbol_definitions: async (params, onStage) => {
+      const { symbol } = params;
+      if (!symbol?.trim()) throw new Error('Missing required param: symbol');
+
+      const rootPath = resolveWorkingDirectory(params.workspace_path);
+      if (!rootPath) throw new Error('No workspace is open. Provide workspace_path.');
+
+      onStage(`🎯 Finding definitions of "${symbol}" in ${rootPath}`);
+
+      const escaped = symbol.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const defPatterns = [
+        `function ${escaped}`,
+        `class ${escaped}`,
+        `const ${escaped} =`,
+        `let ${escaped} =`,
+        `var ${escaped} =`,
+        `type ${escaped} =`,
+        `interface ${escaped}`,
+        `enum ${escaped}`,
+        `def ${escaped}`,
+        `class ${escaped}:`,
+        `func ${escaped}(`,
+        `type ${escaped} struct`,
+      ];
+
+      const results = await Promise.all(
+        defPatterns.map((p) =>
+          window.electronAPI?.invoke?.('search-workspace', { rootPath, query: p, maxResults: 10 }),
+        ),
+      );
+
+      const seen = new Set();
+      const defs = [];
+      for (const result of results) {
+        for (const m of result?.matches ?? []) {
+          const key = `${m.path}:${m.lineNumber}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          const line = m.line.trim();
+          if (/\b(function|class|const|let|var|def|type|interface|enum|func|struct)\b/.test(line)) {
+            defs.push(m);
+          }
+        }
+      }
+
+      if (!defs.length) {
+        return `No definition of "${symbol}" found in ${rootPath}.\nTip: Use trace_symbol for a broader search including call sites.`;
+      }
+
+      defs.sort((a, b) => a.path.localeCompare(b.path) || a.lineNumber - b.lineNumber);
+
+      const output = [
+        `Definitions of "${symbol}" in ${rootPath}:`,
+        `${defs.length} definition${defs.length !== 1 ? 's' : ''}`,
+        '',
+      ];
+      for (const d of defs) {
+        output.push(`  ${d.path}:${d.lineNumber}`);
+        output.push(`    ${d.line.trim().slice(0, 120)}`);
+        output.push('');
+      }
       return output.join('\n');
     },
   },
