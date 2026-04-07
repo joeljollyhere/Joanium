@@ -1,25 +1,6 @@
-import fs from 'fs';
 import path from 'path';
 import { pathToFileURL } from 'url';
-
-function scanRecursive(dir, predicate, results = []) {
-  if (!fs.existsSync(dir)) return results;
-
-  const entries = fs.readdirSync(dir, { withFileTypes: true });
-  for (const entry of entries) {
-    const fullPath = path.join(dir, entry.name);
-    if (entry.isDirectory()) {
-      scanRecursive(fullPath, predicate, results);
-      continue;
-    }
-
-    if (entry.isFile() && predicate(entry.name, fullPath)) {
-      results.push(fullPath);
-    }
-  }
-
-  return results;
-}
+import { scanFilesRecursive } from './FileSystem.js';
 
 function normalizeEngineMeta(name, rawMeta) {
   if (!rawMeta || typeof rawMeta !== 'object' || Array.isArray(rawMeta)) {
@@ -42,10 +23,9 @@ function normalizeEngineMeta(name, rawMeta) {
  *   - engineMeta.create(context): factory function that creates the engine instance
  */
 export async function discoverEngines(scanRoots = []) {
-  const engineFiles = [];
-  for (const root of scanRoots) {
-    scanRecursive(root, name => name.endsWith('Engine.js'), engineFiles);
-  }
+  const engineFiles = scanRoots.flatMap((root) =>
+    scanFilesRecursive(root, (entry) => entry.name.endsWith('Engine.js')),
+  );
 
   const engines = [];
   for (const fullPath of engineFiles.sort((a, b) => a.localeCompare(b))) {

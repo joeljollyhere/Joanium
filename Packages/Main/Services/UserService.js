@@ -1,5 +1,12 @@
-import fs from 'fs';
 import path from 'path';
+import {
+  ensureDir,
+  ensureParentDir,
+  loadJson,
+  loadText,
+  persistJson,
+  persistText,
+} from '../Core/FileSystem.js';
 import Paths from '../Core/Paths.js';
 
 const DEFAULT_USER = {
@@ -56,25 +63,8 @@ const LOCAL_PROVIDER_RUNTIME = {
   },
 };
 
-function readJSON(filePath, fallback) {
-  try {
-    return JSON.parse(fs.readFileSync(filePath, 'utf-8').replace(/^\uFEFF/, ''));
-  } catch {
-    return fallback;
-  }
-}
-
 export function ensureDataDir() {
-  if (!fs.existsSync(Paths.DATA_DIR)) {
-    fs.mkdirSync(Paths.DATA_DIR, { recursive: true });
-  }
-}
-
-function ensureParentDir(filePath) {
-  const dir = path.dirname(filePath);
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
+  ensureDir(Paths.DATA_DIR);
 }
 
 function merge(existing = {}, updates = {}) {
@@ -288,17 +278,13 @@ function buildLocalModels(providerId, settings = {}, baseModels = {}, discovered
 }
 
 export function readUser() {
-  try {
-    return merge(JSON.parse(fs.readFileSync(Paths.USER_FILE, 'utf-8')));
-  } catch {
-    return merge();
-  }
+  return merge(loadJson(Paths.USER_FILE, {}));
 }
 
 export function writeUser(updates = {}) {
   ensureParentDir(Paths.USER_FILE);
   const next = merge(readUser(), updates);
-  fs.writeFileSync(Paths.USER_FILE, JSON.stringify(next, null, 2), 'utf-8');
+  persistJson(Paths.USER_FILE, next);
   return next;
 }
 
@@ -311,10 +297,10 @@ export function isFirstRun() {
 }
 
 export function readModels() {
-  const indexEntries = normalizeModelIndexEntries(readJSON(Paths.MODELS_INDEX_FILE, null));
+  const indexEntries = normalizeModelIndexEntries(loadJson(Paths.MODELS_INDEX_FILE, null));
 
   return indexEntries
-    .map((fileName) => readJSON(path.join(Paths.MODELS_DIR, fileName), null))
+    .map((fileName) => loadJson(path.join(Paths.MODELS_DIR, fileName), null))
     .filter((provider) => provider && typeof provider === 'object' && !Array.isArray(provider));
 }
 
@@ -418,19 +404,14 @@ export function saveProviderConfigurations(configMap) {
     api_keys: nextKeys,
     provider_settings: nextSettings,
   };
-  fs.writeFileSync(Paths.USER_FILE, JSON.stringify(next, null, 2), 'utf-8');
+  persistJson(Paths.USER_FILE, next);
   return next;
 }
 
 export function readText(filePath) {
-  try {
-    return fs.readFileSync(filePath, 'utf-8');
-  } catch {
-    return '';
-  }
+  return loadText(filePath, '');
 }
 
 export function writeText(filePath, content) {
-  ensureParentDir(filePath);
-  fs.writeFileSync(filePath, content, 'utf-8');
+  persistText(filePath, content);
 }

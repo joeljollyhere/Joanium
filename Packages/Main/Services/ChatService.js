@@ -1,5 +1,12 @@
 import fs from 'fs';
 import path from 'path';
+import {
+  directoryExists,
+  ensureDir,
+  loadJson,
+  persistJson,
+  scanFiles,
+} from '../Core/FileSystem.js';
 import Paths from '../Core/Paths.js';
 import * as ProjectService from './ProjectService.js';
 
@@ -19,9 +26,7 @@ function normalizeChatId(chatId) {
 }
 
 function ensureGlobalChatsDir() {
-  if (!fs.existsSync(Paths.CHATS_DIR)) {
-    fs.mkdirSync(Paths.CHATS_DIR, { recursive: true });
-  }
+  ensureDir(Paths.CHATS_DIR);
 }
 
 function resolveProjectId(chatData, opts = {}) {
@@ -36,9 +41,7 @@ function chatsDir(projectId = null, createIfMissing = true) {
 
   ProjectService.get(projectId);
   const dir = ProjectService.getProjectChatsDir(projectId);
-  if (createIfMissing && !fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
+  if (createIfMissing) ensureDir(dir);
   return dir;
 }
 
@@ -77,15 +80,10 @@ function sanitizeChatData(chatData = {}) {
 }
 
 function readChatsFromDirectory(dirPath) {
-  return fs
-    .readdirSync(dirPath)
-    .filter((file) => file.endsWith('.json'))
-    .map((file) => {
-      try {
-        return sanitizeChatData(JSON.parse(fs.readFileSync(path.join(dirPath, file), 'utf-8')));
-      } catch {
-        return null;
-      }
+  return scanFiles(dirPath, (entry) => entry.name.endsWith('.json'))
+    .map((filePath) => {
+      const chat = loadJson(filePath, null);
+      return chat ? sanitizeChatData(chat) : null;
     })
     .filter(Boolean);
 }
@@ -100,7 +98,7 @@ export function save(chatData, opts = {}) {
     projectId,
   };
 
-  fs.writeFileSync(chatPath(chatId, projectId), JSON.stringify(payload, null, 2), 'utf-8');
+  persistJson(chatPath(chatId, projectId), payload);
 }
 
 /** Return all chats sorted newest-first. */
@@ -108,9 +106,9 @@ export function getAll(opts = {}) {
   const projectId = resolveProjectId(null, opts);
   const dirPath = chatsDir(
     projectId,
-    !projectId || fs.existsSync(ProjectService.getProjectChatsDir(projectId)),
+    !projectId || directoryExists(ProjectService.getProjectChatsDir(projectId)),
   );
-  if (!fs.existsSync(dirPath)) return [];
+  if (!directoryExists(dirPath)) return [];
 
   return readChatsFromDirectory(dirPath).sort(
     (a, b) => new Date(b.updatedAt) - new Date(a.updatedAt),
@@ -120,7 +118,14 @@ export function getAll(opts = {}) {
 /** Load a single chat by ID. Throws if not found. */
 export function load(chatId, opts = {}) {
   const projectId = resolveProjectId(null, opts);
-  return sanitizeChatData(JSON.parse(fs.readFileSync(chatPath(chatId, projectId), 'utf-8')));
+  const id = normalizeChatId(chatId);
+  const chat = loadJson(chatPath(id, projectId), null);
+
+  if (!chat) {
+    throw new Error(`Chat "${id}" does not exist.`);
+  }
+
+  return sanitizeChatData(chat);
 }
 
 /** Delete a chat by ID. */

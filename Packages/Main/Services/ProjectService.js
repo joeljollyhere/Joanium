@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { directoryExists, ensureDir, loadJson, persistJson } from '../Core/FileSystem.js';
 import Paths from '../Core/Paths.js';
 
 const META_FILENAME = 'Project.json';
@@ -15,9 +16,7 @@ function normalizeProjectId(projectId) {
 }
 
 function ensureProjectsDir() {
-  if (!fs.existsSync(Paths.PROJECTS_DIR)) {
-    fs.mkdirSync(Paths.PROJECTS_DIR, { recursive: true });
-  }
+  ensureDir(Paths.PROJECTS_DIR);
 }
 
 function projectDir(projectId) {
@@ -35,17 +34,12 @@ export function getProjectChatsDir(projectId) {
 function ensureProjectStorage(projectId) {
   const dir = projectDir(projectId);
   const chatsDir = getProjectChatsDir(projectId);
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  if (!fs.existsSync(chatsDir)) fs.mkdirSync(chatsDir, { recursive: true });
+  ensureDir(dir);
+  ensureDir(chatsDir);
 }
 
 function projectFolderExists(rootPath) {
-  if (!rootPath) return false;
-  try {
-    return fs.existsSync(rootPath) && fs.statSync(rootPath).isDirectory();
-  } catch {
-    return false;
-  }
+  return directoryExists(rootPath);
 }
 
 function slugifyProjectName(name) {
@@ -97,16 +91,17 @@ function withStatus(project) {
 
 function writeProject(project) {
   ensureProjectStorage(project.id);
-  fs.writeFileSync(metaPath(project.id), JSON.stringify(project, null, 2), 'utf-8');
+  persistJson(metaPath(project.id), project);
 }
 
 function readProject(projectId) {
   const filePath = metaPath(projectId);
-  if (!fs.existsSync(filePath)) {
+  const project = loadJson(filePath, null);
+  if (!project) {
     throw new Error(`Project "${projectId}" does not exist.`);
   }
 
-  return normalizeProject(JSON.parse(fs.readFileSync(filePath, 'utf-8')), projectId);
+  return normalizeProject(project, projectId);
 }
 
 function assertValidProjectInput({ name, rootPath }) {

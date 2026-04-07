@@ -2,6 +2,13 @@ import fs from 'fs';
 import path from 'path';
 
 import Paths from '../Core/Paths.js';
+import {
+  directoryExists,
+  ensureDir,
+  loadText,
+  persistText,
+  scanFilesRecursive,
+} from '../Core/FileSystem.js';
 import { loadJson, parseFrontmatter, persistJson } from './FileService.js';
 
 export const OFFICIAL_PUBLISHER = 'Joanium';
@@ -62,37 +69,8 @@ export function sanitizeMarkdownFileName(value, fallback = 'Item') {
   return `${baseName}.md`;
 }
 
-function ensureDir(targetDir) {
-  if (!fs.existsSync(targetDir)) {
-    fs.mkdirSync(targetDir, { recursive: true });
-  }
-}
-
 function scanMarkdownFiles(rootDir) {
-  if (!fs.existsSync(rootDir)) return [];
-
-  const stack = [rootDir];
-  const files = [];
-
-  while (stack.length) {
-    const currentDir = stack.pop();
-    const entries = fs.readdirSync(currentDir, { withFileTypes: true });
-
-    for (const entry of entries) {
-      const fullPath = path.join(currentDir, entry.name);
-
-      if (entry.isDirectory()) {
-        stack.push(fullPath);
-        continue;
-      }
-
-      if (entry.isFile() && MARKDOWN_FILE_REGEX.test(entry.name)) {
-        files.push(fullPath);
-      }
-    }
-  }
-
-  return files.sort((left, right) => left.localeCompare(right));
+  return scanFilesRecursive(rootDir, (entry) => MARKDOWN_FILE_REGEX.test(entry.name));
 }
 
 function hasMarkdownFiles(rootDir) {
@@ -149,7 +127,7 @@ export function initializeContentLibraries() {
     ensureDir(userRoot);
 
     if (path.resolve(userRoot) === path.resolve(seedRoot)) continue;
-    if (!fs.existsSync(seedRoot)) continue;
+    if (!directoryExists(seedRoot)) continue;
     if (hasMarkdownFiles(userRoot)) continue;
 
     copyMarkdownTree(seedRoot, userRoot);
@@ -162,7 +140,7 @@ function readMarkdownEntries(kind) {
 
   for (const fullPath of scanMarkdownFiles(userRoot)) {
     try {
-      const raw = fs.readFileSync(fullPath, 'utf-8').replace(/^\uFEFF/, '');
+      const raw = loadText(fullPath, '');
       const { meta, body } = parseFrontmatter(raw);
       const { filename, publisher, relativePath } = deriveEntryLocation(userRoot, fullPath);
 
@@ -359,14 +337,10 @@ export function getUserContentTarget(kind, publisher, filename) {
 
 export function writeUserContent(kind, { publisher, filename }, markdown) {
   const target = getUserContentTarget(kind, publisher, filename);
-  ensureDir(path.dirname(target.filePath));
-  fs.writeFileSync(
-    target.filePath,
-    String(markdown ?? '')
-      .replace(/\r\n/g, '\n')
-      .trimEnd() + '\n',
-    'utf-8',
-  );
+  persistText(target.filePath, String(markdown ?? '').trimEnd(), {
+    normalizeLineEndings: true,
+    finalNewline: true,
+  });
   return target;
 }
 

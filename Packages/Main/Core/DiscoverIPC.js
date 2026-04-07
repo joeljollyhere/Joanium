@@ -1,22 +1,6 @@
-import fs from 'fs';
 import path from 'path';
 import { pathToFileURL } from 'url';
-
-function scanRecursive(dir, predicate) {
-  const results = [];
-  if (!fs.existsSync(dir)) return results;
-
-  const entries = fs.readdirSync(dir, { withFileTypes: true });
-  for (const entry of entries) {
-    const fullPath = path.join(dir, entry.name);
-    if (entry.isDirectory()) {
-      results.push(...scanRecursive(fullPath, predicate));
-    } else if (entry.isFile() && predicate(entry.name, fullPath)) {
-      results.push(fullPath);
-    }
-  }
-  return results;
-}
+import { directoryExists, scanFiles, scanFilesRecursive } from './FileSystem.js';
 
 /**
  * Discover and register all IPC modules found in the given directories.
@@ -33,13 +17,13 @@ export async function discoverAndRegisterIPC(dirs, context = {}, options = {}) {
   const enrichedContext = { ...context };
 
   for (const serviceDir of options.serviceDirs ?? []) {
-    if (!fs.existsSync(serviceDir)) continue;
-    const serviceFiles = fs.readdirSync(serviceDir)
-      .filter(f => f.endsWith('Service.js'));
+    if (!directoryExists(serviceDir)) continue;
+    const serviceFiles = scanFiles(serviceDir, (entry) => entry.name.endsWith('Service.js'));
 
-    for (const file of serviceFiles) {
+    for (const filePath of serviceFiles) {
+      const file = path.basename(filePath);
       try {
-        const mod = await import(pathToFileURL(path.join(serviceDir, file)).href);
+        const mod = await import(pathToFileURL(filePath).href);
         // Key is camelCase of filename without .js: UserService.js -> userService
         const key = file.replace(/\.js$/, '');
         const camelKey = key.charAt(0).toLowerCase() + key.slice(1);
@@ -51,12 +35,9 @@ export async function discoverAndRegisterIPC(dirs, context = {}, options = {}) {
   }
 
   // Discover and register IPC modules
-  const allFiles = [];
-  for (const dir of dirs) {
-    allFiles.push(...scanRecursive(dir, name => /IPC\.js$/.test(name)));
-  }
-
-  allFiles.sort((a, b) => a.localeCompare(b));
+  const allFiles = dirs.flatMap((dir) =>
+    scanFilesRecursive(dir, (entry) => /IPC\.js$/.test(entry.name)),
+  );
 
   const registered = [];
   const warnings = [];
@@ -66,7 +47,7 @@ export async function discoverAndRegisterIPC(dirs, context = {}, options = {}) {
     if (typeof mod.register !== 'function') continue;
 
     const needs = mod.ipcMeta?.needs ?? [];
-    const args = needs.map(key => {
+    const args = needs.map((key) => {
       if (!(key in enrichedContext)) {
         warnings.push(`"${path.basename(filePath)}" needs "${key}" but it's not in context`);
         return undefined;

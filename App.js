@@ -1,8 +1,8 @@
 import { app, BrowserWindow } from 'electron';
-import fs from 'fs';
 
 import * as MCPIPC from '#features/MCP/IPC/MCPIPC.js';
 import { boot, startEngines, stopEngines } from '#main/Boot.js';
+import { ensureDir } from '#main/Core/FileSystem.js';
 import Paths from '#main/Core/Paths.js';
 import { create as createWindow } from '#main/Core/Window.js';
 import { BUILTIN_BROWSER_USER_AGENT } from '#main/Services/BrowserPreviewService.js';
@@ -15,44 +15,59 @@ app.commandLine.appendSwitch('lang', 'en-US');
 app.userAgentFallback = BUILTIN_BROWSER_USER_AGENT;
 
 let engines = null;
+const REQUIRED_RUNTIME_DIRS = Object.freeze([
+  Paths.DATA_DIR,
+  Paths.CHATS_DIR,
+  Paths.PROJECTS_DIR,
+  Paths.FEATURES_DATA_DIR,
+  Paths.USER_SKILLS_DIR,
+  Paths.USER_PERSONAS_DIR,
+]);
+
+function ensureRuntimeDirectories() {
+  for (const dir of REQUIRED_RUNTIME_DIRS) {
+    ensureDir(dir);
+  }
+}
+
+function resolveStartPage() {
+  return isFirstRun() ? Paths.SETUP_PAGE : Paths.INDEX_PAGE;
+}
+
+function attachWindowServices(windowRef, activeEngines) {
+  if (!windowRef || !activeEngines) return;
+
+  const { featureRegistry, channelEngine, browserPreviewService, agentsEngine } = activeEngines;
+
+  browserPreviewService.attachToWindow(windowRef);
+  channelEngine.setWindow(windowRef);
+  agentsEngine?.attachWindow?.(windowRef);
+  featureRegistry.attachWindow(windowRef);
+}
+
+function createMainAppWindow(activeEngines, page = resolveStartPage()) {
+  const windowRef = createWindow(page);
+  attachWindowServices(windowRef, activeEngines);
+  return windowRef;
+}
 
 app.whenReady().then(async () => {
   if (app.isPackaged && !process.argv.includes('--dev')) {
     setupAutoUpdates();
   }
 
-  if (!fs.existsSync(Paths.DATA_DIR)) fs.mkdirSync(Paths.DATA_DIR, { recursive: true });
-  if (!fs.existsSync(Paths.CHATS_DIR)) fs.mkdirSync(Paths.CHATS_DIR, { recursive: true });
-  if (!fs.existsSync(Paths.PROJECTS_DIR)) fs.mkdirSync(Paths.PROJECTS_DIR, { recursive: true });
-  if (!fs.existsSync(Paths.FEATURES_DATA_DIR))
-    fs.mkdirSync(Paths.FEATURES_DATA_DIR, { recursive: true });
-  if (!fs.existsSync(Paths.USER_SKILLS_DIR))
-    fs.mkdirSync(Paths.USER_SKILLS_DIR, { recursive: true });
-  if (!fs.existsSync(Paths.USER_PERSONAS_DIR))
-    fs.mkdirSync(Paths.USER_PERSONAS_DIR, { recursive: true });
+  ensureRuntimeDirectories();
   initializeContentLibraries();
 
   engines = await boot();
   startEngines(engines);
-
-  const { featureRegistry, channelEngine, browserPreviewService, agentsEngine } = engines;
-
-  const startPage = isFirstRun() ? Paths.SETUP_PAGE : Paths.INDEX_PAGE;
-  const mainWindow = createWindow(startPage);
-  browserPreviewService.attachToWindow(mainWindow);
-  channelEngine.setWindow(mainWindow);
-  agentsEngine?.attachWindow?.(mainWindow);
-  featureRegistry.attachWindow(mainWindow);
+  createMainAppWindow(engines);
 
   MCPIPC.autoConnect().catch((err) => console.warn('[App] MCP auto-connect failed:', err.message));
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
-      const win = createWindow(isFirstRun() ? Paths.SETUP_PAGE : Paths.INDEX_PAGE);
-      browserPreviewService.attachToWindow(win);
-      channelEngine.setWindow(win);
-      agentsEngine?.attachWindow?.(win);
-      featureRegistry.attachWindow(win);
+      createMainAppWindow(engines);
     }
   });
 });

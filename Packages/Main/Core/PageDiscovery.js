@@ -1,29 +1,10 @@
-import fs from 'fs';
 import path from 'path';
 import { pathToFileURL } from 'url';
 import { PAGE_DISCOVERY_ROOTS } from './DiscoveryManifest.js';
+import { scanFilesRecursive } from './FileSystem.js';
 
 let cachedPagePromise = null;
 let cachedRootSignature = '';
-
-function scanRecursive(dir, predicate, results = []) {
-  if (!fs.existsSync(dir)) return results;
-
-  const entries = fs.readdirSync(dir, { withFileTypes: true });
-  for (const entry of entries) {
-    const fullPath = path.join(dir, entry.name);
-    if (entry.isDirectory()) {
-      scanRecursive(fullPath, predicate, results);
-      continue;
-    }
-
-    if (entry.isFile() && predicate(entry.name, fullPath)) {
-      results.push(fullPath);
-    }
-  }
-
-  return results;
-}
 
 function normalizePage(rawPage = {}, filePath = '') {
   if (!rawPage?.id || !rawPage?.moduleUrl) {
@@ -67,7 +48,7 @@ export async function discoverPages(scanRoots = PAGE_DISCOVERY_ROOTS) {
     const seenIds = new Set();
 
     for (const root of roots) {
-      scanRecursive(root, (name) => name === 'Page.js', pageFiles);
+      pageFiles.push(...scanFilesRecursive(root, (entry) => entry.name === 'Page.js'));
     }
 
     for (const filePath of pageFiles.sort((a, b) => a.localeCompare(b))) {

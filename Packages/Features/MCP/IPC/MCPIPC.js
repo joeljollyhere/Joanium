@@ -1,8 +1,7 @@
 import { ipcMain } from 'electron';
-import fs from 'fs';
-import path from 'path';
 import { MCPRegistry } from '../Core/MCPClient.js';
 import Paths from '../../../Main/Core/Paths.js';
+import { loadJson, persistJson } from '../../../Main/Core/FileSystem.js';
 
 /* ── Singleton registry ── */
 const registry = new MCPRegistry();
@@ -16,39 +15,33 @@ const BUILTIN_SERVERS = [
     enabled: true,
     builtin: true,
     locked: true,
-    description: 'Ready out of the box. Gives chat a built-in browser MCP for live website control.',
+    description:
+      'Ready out of the box. Gives chat a built-in browser MCP for live website control.',
   },
 ];
 
 function mergeBuiltinServers(configs = []) {
-  const byId = new Map(configs.map(cfg => [cfg.id, cfg]));
-  const merged = BUILTIN_SERVERS.map(server => ({
+  const byId = new Map(configs.map((cfg) => [cfg.id, cfg]));
+  const merged = BUILTIN_SERVERS.map((server) => ({
     ...server,
     ...(byId.get(server.id) ?? {}),
     builtin: true,
     locked: true,
   }));
 
-  const customServers = configs.filter(cfg => !BUILTIN_SERVER_IDS.has(cfg.id));
+  const customServers = configs.filter((cfg) => !BUILTIN_SERVER_IDS.has(cfg.id));
   return [...merged, ...customServers];
 }
 
 /* ── Persist server configs to Data/MCPServers.json ── */
 function loadServerConfigs() {
-  try {
-    if (fs.existsSync(Paths.MCP_FILE)) {
-      const data = JSON.parse(fs.readFileSync(Paths.MCP_FILE, 'utf-8'));
-      return mergeBuiltinServers(Array.isArray(data.servers) ? data.servers : []);
-    }
-  } catch { /* fall through */ }
-  return mergeBuiltinServers([]);
+  const data = loadJson(Paths.MCP_FILE, { servers: [] });
+  return mergeBuiltinServers(Array.isArray(data?.servers) ? data.servers : []);
 }
 
 function saveServerConfigs(configs) {
-  const dir = path.dirname(Paths.MCP_FILE);
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  const persisted = configs.filter(cfg => !BUILTIN_SERVER_IDS.has(cfg.id));
-  fs.writeFileSync(Paths.MCP_FILE, JSON.stringify({ servers: persisted }, null, 2), 'utf-8');
+  const persisted = configs.filter((cfg) => !BUILTIN_SERVER_IDS.has(cfg.id));
+  persistJson(Paths.MCP_FILE, { servers: persisted });
 }
 
 /* ── Auto-connect persisted servers on startup ── */
@@ -67,15 +60,14 @@ export async function autoConnect() {
 /* ── IPC Registration ── */
 export const ipcMeta = { needs: [] };
 export function register() {
-
   /* List all configured servers + connection status */
   ipcMain.handle('mcp-list-servers', () => {
     const configs = loadServerConfigs();
     const statuses = registry.getAll();
-    return configs.map(cfg => ({
+    return configs.map((cfg) => ({
       ...cfg,
       connected: registry.isConnected(cfg.id),
-      toolCount: statuses.find(s => s.id === cfg.id)?.toolCount ?? 0,
+      toolCount: statuses.find((s) => s.id === cfg.id)?.toolCount ?? 0,
     }));
   });
 
@@ -86,7 +78,7 @@ export function register() {
     }
 
     const configs = loadServerConfigs();
-    const idx = configs.findIndex(c => c.id === serverConfig.id);
+    const idx = configs.findIndex((c) => c.id === serverConfig.id);
     if (idx >= 0) configs[idx] = { ...configs[idx], ...serverConfig };
     else configs.push(serverConfig);
     saveServerConfigs(configs);
@@ -100,14 +92,14 @@ export function register() {
     }
 
     await registry.disconnect(serverId);
-    const configs = loadServerConfigs().filter(c => c.id !== serverId);
+    const configs = loadServerConfigs().filter((c) => c.id !== serverId);
     saveServerConfigs(configs);
     return { ok: true };
   });
 
   /* Connect a server by id */
   ipcMain.handle('mcp-connect-server', async (_e, serverId) => {
-    const cfg = loadServerConfigs().find(c => c.id === serverId);
+    const cfg = loadServerConfigs().find((c) => c.id === serverId);
     if (!cfg) return { ok: false, error: 'Server not found' };
     try {
       const { tools, name } = await registry.connect(cfg);

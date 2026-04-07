@@ -1,6 +1,5 @@
-import fs from 'fs';
-import path from 'path';
 import { screen } from 'electron';
+import { ensureParentDir, loadJson, persistJson } from '../Core/FileSystem.js';
 import Paths from '../Core/Paths.js';
 
 const DEFAULT_BOUNDS = {
@@ -15,10 +14,11 @@ const DEFAULT_STATE = {
 };
 
 function ensureDataDir() {
-  const dir = path.dirname(Paths.WINDOW_STATE_FILE);
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
+  ensureParentDir(Paths.WINDOW_STATE_FILE);
+}
+
+function createDefaultState() {
+  return { ...DEFAULT_STATE, bounds: { ...DEFAULT_BOUNDS } };
 }
 
 function isFiniteNumber(value) {
@@ -59,18 +59,16 @@ function clampBounds(rawBounds = {}) {
 
 export function loadWindowState() {
   try {
-    if (!fs.existsSync(Paths.WINDOW_STATE_FILE)) {
-      return { ...DEFAULT_STATE, bounds: { ...DEFAULT_BOUNDS } };
-    }
+    const raw = loadJson(Paths.WINDOW_STATE_FILE, null);
+    if (!raw) return createDefaultState();
 
-    const raw = JSON.parse(fs.readFileSync(Paths.WINDOW_STATE_FILE, 'utf-8'));
     return {
       bounds: clampBounds(raw?.bounds ?? {}),
       isMaximized: raw?.isMaximized === true,
       isFullScreen: raw?.isFullScreen === true,
     };
   } catch {
-    return { ...DEFAULT_STATE, bounds: { ...DEFAULT_BOUNDS } };
+    return createDefaultState();
   }
 }
 
@@ -92,7 +90,7 @@ function writeWindowState(win) {
     isMaximized: win.isMaximized(),
     isFullScreen: win.isFullScreen(),
   };
-  fs.writeFileSync(Paths.WINDOW_STATE_FILE, JSON.stringify(nextState, null, 2), 'utf-8');
+  persistJson(Paths.WINDOW_STATE_FILE, nextState);
 }
 
 export function attachWindowStatePersistence(win) {

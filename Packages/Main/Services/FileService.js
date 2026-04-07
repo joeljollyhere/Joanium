@@ -1,5 +1,4 @@
-import fs from 'fs';
-import path from 'path';
+import { loadJson, persistJson, scanFiles as scanDirectoryFiles } from '../Core/FileSystem.js';
 
 /**
  * Parse YAML-style frontmatter from markdown content.
@@ -22,32 +21,11 @@ export function parseFrontmatter(content) {
 /**
  * Load a JSON file, returning a fallback if missing or invalid.
  */
-export function loadJson(filePath, fallback = null) {
-  try {
-    if (fs.existsSync(filePath)) {
-      return JSON.parse(fs.readFileSync(filePath, 'utf-8'));
-    }
-  } catch { /* fall through */ }
-  return typeof fallback === 'function' ? fallback() : structuredClone(fallback);
-}
+export { loadJson, persistJson };
 
 /**
  * Persist data as JSON to disk. Creates parent directories as needed.
  */
-export function persistJson(filePath, data) {
-  const dir = path.dirname(filePath);
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
-}
-
-/**
- * Scan a directory for files matching a filter.
- * Returns full file paths sorted alphabetically.
- */
 export function scanFiles(dirPath, filter = () => true) {
-  if (!fs.existsSync(dirPath)) return [];
-  return fs.readdirSync(dirPath)
-    .filter(filter)
-    .sort()
-    .map(filename => path.join(dirPath, filename));
+  return scanDirectoryFiles(dirPath, (entry) => filter(entry.name));
 }
