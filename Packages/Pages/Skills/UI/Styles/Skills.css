@@ -135,62 +135,6 @@
   border-radius: var(--radius-lg);
 }
 
-/* ── Empty state (no skills at all) ── */
-.page-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 80px 32px;
-  gap: 16px;
-  text-align: center;
-  background: var(--bg-secondary);
-  border: 1.5px dashed var(--border);
-  border-radius: var(--radius-lg);
-  animation: fadeIn 0.4s var(--ease-out-expo) both;
-}
-
-.page-empty-icon {
-  width: 56px;
-  height: 56px;
-  border-radius: 18px;
-  background: var(--accent-dim);
-  border: 1.5px solid color-mix(in srgb, var(--accent) 25%, transparent);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--accent);
-  box-shadow: 0 0 28px var(--accent-glow);
-}
-
-.page-empty-icon svg {
-  width: 26px;
-  height: 26px;
-}
-
-.page-empty h3 {
-  font-size: 17px;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.page-empty p {
-  font-size: 13px;
-  color: var(--text-muted);
-  max-width: 340px;
-  line-height: 1.6;
-}
-
-.page-empty code {
-  font-family: var(--font-mono);
-  font-size: 11.5px;
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border-subtle);
-  padding: 1px 5px;
-  border-radius: 4px;
-  color: var(--accent);
-}
-
 /* ── Skills grid ── */
 .skills-grid {
   display: grid;
@@ -436,6 +380,7 @@
   line-height: 1.6;
   display: -webkit-box;
   -webkit-line-clamp: 3;
+  line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -649,29 +594,6 @@
   padding: 0;
   font-size: 12px;
   line-height: 1.7;
-}
-
-/* ── Keyframes ── */
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-
-  to {
-    opacity: 1;
-  }
-}
-
-@keyframes messageIn {
-  from {
-    opacity: 0;
-    transform: translateY(12px) scale(0.98);
-  }
-
-  to {
-    opacity: 1;
-    transform: none;
-  }
 }
 
 [hidden] {

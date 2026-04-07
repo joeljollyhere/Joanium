@@ -122,21 +122,34 @@ function compareLibraryEntries(left, right) {
 function resolveFileRoots(kind) {
   if (kind === 'personas') {
     return {
+      bundledRoot: Paths.BUNDLED_PERSONAS_DIR,
       userRoot: Paths.USER_PERSONAS_DIR,
     };
   }
 
   return {
+    bundledRoot: Paths.BUNDLED_SKILLS_DIR,
     userRoot: Paths.USER_SKILLS_DIR,
   };
 }
 
 function readMarkdownEntries(kind) {
-  const { userRoot } = resolveFileRoots(kind);
+  const { bundledRoot, userRoot } = resolveFileRoots(kind);
   const entries = new Map();
-  const rootGroups = [{ rootDir: userRoot, source: 'user' }];
+
+  // Scan bundled defaults first so user files can override them.
+  // In dev mode bundledRoot === userRoot so the second pass simply overwrites
+  // the same entries — net effect is identical to a single scan.
+  const rootGroups = [
+    { rootDir: bundledRoot, source: 'bundled' },
+    { rootDir: userRoot, source: 'user' },
+  ];
 
   for (const { rootDir, source } of rootGroups) {
+    // Skip when both roots point to the same place (dev mode) to avoid
+    // processing every file twice.
+    if (source === 'user' && path.resolve(userRoot) === path.resolve(bundledRoot)) continue;
+
     for (const fullPath of scanMarkdownFiles(rootDir)) {
       try {
         const raw = fs.readFileSync(fullPath, 'utf-8').replace(/^\uFEFF/, '');
@@ -177,6 +190,8 @@ function readMarkdownEntries(kind) {
                 body,
               };
 
+        // User entry always wins over a bundled one with the same id.
+        if (source === 'bundled' && entries.has(id)) continue;
         entries.set(id, entry);
       } catch {
         // Ignore malformed markdown files so the library keeps rendering.

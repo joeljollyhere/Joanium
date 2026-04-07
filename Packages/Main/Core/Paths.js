@@ -72,14 +72,22 @@ export const Paths = {
     return path.join(getStateRoot(), 'Memories', 'Memory.md');
   },
 
-  // Skills
+  // Skills – user-writable (userData in packaged, ROOT in dev)
   get USER_SKILLS_DIR() {
     return path.join(getStateRoot(), 'Marketplace', 'Skills');
   },
+  // Skills – bundled read-only defaults (resourcesPath in packaged, ROOT in dev)
+  get BUNDLED_SKILLS_DIR() {
+    return path.join(getBundledRoot(), 'Marketplace', 'Skills');
+  },
 
-  // Personas
+  // Personas – user-writable
   get USER_PERSONAS_DIR() {
     return path.join(getStateRoot(), 'Marketplace', 'Personas');
+  },
+  // Personas – bundled read-only defaults
+  get BUNDLED_PERSONAS_DIR() {
+    return path.join(getBundledRoot(), 'Marketplace', 'Personas');
   },
 
   // Features

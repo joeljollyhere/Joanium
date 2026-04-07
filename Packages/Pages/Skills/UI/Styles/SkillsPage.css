@@ -15,6 +15,7 @@
 @import '../../../Shared/Styles/Themes.css';
 @import '../../../Shared/Styles/Root.css';
 @import '../../../Shared/Styles/PageTaglineBadge.css';
+@import '../../../Shared/Styles/SharedEmptyState.css';
 @import './Skills.css';
 @import '../../../Shared/Styles/SharedSearchBarSkills&Agents.css';
 @import '../../../Shared/Styles/FreeConnectors.css';

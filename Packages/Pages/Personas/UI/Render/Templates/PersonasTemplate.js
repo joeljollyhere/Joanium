@@ -41,6 +41,18 @@ export function getPersonasHTML() {
       </div>
     </div>
 
+    <div id="personas-empty" class="page-empty" hidden>
+      <div class="page-empty-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <circle cx="12" cy="8" r="3.5" />
+          <path d="M5.5 19a6.5 6.5 0 0113 0" stroke-linecap="round" />
+        </svg>
+      </div>
+      <h3>No personas yet</h3>
+      <p>Browse the Marketplace to discover and install personas that shape your AI's voice and style.</p>
+      <button id="personas-go-marketplace" class="page-empty-cta" type="button">Go to Marketplace</button>
+    </div>
+
     <div id="personas-grid" class="personas-grid"></div>
   </div>
 </main>

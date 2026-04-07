@@ -51,7 +51,8 @@ export function getHTML() {
           </svg>
         </div>
         <h3>No skills yet</h3>
-        <p>Add <code>.md</code> files to your <code>Skills/</code> folder with <code>name:</code>, <code>trigger:</code>, and <code>description:</code> frontmatter to get started.</p>
+        <p>Browse the Marketplace to discover and install skills that add specialised capabilities to your AI.</p>
+        <button id="skills-go-marketplace" class="page-empty-cta" type="button">Go to Marketplace</button>
       </div>
 
       <div id="skills-grid" class="skills-grid" hidden></div>

@@ -12,6 +12,7 @@ let countEl = null;
 let enabledCountEl = null;
 let enableAllBtn = null;
 let disableAllBtn = null;
+let _navigate = null;
 let modalBackdrop = null;
 let modalName = null;
 let modalContent = null;
@@ -249,7 +250,7 @@ async function load() {
 /* ══════════════════════════════════════════
    MOUNT
 ══════════════════════════════════════════ */
-export function mount(outlet) {
+export function mount(outlet, { navigate } = {}) {
   outlet.innerHTML = getHTML();
 
   skillsGrid = document.getElementById('skills-grid');
@@ -266,6 +267,7 @@ export function mount(outlet) {
   modalContent = document.getElementById('skill-modal-content');
   modalCloseBtn = document.getElementById('skill-modal-close');
 
+  _navigate = navigate ?? null;
   _allSkills = [];
   _skillPool = createCardPool({
     container: skillsGrid,
@@ -335,6 +337,9 @@ export function mount(outlet) {
   searchClearBtn?.addEventListener('click', onSearchClear);
   enableAllBtn?.addEventListener('click', onEnableAll);
   disableAllBtn?.addEventListener('click', onDisableAll);
+  document
+    .getElementById('skills-go-marketplace')
+    ?.addEventListener('click', () => _navigate?.('marketplace'));
   document.addEventListener('keydown', onKeydown);
 
   load();
@@ -355,5 +360,6 @@ export function mount(outlet) {
     skillsGrid = skillsEmpty = searchWrapper = searchInput = null;
     searchClearBtn = countEl = enabledCountEl = enableAllBtn = null;
     disableAllBtn = modalBackdrop = modalName = modalContent = modalCloseBtn = null;
+    _navigate = null;
   };
 }

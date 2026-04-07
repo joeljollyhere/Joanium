@@ -5,6 +5,7 @@ import { createPersonaCardPool, getAvatarInitials } from './Components/PersonasC
 let activeBanner = null;
 let activeNameEl = null;
 let personasGrid = null;
+let personasEmpty = null;
 let searchInput = null;
 let searchClearBtn = null;
 let countEl = null;
@@ -100,6 +101,16 @@ function render(query = '') {
 
   if (!personasGrid || !_personaPool) return;
 
+  // Show empty state when there are no custom personas at all (ignoring search)
+  if (_allPersonas.length === 0) {
+    if (personasEmpty) personasEmpty.hidden = false;
+    personasGrid.style.display = 'none';
+    return;
+  }
+
+  if (personasEmpty) personasEmpty.hidden = true;
+  personasGrid.style.display = '';
+
   const filteredCustom = _allPersonas.filter((persona) => matchesSearch(persona, query));
   const visibleItems = [...filteredCustom];
 
@@ -147,6 +158,7 @@ export function mount(outlet, { navigate }) {
   activeBanner = document.getElementById('personas-active-banner');
   activeNameEl = document.getElementById('personas-active-name');
   personasGrid = document.getElementById('personas-grid');
+  personasEmpty = document.getElementById('personas-empty');
   searchInput = document.getElementById('personas-search');
   searchClearBtn = document.getElementById('personas-search-clear');
   countEl = document.getElementById('personas-count');
@@ -219,6 +231,9 @@ export function mount(outlet, { navigate }) {
   modalBackdrop?.addEventListener('click', onModalBackdropClick);
   searchInput?.addEventListener('input', onSearchInput);
   searchClearBtn?.addEventListener('click', onSearchClear);
+  document
+    .getElementById('personas-go-marketplace')
+    ?.addEventListener('click', () => _navigate?.('marketplace'));
   document.addEventListener('keydown', onKeydown);
 
   load();
@@ -236,6 +251,7 @@ export function mount(outlet, { navigate }) {
     activeBanner = null;
     activeNameEl = null;
     personasGrid = null;
+    personasEmpty = null;
     searchInput = null;
     searchClearBtn = null;
     countEl = null;
