@@ -57,20 +57,6 @@ function ensureDir(targetDir) {
   }
 }
 
-function uniqueRoots(paths) {
-  const seen = new Set();
-  const roots = [];
-
-  for (const rootDir of paths) {
-    const resolved = path.resolve(String(rootDir ?? ''));
-    if (!resolved || seen.has(resolved)) continue;
-    seen.add(resolved);
-    roots.push(resolved);
-  }
-
-  return roots;
-}
-
 function scanMarkdownFiles(rootDir) {
   if (!fs.existsSync(rootDir)) return [];
 
@@ -98,6 +84,10 @@ function scanMarkdownFiles(rootDir) {
   return files.sort((left, right) => left.localeCompare(right));
 }
 
+function hasMarkdownFiles(rootDir) {
+  return scanMarkdownFiles(rootDir).length > 0;
+}
+
 function deriveEntryLocation(rootDir, fullPath) {
   const segments = path.relative(rootDir, fullPath).split(path.sep).filter(Boolean);
   const filename = segments[segments.length - 1] ?? path.basename(fullPath);
@@ -119,83 +109,89 @@ function compareLibraryEntries(left, right) {
   );
 }
 
-function resolveFileRoots(kind) {
+function getLibraryRoots(kind) {
   if (kind === 'personas') {
     return {
-      bundledRoot: Paths.BUNDLED_PERSONAS_DIR,
       userRoot: Paths.USER_PERSONAS_DIR,
+      seedRoot: Paths.PERSONAS_SEED_DIR,
     };
   }
 
   return {
-    bundledRoot: Paths.BUNDLED_SKILLS_DIR,
     userRoot: Paths.USER_SKILLS_DIR,
+    seedRoot: Paths.SKILLS_SEED_DIR,
   };
 }
 
+function copyMarkdownTree(sourceRoot, targetRoot) {
+  for (const fullPath of scanMarkdownFiles(sourceRoot)) {
+    const relativePath = path.relative(sourceRoot, fullPath);
+    const nextPath = path.join(targetRoot, relativePath);
+    ensureDir(path.dirname(nextPath));
+    fs.copyFileSync(fullPath, nextPath);
+  }
+}
+
+export function initializeContentLibraries() {
+  for (const kind of ['skills', 'personas']) {
+    const { userRoot, seedRoot } = getLibraryRoots(kind);
+    ensureDir(userRoot);
+
+    if (path.resolve(userRoot) === path.resolve(seedRoot)) continue;
+    if (!fs.existsSync(seedRoot)) continue;
+    if (hasMarkdownFiles(userRoot)) continue;
+
+    copyMarkdownTree(seedRoot, userRoot);
+  }
+}
+
 function readMarkdownEntries(kind) {
-  const { bundledRoot, userRoot } = resolveFileRoots(kind);
+  const { userRoot } = getLibraryRoots(kind);
   const entries = new Map();
 
-  // Scan bundled defaults first so user files can override them.
-  // In dev mode bundledRoot === userRoot so the second pass simply overwrites
-  // the same entries — net effect is identical to a single scan.
-  const rootGroups = [
-    { rootDir: bundledRoot, source: 'bundled' },
-    { rootDir: userRoot, source: 'user' },
-  ];
+  for (const fullPath of scanMarkdownFiles(userRoot)) {
+    try {
+      const raw = fs.readFileSync(fullPath, 'utf-8').replace(/^\uFEFF/, '');
+      const { meta, body } = parseFrontmatter(raw);
+      const { filename, publisher, relativePath } = deriveEntryLocation(userRoot, fullPath);
 
-  for (const { rootDir, source } of rootGroups) {
-    // Skip when both roots point to the same place (dev mode) to avoid
-    // processing every file twice.
-    if (source === 'user' && path.resolve(userRoot) === path.resolve(bundledRoot)) continue;
+      if (filename.toLowerCase() === 'readme.md' && !relativePath.includes('/')) continue;
+      if (!meta.name && !body.trim()) continue;
 
-    for (const fullPath of scanMarkdownFiles(rootDir)) {
-      try {
-        const raw = fs.readFileSync(fullPath, 'utf-8').replace(/^\uFEFF/, '');
-        const { meta, body } = parseFrontmatter(raw);
-        const { filename, publisher, relativePath } = deriveEntryLocation(rootDir, fullPath);
+      const isVerified = isVerifiedPublisher(publisher);
+      const id = buildContentId(kind, publisher, filename);
+      const baseEntry = {
+        id,
+        type: kind === 'personas' ? 'persona' : 'skill',
+        filename,
+        publisher,
+        isVerified,
+        source: 'library',
+        sourcePath: fullPath,
+        relativePath,
+        raw,
+      };
 
-        if (filename.toLowerCase() === 'readme.md' && !relativePath.includes('/')) continue;
-        if (!meta.name && !body.trim()) continue;
+      const entry =
+        kind === 'personas'
+          ? {
+              ...baseEntry,
+              name: meta.name || filename.replace(MARKDOWN_FILE_REGEX, ''),
+              personality: meta.personality || '',
+              description: meta.description || '',
+              instructions: body,
+            }
+          : {
+              ...baseEntry,
+              name: meta.name || filename.replace(MARKDOWN_FILE_REGEX, ''),
+              trigger: meta.trigger || '',
+              description: meta.description || '',
+              body,
+            };
 
-        const isVerified = isVerifiedPublisher(publisher);
-        const id = buildContentId(kind, publisher, filename);
-        const baseEntry = {
-          id,
-          type: kind === 'personas' ? 'persona' : 'skill',
-          filename,
-          publisher,
-          isVerified,
-          source,
-          sourcePath: fullPath,
-          relativePath,
-          raw,
-        };
-
-        const entry =
-          kind === 'personas'
-            ? {
-                ...baseEntry,
-                name: meta.name || filename.replace(MARKDOWN_FILE_REGEX, ''),
-                personality: meta.personality || '',
-                description: meta.description || '',
-                instructions: body,
-              }
-            : {
-                ...baseEntry,
-                name: meta.name || filename.replace(MARKDOWN_FILE_REGEX, ''),
-                trigger: meta.trigger || '',
-                description: meta.description || '',
-                body,
-              };
-
-        // User entry always wins over a bundled one with the same id.
-        if (source === 'bundled' && entries.has(id)) continue;
-        entries.set(id, entry);
-      } catch {
-        // Ignore malformed markdown files so the library keeps rendering.
-      }
+      entries.set(id, entry);
+    } catch {
+      // Ignore malformed markdown files so the library keeps rendering.
     }
   }
 
@@ -206,13 +202,9 @@ function persistEnabledMap(map) {
   persistJson(Paths.SKILLS_FILE, { skills: map });
 }
 
-function chooseLegacyMatch(matches) {
+function choosePreferredMatch(matches) {
   if (!matches.length) return null;
-  return (
-    matches.find((entry) => entry.isVerified) ??
-    matches.find((entry) => entry.source === 'official') ??
-    matches[0]
-  );
+  return matches.find((entry) => entry.isVerified) ?? matches[0];
 }
 
 function normalizeEnabledMap(rawMap, skills) {
@@ -242,9 +234,9 @@ function normalizeEnabledMap(rawMap, skills) {
       continue;
     }
 
-    const legacyMatch = chooseLegacyMatch(byFilename.get(String(key).toLowerCase()) ?? []);
-    if (legacyMatch) {
-      nextMap[legacyMatch.id] = Boolean(enabled);
+    const preferredMatch = choosePreferredMatch(byFilename.get(String(key).toLowerCase()) ?? []);
+    if (preferredMatch) {
+      nextMap[preferredMatch.id] = Boolean(enabled);
     }
   }
 
@@ -281,7 +273,7 @@ function resolveSkillSelection(idOrFilename, skills) {
     );
   }
 
-  return chooseLegacyMatch(
+  return choosePreferredMatch(
     skills.filter((skill) => skill.filename.toLowerCase() === directId.toLowerCase()),
   );
 }
@@ -320,7 +312,7 @@ function resolvePersonaSelection(candidate, personas) {
     );
     if (exactMatch) return exactMatch;
 
-    const filenameMatch = chooseLegacyMatch(
+    const filenameMatch = choosePreferredMatch(
       personas.filter((persona) => persona.filename.toLowerCase() === filename.toLowerCase()),
     );
     if (filenameMatch) return filenameMatch;
@@ -328,7 +320,7 @@ function resolvePersonaSelection(candidate, personas) {
 
   const name = String(candidate.name ?? '').trim();
   if (name) {
-    const nameMatch = chooseLegacyMatch(
+    const nameMatch = choosePreferredMatch(
       personas.filter((persona) => persona.name.toLowerCase() === name.toLowerCase()),
     );
     if (nameMatch) return nameMatch;

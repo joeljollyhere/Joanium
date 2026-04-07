@@ -1,5 +1,4 @@
 import { escapeHtml } from '../../../../../System/Utils.js';
-import { createCardPool } from '../../../../../System/CardPool.js';
 
 export { escapeHtml };
 
@@ -22,15 +21,11 @@ export function getAvatarInitials(name) {
   );
 }
 
-const DEFAULT_KEY = '__default__';
-
 /**
- * Create a card pool that handles both default and custom persona cards.
+ * Create a reusable persona card pool.
  *
  * @param {{
  *   container: HTMLElement,
- *   onActivateDefault: () => Promise<void>,
- *   onChatDefault: () => Promise<void>,
  *   onActivatePersona: (persona: object) => Promise<void>,
  *   onDeactivatePersona: () => Promise<void>,
  *   onChatPersona: (persona: object) => Promise<void>,
@@ -40,8 +35,6 @@ const DEFAULT_KEY = '__default__';
  */
 export function createPersonaCardPool({
   container,
-  onActivateDefault,
-  onChatDefault,
   onActivatePersona,
   onDeactivatePersona,
   onChatPersona,
@@ -153,12 +146,12 @@ export function createPersonaCardPool({
     deactivateBtn.style.display = isActive ? '' : 'none';
   }
 
-  function render(items, activeFilename) {
+  function render(items, activePersonaId) {
     active.clear();
 
     for (const item of items) {
       const key = item.id;
-      const isActive = activeFilename === item.id;
+      const isActive = activePersonaId === item.id;
 
       let card = pool.get(key);
 

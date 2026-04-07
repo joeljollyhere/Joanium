@@ -1,10 +1,37 @@
 /** Escape a string for safe insertion into HTML. */
 export function escapeHtml(value) {
   return String(value ?? '')
-    .replace(/&/g,  '&amp;')
-    .replace(/</g,  '&lt;')
-    .replace(/>/g,  '&gt;')
-    .replace(/"/g,  '&quot;');
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+/** Render lightweight markdown into safe HTML for read-only UI surfaces. */
+export function renderMarkdownToHtml(raw = '') {
+  const text = String(raw)
+    .replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, '')
+    .trim();
+  let html = escapeHtml(text);
+
+  html = html.replace(/```([\s\S]*?)```/g, (_match, inner) => {
+    const newlineIndex = inner.indexOf('\n');
+    const code = newlineIndex >= 0 ? inner.slice(newlineIndex + 1) : inner;
+    return `</p><pre><code>${code}</code></pre><p>`;
+  });
+  html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+  html = html.replace(/^### (.+)$/gm, '</p><h3>$1</h3><p>');
+  html = html.replace(/^## (.+)$/gm, '</p><h2>$1</h2><p>');
+  html = html.replace(/^# (.+)$/gm, '</p><h1>$1</h1><p>');
+  html = html.replace(/^[-*] (.+)$/gm, '<li>$1</li>');
+  html = html.replace(/^\d+\. (.+)$/gm, '<li>$1</li>');
+  html = `<p>${html}</p>`;
+  html = html.replace(/\n\n+/g, '</p><p>').replace(/\n/g, '<br>');
+  html = html.replace(/<p>\s*<\/p>/g, '').replace(/<p><br><\/p>/g, '');
+
+  return html;
 }
 
 /**
@@ -20,13 +47,13 @@ export function generateId(prefix = 'id') {
  * @param {Date} date
  */
 export function formatChatDate(date) {
-  const now  = new Date();
+  const now = new Date();
   const diff = now - date;
-  const DAY  = 86_400_000;
-  const DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const DAY = 86_400_000;
+  const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-  if (diff < DAY)       return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  if (diff < 7 * DAY)   return DAYS[date.getDay()];
+  if (diff < DAY) return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  if (diff < 7 * DAY) return DAYS[date.getDay()];
   return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
 }
 
@@ -37,23 +64,32 @@ export function capitalize(s) {
 
 /** Get user initials (up to 2 chars) from a display name. */
 export function getInitials(name) {
-  const parts = String(name ?? '').trim().split(/\s+/).filter(Boolean);
+  const parts = String(name ?? '')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
   if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
   return (parts[0] ?? 'OW').slice(0, 2).toUpperCase();
 }
 
-/** 
+/**
  * Format a trigger descriptor into a human readable string.
  */
 export function formatTrigger(trigger) {
   if (!trigger) return '?';
   switch (trigger.type) {
-    case 'on_startup': return '\u26A1 Startup';
-    case 'interval': return `\u23F1 Every ${trigger.minutes}m`;
-    case 'hourly': return '\u23F0 Hourly';
-    case 'daily': return `\u{1F305} Daily ${trigger.time ?? ''}`;
-    case 'weekly': return `\u{1F4C5} ${capitalize(trigger.day ?? '')} ${trigger.time ?? ''}`;
-    default: return trigger.type;
+    case 'on_startup':
+      return '\u26A1 Startup';
+    case 'interval':
+      return `\u23F1 Every ${trigger.minutes}m`;
+    case 'hourly':
+      return '\u23F0 Hourly';
+    case 'daily':
+      return `\u{1F305} Daily ${trigger.time ?? ''}`;
+    case 'weekly':
+      return `\u{1F4C5} ${capitalize(trigger.day ?? '')} ${trigger.time ?? ''}`;
+    default:
+      return trigger.type;
   }
 }
 

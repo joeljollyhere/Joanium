@@ -6,6 +6,7 @@ import { boot, startEngines, stopEngines } from '#main/Boot.js';
 import Paths from '#main/Core/Paths.js';
 import { create as createWindow } from '#main/Core/Window.js';
 import { BUILTIN_BROWSER_USER_AGENT } from '#main/Services/BrowserPreviewService.js';
+import { initializeContentLibraries } from '#main/Services/ContentLibraryService.js';
 import { isFirstRun } from '#main/Services/UserService.js';
 import { setupAutoUpdates } from '#main/Services/AutoUpdateService.js';
 
@@ -29,6 +30,7 @@ app.whenReady().then(async () => {
     fs.mkdirSync(Paths.USER_SKILLS_DIR, { recursive: true });
   if (!fs.existsSync(Paths.USER_PERSONAS_DIR))
     fs.mkdirSync(Paths.USER_PERSONAS_DIR, { recursive: true });
+  initializeContentLibraries();
 
   engines = await boot();
   startEngines(engines);

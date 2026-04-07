@@ -1,5 +1,5 @@
 import { createCardPool } from '../../../../System/CardPool.js';
-import { escapeHtml } from '../../../../System/Utils.js';
+import { escapeHtml, renderMarkdownToHtml } from '../../../../System/Utils.js';
 import { getMarketplaceHTML } from './Templates/MarketplaceTemplate.js';
 
 let countEl = null;
@@ -65,30 +65,6 @@ function getItemIcon(type) {
       <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" stroke-linecap="round" stroke-linejoin="round" />
     </svg>
   `;
-}
-
-function renderMarkdown(raw = '') {
-  let text = String(raw)
-    .replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, '')
-    .trim();
-  let html = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  html = html.replace(/```([\s\S]*?)```/g, (_match, inner) => {
-    const newlineIndex = inner.indexOf('\n');
-    const code = newlineIndex >= 0 ? inner.slice(newlineIndex + 1) : inner;
-    return `</p><pre><code>${code}</code></pre><p>`;
-  });
-  html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
-  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-  html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
-  html = html.replace(/^### (.+)$/gm, '</p><h3>$1</h3><p>');
-  html = html.replace(/^## (.+)$/gm, '</p><h2>$1</h2><p>');
-  html = html.replace(/^# (.+)$/gm, '</p><h1>$1</h1><p>');
-  html = html.replace(/^[-*] (.+)$/gm, '<li>$1</li>');
-  html = html.replace(/^\d+\. (.+)$/gm, '<li>$1</li>');
-  html = `<p>${html}</p>`;
-  html = html.replace(/\n\n+/g, '</p><p>').replace(/\n/g, '<br>');
-  html = html.replace(/<p>\s*<\/p>/g, '').replace(/<p><br><\/p>/g, '');
-  return html;
 }
 
 function updateCount() {
@@ -296,7 +272,7 @@ function setModalStatus(message = '', tone = 'info') {
 async function openModal(item) {
   _selectedItem = item;
   updateModal(item);
-  modalContentEl.innerHTML = item.markdown ? renderMarkdown(item.markdown) : '';
+  modalContentEl.innerHTML = item.markdown ? renderMarkdownToHtml(item.markdown) : '';
   setModalStatus(item.markdown ? '' : 'Loading the full file...', 'info');
   modalBackdrop.classList.add('open');
   document.body.classList.add('modal-open');
@@ -316,7 +292,7 @@ async function openModal(item) {
     _cardPool?.render(_items);
     updateListSurface();
     updateModal(detail);
-    modalContentEl.innerHTML = renderMarkdown(detail.markdown);
+    modalContentEl.innerHTML = renderMarkdownToHtml(detail.markdown);
     setModalStatus('', 'info');
   } catch (error) {
     modalContentEl.innerHTML = '';

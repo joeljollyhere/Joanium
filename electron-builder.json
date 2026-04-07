@@ -22,8 +22,14 @@
       "to": "Config/WindowState.json"
     },
     {
-      "from": "Marketplace",
-      "to": "Marketplace"
+      "from": "Skills",
+      "to": "Skills",
+      "filter": ["**/*.md"]
+    },
+    {
+      "from": "Personas",
+      "to": "Personas",
+      "filter": ["**/*.md"]
     }
   ],
   "publish": {

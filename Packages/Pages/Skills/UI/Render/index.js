@@ -1,6 +1,7 @@
 import { getHTML } from './Templates/SkillsTemplate.js';
 import { openConfirm, closeConfirm } from './Components/SkillsConfirm.js';
 import { createCardPool } from '../../../../System/CardPool.js';
+import { renderMarkdownToHtml } from '../../../../System/Utils.js';
 
 /* ── DOM refs (module-level, reset on each mount/unmount) ── */
 let skillsGrid = null;
@@ -22,36 +23,6 @@ let _allSkills = [];
 let _skillPool = null;
 
 /* ── Helpers ── */
-function escapeHtml(value) {
-  return String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
-
-function renderMarkdown(raw) {
-  let text = raw.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, '').trim();
-  let html = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  html = html.replace(/```([\s\S]*?)```/g, (_match, inner) => {
-    const newlineIndex = inner.indexOf('\n');
-    const code = newlineIndex >= 0 ? inner.slice(newlineIndex + 1) : inner;
-    return `</p><pre><code>${code}</code></pre><p>`;
-  });
-  html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
-  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-  html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
-  html = html.replace(/^### (.+)$/gm, '</p><h3>$1</h3><p>');
-  html = html.replace(/^## (.+)$/gm, '</p><h2>$1</h2><p>');
-  html = html.replace(/^# (.+)$/gm, '</p><h1>$1</h1><p>');
-  html = html.replace(/^[-*] (.+)$/gm, '<li>$1</li>');
-  html = html.replace(/^\d+\. (.+)$/gm, '<li>$1</li>');
-  html = `<p>${html}</p>`;
-  html = html.replace(/\n\n+/g, '</p><p>').replace(/\n/g, '<br>');
-  html = html.replace(/<p>\s*<\/p>/g, '').replace(/<p><br><\/p>/g, '');
-  return html;
-}
-
 function matchesSearch(skill, query) {
   if (!query) return true;
   const lowerQuery = query.toLowerCase();
@@ -88,7 +59,7 @@ async function handleToggle(skillId, newEnabled) {
 function openModal(skill) {
   if (!modalName || !modalContent || !modalBackdrop) return;
   modalName.textContent = skill.name;
-  modalContent.innerHTML = renderMarkdown(skill.raw);
+  modalContent.innerHTML = renderMarkdownToHtml(skill.raw);
   modalBackdrop.classList.add('open');
   document.body.classList.add('modal-open');
 }

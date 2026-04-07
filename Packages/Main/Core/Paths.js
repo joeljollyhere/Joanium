@@ -15,6 +15,22 @@ function getStateRoot() {
   return app.isPackaged ? app.getPath('userData') : ROOT;
 }
 
+function getDevLibraryDir(folderName) {
+  return path.join(ROOT, folderName);
+}
+
+function getLibraryDir(folderName) {
+  return app.isPackaged
+    ? path.join(app.getPath('userData'), folderName)
+    : getDevLibraryDir(folderName);
+}
+
+function getLibrarySeedDir(folderName) {
+  return app.isPackaged
+    ? path.join(process.resourcesPath, folderName)
+    : getDevLibraryDir(folderName);
+}
+
 export const Paths = {
   ROOT,
   get BUNDLED_ROOT() {
@@ -72,22 +88,18 @@ export const Paths = {
     return path.join(getStateRoot(), 'Memories', 'Memory.md');
   },
 
-  // Skills – user-writable (userData in packaged, ROOT in dev)
+  // Content libraries
   get USER_SKILLS_DIR() {
-    return path.join(getStateRoot(), 'Marketplace', 'Skills');
+    return getLibraryDir('Skills');
   },
-  // Skills – bundled read-only defaults (resourcesPath in packaged, ROOT in dev)
-  get BUNDLED_SKILLS_DIR() {
-    return path.join(getBundledRoot(), 'Marketplace', 'Skills');
-  },
-
-  // Personas – user-writable
   get USER_PERSONAS_DIR() {
-    return path.join(getStateRoot(), 'Marketplace', 'Personas');
+    return getLibraryDir('Personas');
   },
-  // Personas – bundled read-only defaults
-  get BUNDLED_PERSONAS_DIR() {
-    return path.join(getBundledRoot(), 'Marketplace', 'Personas');
+  get SKILLS_SEED_DIR() {
+    return getLibrarySeedDir('Skills');
+  },
+  get PERSONAS_SEED_DIR() {
+    return getLibrarySeedDir('Personas');
   },
 
   // Features
