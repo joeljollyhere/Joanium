@@ -36,7 +36,8 @@
     "provider": "github",
     "owner": "Joanium",
     "repo": "Joanium",
-    "vPrefixedTagName": true
+    "vPrefixedTagName": true,
+    "releaseType": "release"
   },
   "win": {
     "icon": "Assets/Logo/Logo.ico",
