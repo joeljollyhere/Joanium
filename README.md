@@ -1,112 +1,160 @@
-<img width="699" height="161" alt="Screenshot 2026-03-29 204551" src="https://github.com/user-attachments/assets/a1f5c259-66c5-4203-9ff4-21876ba9f5a1" />
+# Joanium
 
-> Your desktop AI workspace. Local-first, project-aware, and built to actually help you get work done. ⚡
+Joanium is a local-first Electron desktop app for people who want an AI assistant that can actually work with projects, files, tools, schedules, personal context, and real integrations instead of acting like a thin chat wrapper.
 
-**Website:** [Joanium.com](https://joanium.com)
+It combines multi-provider chat, workspace-aware assistance, scheduled automations, autonomous agents, MCP, browser tooling, markdown-based skills and personas, and a discovery-driven extension system in one desktop product.
 
-Joanium is a desktop AI app built with Electron for people who want more than a chat box in a shiny wrapper. It brings together multi-model chat, real project folders, automations, AI agents, MCP servers, connectors, skills, personas, and local data storage in one focused workspace.
+## Why Joanium
 
-It is serious software with range. Fast when you need speed, flexible when your workflow gets weird, and local-first by default so your machine still feels like yours.
+- Local-first state: chats, projects, skills, personas, memories, usage data, and feature state are stored on the machine instead of being hidden behind a remote app backend.
+- Multi-provider by design: Anthropic, OpenAI, Google, OpenRouter, Mistral, NVIDIA, DeepSeek, MiniMax, Ollama, and LM Studio are already wired into setup and runtime model selection.
+- Project-aware chat: the main chat experience can reason over an active workspace, inspect local files, run commands, manage attachments, and keep project-scoped chat history.
+- More than chat: Joanium ships pages and engines for automations, agents, skills, personas, marketplace installs, events, and usage analytics.
+- Real tool surface: the assistant can use local workspace tools, document extraction, browser preview, MCP servers, connector-backed integrations, and feature-defined chat tools.
+- Extensible architecture: features, engines, IPC modules, services, and renderer pages are discovered from npm workspace packages instead of being manually hard-coded into one central file.
 
-## What Joanium Actually Gives You
+## What Ships Today
 
-- 🤖 **Multi-model chat** that does more than answer prompts.
-- 📁 **Project-aware tooling** with files, terminal, git, and workspace context.
-- ⏱️ **Automations** for repeatable tasks you do not want to babysit.
-- 🧠 **AI agents** for monitoring, summaries, triage, and recurring analysis.
-- 🔌 **Live connectors** like Gmail and GitHub that bring real context into the app.
-- 🛠️ **MCP servers, skills, and personas** so the app can adapt to how you work.
-- 🔒 **Local-first storage** under `Data/`, so your chats and runtime state stay on your machine.
+| Area        | What it does                                                                                                                            |
+| ----------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| Setup       | First-run onboarding for user profile and AI provider configuration.                                                                    |
+| Chat        | The main AI workspace with attachments, model selection, project context, tool use, MCP, browser preview, and chat persistence.         |
+| Automations | Scheduled jobs that gather data, call AI, and trigger outputs such as notifications, files, webhooks, and integration-specific actions. |
+| Agents      | Reusable scheduled prompts that run against a chosen model and optional project/workspace context.                                      |
+| Skills      | Markdown-defined skill library with enable/disable controls and first-run seeding.                                                      |
+| Personas    | Markdown-defined personas that influence the system prompt and user-facing behavior.                                                    |
+| Marketplace | Remote skill/persona discovery and installation from the Joanium marketplace.                                                           |
+| Events      | Execution history across background runs, including failures and recent activity.                                                       |
+| Usage       | Local token and model usage analytics.                                                                                                  |
 
-## Why It Hits Different
+## Current Capability Surface
 
-- **Not another disposable AI tab**  
-  Joanium is designed like a workspace, not a demo.
+Joanium already includes:
 
-- **Built for real workflows**  
-  Chat connects to projects, tools, automations, agents, and external context instead of living in isolation.
+- Provider support for Anthropic, OpenAI, Google, OpenRouter, Mistral, NVIDIA, DeepSeek, MiniMax, Ollama, and LM Studio.
+- Capability packages for GitHub, GitLab, Google Workspace, and a collection of free connectors.
+- Google sub-capabilities for Calendar, Contacts, Docs, Drive, Forms, Gmail, Photos, Sheets, Slides, Tasks, and YouTube.
+- MCP support for builtin, stdio, and HTTP servers, including a builtin browser MCP server.
+- Channel engine support for Telegram, WhatsApp, Discord, and Slack.
+- Document extraction for text/code files, PDF, DOCX, XLSX/XLSM, and PPTX attachments.
 
-- **Power without turning into chaos**  
-  The architecture stays modular, so the app can grow without becoming a spaghetti pile.
+## Architecture Snapshot
 
-- **Personality without losing credibility**  
-  It is flexible, expressive, and useful without feeling gimmicky.
+```mermaid
+flowchart LR
+  A[App.js] --> B[Packages/Main/Boot.js]
+  B --> C[Workspace Discovery]
+  C --> D[Feature Registry]
+  C --> E[Engines]
+  C --> F[IPC Modules]
+  C --> G[Page Manifests]
+  D --> H[Connector + Tool + Prompt Contributions]
+  E --> I[Background Runtime: agents, automations, channels, connectors, MCP]
+  F --> J[Preload Bridge]
+  G --> K[Renderer Shell]
+  J --> K
+  K --> L[Pages: chat, automations, agents, skills, personas, marketplace, events, usage]
+```
 
-## Core Areas
+The key architectural idea is that Joanium is assembled from discovery roots declared in workspace `package.json` files. Feature packages contribute connectors, chat tools, automation data sources, output handlers, prompt context, and even additional pages. Engine packages contribute long-lived runtime behavior. IPC and page registration are also discovered instead of being manually wired one by one.
 
-- 💬 **Chat** - multi-model conversations with tools, connectors, and MCP support.
-- 🗂️ **Projects** - workspace-aware context with project-scoped chats and tooling.
-- ⚙️ **Automations** - scheduled action chains for deterministic work.
-- 🧠 **Agents** - scheduled AI jobs that collect data, reason over it, and produce outputs.
-- 📡 **Events** - a live operational timeline for runs, failures, skips, and active jobs.
-- 📚 **Skills** - local Markdown-based behavior packs that shape how the assistant works.
-- 🎭 **Personas** - switch the assistant's identity, tone, and framing.
-- 📈 **Usage** - local visibility into model activity and cost.
+## Repository Layout
+
+```text
+App.js                          Electron entrypoint
+Core/Electron/Bridge/           Preload bridge exposed to the renderer
+Packages/Main/                  Boot, discovery, paths, services, IPC registration
+Packages/Features/              Engines and platform features
+Packages/Capabilities/          Integration and capability feature packages
+Packages/Pages/                 User-facing pages and page manifests
+Packages/Renderer/              SPA shell, page loading, sidebar wiring
+Packages/System/                Shared contracts, state, prompt helpers, utilities
+Config/                         Model catalogs and bundled configuration
+Data/                           Runtime state in development mode
+Instructions/                   User custom instructions
+Memories/                       Personal memory markdown files
+Skills/                         Seed skill library
+Personas/                       Seed persona library
+SystemInstructions/             Base system prompt instructions
+Docs/                           Project documentation
+```
+
+Important note: in development mode, Joanium stores runtime state inside the repo root. In packaged builds, that state moves to Electron `userData`. That makes local development simple, but it also means contributors should avoid accidentally committing local runtime data.
 
 ## Quick Start
 
-```bash
-# Prerequisites: Node.js 18+ and npm
+### Prerequisites
 
-git clone <repository-url>
-cd <repository-folder>
+- Node.js and npm
+- A supported AI provider key, or a local model server such as Ollama or LM Studio
+
+### Run locally
+
+```bash
 npm install
 npm start
 ```
 
-On first launch, Joanium walks through setup and stores local app data inside `Data/`.
+For development mode:
 
-## Capability Packages
-
-Joanium can now discover integration features from independent workspace packages under `Packages/Capabilities/*`.
-
-- Put one product in one package, for example `Packages/Capabilities/Notion/`.
-- Declare `joanium.discovery.features` in that package's `package.json`.
-- Keep the product's connector definition, chat tools, automations, agent data sources, and boot-time wiring inside that package.
-
-That means adding a new product no longer needs a hardcoded core registration path. The product package can own its moving parts and be discovered automatically at startup.
-
-## Project Structure
-
-```text
-Joanium/
-|-- App.js
-|-- package.json
-|-- Packages/
-|   |-- Main/          # Electron-facing services, IPC, paths, windows
-|   |-- Renderer/      # SPA shell, pages, shared state, feature modules
-|   |-- Automation/    # Scheduler and action execution
-|   |-- Agents/        # Scheduled AI jobs and job history
-|   |-- Channels/      # External channel responders
-|   |-- Connectors/    # AI providers, Gmail, GitHub, and other integrations
-|   |-- MCP/           # MCP runtime support
-|   `-- System/        # Shared system prompt and app-level logic
-|-- Public/            # App shells and static assets
-|-- Data/              # Local user data, chats, projects, usage, config
-|-- Skills/            # Installed skill definitions
-|-- Personas/          # Persona definitions
-`-- Docs/              # Architecture and feature documentation
+```bash
+npm run dev
 ```
+
+Useful commands:
+
+```bash
+npm run lint
+npm run build
+npm run packages:audit
+```
+
+On Windows PowerShell, if `npm` script execution is blocked by policy, run:
+
+```powershell
+cmd /c npm run packages:audit
+```
+
+## Development Notes
+
+- `App.js` creates required runtime directories, seeds skills/personas and personal memory files, boots the feature system, starts engines, creates the main window, and auto-connects MCP servers.
+- `Packages/Main/Boot.js` is the central assembly point for feature discovery, engine discovery, storage creation, lifecycle hooks, and IPC registration.
+- `Packages/Renderer/Application/Main.js` is the renderer shell that discovers pages, builds the sidebar, mounts/unmounts pages, and initializes renderer gateways.
+- `Packages/Capabilities/Core/FeatureRegistry.js` is the main composition layer for connector definitions, prompt sections, chat tools, automation hooks, and feature pages.
 
 ## Documentation
 
-The [`Docs/`](Docs/) folder covers the current runtime and feature set in depth.
+Start here if you want the full repo map:
 
-- [`Docs/Architecture.md`](Docs/Architecture.md) - startup flow, package boundaries, renderer routing, and persistence
-- [`Docs/Features.md`](Docs/Features.md) - chat, projects, automations, agents, events, skills, personas, and usage
-- [`Docs/Projects.md`](Docs/Projects.md) - workspace behavior and project-scoped chat storage
-- [`Docs/Automations.md`](Docs/Automations.md) - triggers, actions, and execution rules
-- [`Docs/Agents.md`](Docs/Agents.md) - scheduled AI jobs, inputs, outputs, and history
-- [`Docs/Connectors.md`](Docs/Connectors.md) - providers, Gmail, GitHub, and connector setup
-- [`Docs/Channels.md`](Docs/Channels.md) - external channel reply flow
-- [`Docs/MCP.md`](Docs/MCP.md) - MCP server support and tool surfacing
-- [`Docs/Development.md`](Docs/Development.md) - extension patterns and implementation guidance
+- [Docs/README.md](Docs/README.md)
+- [Docs/Architecture.md](Docs/Architecture.md)
+- [Docs/Features.md](Docs/Features.md)
+- [Docs/Data-And-Persistence.md](Docs/Data-And-Persistence.md)
+- [Docs/Extension-Guide.md](Docs/Extension-Guide.md)
+- [Docs/Where-To-Change-What.md](Docs/Where-To-Change-What.md)
+- [Docs/Development-Workflow.md](Docs/Development-Workflow.md)
 
-## Current Status
+## Extending Joanium
 
-Joanium is actively being built and sharpened. The foundation is already here: the app shell, project-aware workflows, scheduled runtimes, connector support, and the local-first persistence model that ties everything together.
+At a high level:
 
-## Built By
+1. Add or update a workspace package.
+2. Declare discovery roots through `joanium.discovery` in that package's `package.json`.
+3. Export a `Feature.js`, `*Engine.js`, `*IPC.js`, `Page.js`, or `*Service.js` from the matching discovery root.
+4. Let boot-time discovery register the new capability automatically.
 
-[Joel Jolly](https://joeljolly.vercel.app)  
-MIT License
+The detailed guide is here:
+
+- [Docs/Extension-Guide.md](Docs/Extension-Guide.md)
+
+## Contributing
+
+Joanium already includes contribution, security, and conduct docs:
+
+- [CONTRIBUTING.md](CONTRIBUTING.md)
+- [SECURITY.md](SECURITY.md)
+- [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
+
+## License
+
+MIT. See [LICENSE](LICENSE).
