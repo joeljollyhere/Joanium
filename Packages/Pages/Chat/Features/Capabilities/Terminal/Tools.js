@@ -3788,4 +3788,403 @@ export const TERMINAL_TOOLS = [
       },
     },
   },
+
+  {
+    name: 'get_git_log',
+    description:
+      'Fetch recent git commit history with author, relative timestamp, and commit message. Gives the AI immediate temporal context: what changed recently, who made the changes, and whether a bug correlates to a specific commit. Optionally scoped to a single file.',
+    category: 'terminal',
+    parameters: {
+      working_directory: {
+        type: 'string',
+        required: false,
+        description: 'Absolute repo path. Defaults to the opened workspace.',
+      },
+      limit: {
+        type: 'number',
+        required: false,
+        description: 'Maximum number of commits to return (default: 20).',
+      },
+      file_path: {
+        type: 'string',
+        required: false,
+        description: 'Absolute path to a specific file to show history for (default: entire repo).',
+      },
+      branch: {
+        type: 'string',
+        required: false,
+        description: 'Branch name to show history from (default: current branch).',
+      },
+    },
+  },
+
+  {
+    name: 'get_git_blame',
+    description:
+      'Show the author and commit date for every line (or a line range) of a file using git blame. Lets the AI identify who owns specific code, when it was last changed, and whether a bug is from legacy or recent work — without reading the full commit log.',
+    category: 'terminal',
+    parameters: {
+      path: {
+        type: 'string',
+        required: true,
+        description: 'Absolute path to the file.',
+      },
+      working_directory: {
+        type: 'string',
+        required: false,
+        description: 'Absolute repo path. Defaults to the opened workspace.',
+      },
+      start_line: {
+        type: 'number',
+        required: false,
+        description: '1-based first line to blame (default: entire file).',
+      },
+      end_line: {
+        type: 'number',
+        required: false,
+        description:
+          '1-based last line to blame (default: 30 lines from start_line if start_line is given).',
+      },
+    },
+  },
+
+  {
+    name: 'find_circular_dependencies',
+    description:
+      'Detect circular import chains in a JavaScript/TypeScript workspace by building a directed import graph and running DFS cycle detection. Circular dependencies cause subtle runtime initialization bugs and module loading failures that are nearly impossible to diagnose without this tool.',
+    category: 'terminal',
+    parameters: {
+      path: {
+        type: 'string',
+        required: false,
+        description: 'Workspace root path. Defaults to the opened workspace.',
+      },
+      extensions: {
+        type: 'string',
+        required: false,
+        description: 'Comma-separated file extensions to analyze (default: "js,ts,jsx,tsx").',
+      },
+    },
+  },
+
+  {
+    name: 'find_test_coverage_gaps',
+    description:
+      'Find source files that have no corresponding test file anywhere in the workspace. Gives the AI an instant picture of which modules are untested before writing, refactoring, or debugging code — preventing changes to unprotected code without warning.',
+    category: 'terminal',
+    parameters: {
+      path: {
+        type: 'string',
+        required: false,
+        description: 'Workspace root path. Defaults to the opened workspace.',
+      },
+      extensions: {
+        type: 'string',
+        required: false,
+        description: 'Source file extensions to check (default: "js,ts,jsx,tsx,py").',
+      },
+      test_patterns: {
+        type: 'string',
+        required: false,
+        description:
+          'Comma-separated substrings that identify test files (default: ".test.,.spec.,_test.,test_").',
+      },
+    },
+  },
+
+  {
+    name: 'find_api_endpoints',
+    description:
+      'Detect and list all HTTP route definitions across the workspace — Express, Fastify, FastAPI, Flask, Django, Rails, Next.js API routes, Hono, and similar frameworks. Instantly maps the entire API surface with HTTP verb, path, and source location, without reading every route file.',
+    category: 'terminal',
+    parameters: {
+      path: {
+        type: 'string',
+        required: false,
+        description: 'Workspace root path. Defaults to the opened workspace.',
+      },
+    },
+  },
+
+  {
+    name: 'find_error_handling_gaps',
+    description:
+      'Find async functions, await expressions, Promise chains, and fetch/axios calls that are NOT wrapped in try/catch or .catch(). Missing error handling is a top cause of silent production failures. Works on a single file or across the whole workspace.',
+    category: 'terminal',
+    parameters: {
+      path: {
+        type: 'string',
+        required: false,
+        description: 'Absolute path to a single file to scan.',
+      },
+      workspace_path: {
+        type: 'string',
+        required: false,
+        description: 'Workspace root to scan across all files. Used when path is not given.',
+      },
+    },
+  },
+
+  {
+    name: 'get_dependency_graph',
+    description:
+      'Build a file-level import graph and compute fan-in (how many files import each file) and fan-out (how many files each file imports). High fan-in means a core module that many depend on — risky to change. High fan-out means a potential god file. Isolated files with no connections may be dead code. Essential intelligence before any refactoring.',
+    category: 'terminal',
+    parameters: {
+      path: {
+        type: 'string',
+        required: false,
+        description: 'Workspace root path. Defaults to the opened workspace.',
+      },
+      extensions: {
+        type: 'string',
+        required: false,
+        description: 'Comma-separated file extensions to include (default: "js,ts,jsx,tsx").',
+      },
+      max_files: {
+        type: 'number',
+        required: false,
+        description: 'Maximum number of files to analyze (default: 100).',
+      },
+    },
+  },
+
+  {
+    name: 'find_security_patterns',
+    description:
+      'Scan a workspace for common security anti-patterns: hardcoded passwords and API keys, eval() usage, SQL injection vectors, disabled TLS verification (rejectUnauthorized: false, verify=False), dangerouslySetInnerHTML, open redirects, and insecure randomness. Surface-level scan — not a substitute for a full SAST tool, but catches the obvious red flags instantly.',
+    category: 'terminal',
+    parameters: {
+      path: {
+        type: 'string',
+        required: false,
+        description: 'Workspace root path. Defaults to the opened workspace.',
+      },
+    },
+  },
+
+  {
+    name: 'get_recently_modified_files',
+    description:
+      "List files modified most recently, using git log (preferred) or filesystem mtime as fallback. Instantly tells the AI where recent work happened — the single most important signal for debugging a fresh regression, doing code review, or understanding what's currently in flux.",
+    category: 'terminal',
+    parameters: {
+      path: {
+        type: 'string',
+        required: false,
+        description: 'Workspace root path. Defaults to the opened workspace.',
+      },
+      limit: {
+        type: 'number',
+        required: false,
+        description: 'Maximum number of files to return (default: 20).',
+      },
+      days: {
+        type: 'number',
+        required: false,
+        description: 'How many days back to look (default: 7).',
+      },
+      extensions: {
+        type: 'string',
+        required: false,
+        description:
+          'Comma-separated extensions to restrict results, e.g. "ts,tsx" (default: all).',
+      },
+    },
+  },
+
+  {
+    name: 'find_naming_inconsistencies',
+    description:
+      'Detect files where multiple naming conventions coexist (camelCase, snake_case, PascalCase, UPPER_SNAKE, kebab-case). Mixed conventions are a reliable signal of multi-author code or rushed refactors — and a frequent source of bugs when the AI needs to follow the "house style".',
+    category: 'terminal',
+    parameters: {
+      path: {
+        type: 'string',
+        required: false,
+        description: 'Absolute path to a single file to scan.',
+      },
+      workspace_path: {
+        type: 'string',
+        required: false,
+        description: 'Workspace root to scan across all files. Used when path is not given.',
+      },
+    },
+  },
+
+  {
+    name: 'get_config_files',
+    description:
+      'Locate and summarize every configuration file in a workspace: package.json (with key fields), tsconfig, ESLint, Prettier, Jest/Vitest, Vite/Webpack, Babel, Docker, CI/CD pipelines, .env files, and more. Gives the AI a complete picture of project tooling in a single call, avoiding the need to manually hunt for each config.',
+    category: 'terminal',
+    parameters: {
+      path: {
+        type: 'string',
+        required: false,
+        description: 'Workspace root path. Defaults to the opened workspace.',
+      },
+    },
+  },
+
+  {
+    name: 'find_async_patterns',
+    description:
+      'Map all async usage patterns in a file or workspace: async/await, Promise chains (.then/.catch/.finally), Promise.all/race/allSettled, new Promise(), setTimeout/setInterval, EventEmitter, and callback-style patterns. Essential before making any changes involving concurrency, timing, or data flow.',
+    category: 'terminal',
+    parameters: {
+      path: {
+        type: 'string',
+        required: false,
+        description: 'Absolute path to a single file to scan.',
+      },
+      workspace_path: {
+        type: 'string',
+        required: false,
+        description: 'Workspace root to scan across all files. Used when path is not given.',
+      },
+    },
+  },
+
+  {
+    name: 'map_component_tree',
+    description:
+      'Build a React/Vue component hierarchy by analysing JSX/TSX imports and render patterns. Shows which components are composed inside which parents, which are leaf nodes, and which are root entry points. The fastest way to understand the UI architecture before making structural changes to any component.',
+    category: 'terminal',
+    parameters: {
+      path: {
+        type: 'string',
+        required: false,
+        description: 'Workspace root path. Defaults to the opened workspace.',
+      },
+      entry_file: {
+        type: 'string',
+        required: false,
+        description:
+          'Partial filename to use as the tree root (e.g. "App.tsx"). Default: auto-detect.',
+      },
+    },
+  },
+
+  {
+    name: 'count_code_by_author',
+    description:
+      'Use git blame to compute per-author line counts across the workspace, showing what percentage of the codebase each contributor wrote. Identifies bus-factor risks (one person owns 70%+ of lines), code ownership boundaries, and who to consult before changing a module.',
+    category: 'terminal',
+    parameters: {
+      working_directory: {
+        type: 'string',
+        required: false,
+        description: 'Absolute repo path. Defaults to the opened workspace.',
+      },
+      max_files: {
+        type: 'number',
+        required: false,
+        description: 'Maximum number of tracked files to analyze (default: 50).',
+      },
+    },
+  },
+
+  {
+    name: 'find_feature_flags',
+    description:
+      'Detect feature flag / feature toggle patterns across the codebase — LaunchDarkly, Unleash, Flagsmith, custom flag maps, and environment-variable gates. Lists all known flag names with their usage frequency and source locations. Lets the AI understand which code paths are conditionally enabled before making changes to flagged features.',
+    category: 'terminal',
+    parameters: {
+      path: {
+        type: 'string',
+        required: false,
+        description: 'Workspace root path. Defaults to the opened workspace.',
+      },
+    },
+  },
+
+  {
+    name: 'get_function_call_frequency',
+    description:
+      'Count how often each function defined in a file is called across the workspace. High-frequency functions are hot paths — changes there have wide blast radius. Zero-frequency internal functions are dead code candidates. Gives the AI the call-frequency signal needed to prioritise safely and avoid breaking widely-used utilities.',
+    category: 'terminal',
+    parameters: {
+      path: {
+        type: 'string',
+        required: true,
+        description: 'Absolute path to the file whose functions you want to measure.',
+      },
+      workspace_path: {
+        type: 'string',
+        required: false,
+        description: 'Workspace root to search for calls. Defaults to the opened workspace.',
+      },
+    },
+  },
+
+  {
+    name: 'summarize_file_changes',
+    description:
+      'Summarize recent git commits for a specific file: lines added/removed, functions touched, and a preview of the actual diff. Gives the AI immediate commit-level context — what changed, when, and how much — without wading through raw git output. Essential for debugging regressions and understanding change history.',
+    category: 'terminal',
+    parameters: {
+      path: {
+        type: 'string',
+        required: true,
+        description: 'Absolute path to the file.',
+      },
+      working_directory: {
+        type: 'string',
+        required: false,
+        description: 'Absolute repo path. Defaults to the opened workspace.',
+      },
+      commits: {
+        type: 'number',
+        required: false,
+        description: 'Number of recent commits to summarize (default: 1).',
+      },
+    },
+  },
+
+  {
+    name: 'find_performance_patterns',
+    description:
+      'Scan for common performance anti-patterns: awaits inside loops (N+1 query risk), synchronous fs/exec in async contexts, JSON.parse in tight loops, heavy work in React render/useEffect, missing memoization signals, SELECT * queries, busy-wait polling, and array allocations inside render. Works on a single file or across the workspace.',
+    category: 'terminal',
+    parameters: {
+      path: {
+        type: 'string',
+        required: false,
+        description: 'Absolute path to a single file to scan.',
+      },
+      workspace_path: {
+        type: 'string',
+        required: false,
+        description: 'Workspace root to scan across all files. Used when path is not given.',
+      },
+    },
+  },
+
+  {
+    name: 'get_workspace_health_score',
+    description:
+      'Compute a 0–100 health score for the workspace across six dimensions: test coverage ratio, debug log cleanliness, absence of hardcoded secrets, TODO debt, file size discipline, and git cleanliness. Returns a grade (A–F), per-dimension breakdown, and actionable summary. The single best "state of the codebase" tool to run before starting significant work.',
+    category: 'terminal',
+    parameters: {
+      path: {
+        type: 'string',
+        required: false,
+        description: 'Workspace root path. Defaults to the opened workspace.',
+      },
+    },
+  },
+
+  {
+    name: 'get_architecture_overview',
+    description:
+      'Produce a complete architectural overview of the workspace: detected architectural pattern (Layered MVC, Clean Architecture, Feature-based, SPA, SSR, etc.), tech stack, identified layers with their directory locations, data flow direction, entry points, and AI-specific guidance on where key concerns live. The best first tool to call when starting work on an unfamiliar codebase or before making any architectural decision.',
+    category: 'terminal',
+    parameters: {
+      path: {
+        type: 'string',
+        required: false,
+        description: 'Workspace root path. Defaults to the opened workspace.',
+      },
+    },
+  },
 ];

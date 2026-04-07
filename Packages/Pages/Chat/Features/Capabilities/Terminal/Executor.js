@@ -488,6 +488,26 @@ export const { handles, execute } = createExecutor({
     'copy_range_to_position',
     'overwrite_matching_lines',
     'remove_trailing_chars',
+    'get_git_log',
+    'get_git_blame',
+    'find_circular_dependencies',
+    'find_test_coverage_gaps',
+    'find_api_endpoints',
+    'find_error_handling_gaps',
+    'get_dependency_graph',
+    'find_security_patterns',
+    'get_recently_modified_files',
+    'find_naming_inconsistencies',
+    'get_config_files',
+    'find_async_patterns',
+    'map_component_tree',
+    'count_code_by_author',
+    'find_feature_flags',
+    'get_function_call_frequency',
+    'summarize_file_changes',
+    'find_performance_patterns',
+    'get_workspace_health_score',
+    'get_architecture_overview',
   ],
   handlers: {
     inspect_workspace: async (params, onStage) => {
@@ -6371,6 +6391,2226 @@ export const { handles, execute } = createExecutor({
 
       await ipcWriteFile(filePath, joinLines(lines));
       return `✅ Removed trailing "${chars}" from ${changed} line${changed !== 1 ? 's' : ''} (lines ${start_line}–${end_line}) in ${filePath}`;
+    },
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // 20 NEW REPO-INTELLIGENCE TOOL HANDLERS
+    // Add these inside the `handlers: { ... }` object in Executor.js,
+    // after the last existing handler (remove_trailing_chars).
+    // Also add each tool name to the `tools: [...]` array in createExecutor.
+    // ─────────────────────────────────────────────────────────────────────────────
+
+    // ── 1. GET_GIT_LOG ─────────────────────────────────────────────────────────────
+    // Fetches recent commit history with author, date, and message. Gives the AI
+    // immediate temporal context: what changed recently, who owns what, and
+    // whether a bug was introduced in a recent commit.
+    get_git_log: async (params, onStage) => {
+      const workingDirectory = resolveWorkingDirectory(params.working_directory);
+      if (!workingDirectory)
+        throw new Error('No workspace is open. Set a workspace or provide working_directory.');
+
+      const limit = params.limit ?? 20;
+      const branch = params.branch ?? '';
+      const filePath = params.file_path ?? '';
+      const format = '%h|%an|%ar|%s'; // short hash | author | relative date | subject
+
+      const fileArg = filePath ? `-- "${filePath}"` : '';
+      const branchArg = branch ? branch : '';
+      const command =
+        `git log --pretty=format:"${format}" -n ${limit} ${branchArg} ${fileArg}`.trim();
+
+      onStage(`🕒 Fetching git log in ${workingDirectory}`);
+      const result = await window.electronAPI?.invoke?.('run-shell-command', {
+        command,
+        cwd: workingDirectory,
+        timeout: 15000,
+        allowRisky: false,
+      });
+
+      if (!result?.ok || !result.stdout?.trim())
+        return `No git history found${filePath ? ` for ${filePath}` : ''}.`;
+
+      const commits = result.stdout
+        .trim()
+        .split('\n')
+        .map((line) => {
+          const [hash, author, when, ...msgParts] = line.split('|');
+          return { hash, author, when, message: msgParts.join('|') };
+        });
+
+      const lines = [
+        `Git log: ${workingDirectory}${filePath ? ` — ${filePath}` : ''}${branch ? ` (${branch})` : ''}`,
+        `Showing ${commits.length} most recent commit${commits.length !== 1 ? 's' : ''}`,
+        '',
+        ...commits.map(
+          (c) => `  ${c.hash}  ${c.when.padEnd(14)}  ${c.author.padEnd(20)}  ${c.message}`,
+        ),
+      ];
+
+      return lines.join('\n');
+    },
+
+    // ── 2. GET_GIT_BLAME ──────────────────────────────────────────────────────────
+    // Shows who last changed each line of a file and when. Lets the AI identify
+    // the original author of a bug, understand ownership, and determine if code
+    // is ancient legacy or recently introduced.
+    get_git_blame: async (params, onStage) => {
+      const { path: filePath } = params;
+      if (!filePath?.trim()) throw new Error('Missing required param: path');
+
+      const workingDirectory = resolveWorkingDirectory(params.working_directory);
+      if (!workingDirectory)
+        throw new Error('No workspace is open. Set a workspace or provide working_directory.');
+
+      const startLine = params.start_line;
+      const endLine = params.end_line;
+      const lineArg =
+        startLine && endLine
+          ? `-L ${startLine},${endLine}`
+          : startLine
+            ? `-L ${startLine},+30`
+            : '';
+
+      onStage(`🔍 Running git blame on ${filePath}`);
+      const result = await window.electronAPI?.invoke?.('run-shell-command', {
+        command: `git blame --porcelain ${lineArg} "${filePath}"`,
+        cwd: workingDirectory,
+        timeout: 20000,
+        allowRisky: false,
+      });
+
+      if (!result?.ok || !result.stdout?.trim())
+        return `Could not run git blame on ${filePath}. Ensure the file is tracked by git.`;
+
+      // Parse porcelain format
+      const authorsByHash = {};
+      const lineMap = [];
+      const blameLines = result.stdout.split('\n');
+
+      let currentHash = null;
+      for (const line of blameLines) {
+        if (/^[0-9a-f]{40}/.test(line)) {
+          const parts = line.split(' ');
+          currentHash = parts[0].slice(0, 8);
+          const lineNum = parseInt(parts[2], 10);
+          if (!isNaN(lineNum)) lineMap.push({ hash: currentHash, lineNum, text: '' });
+        } else if (line.startsWith('author ') && currentHash) {
+          if (!authorsByHash[currentHash]) authorsByHash[currentHash] = {};
+          authorsByHash[currentHash].author = line.slice(7).trim();
+        } else if (line.startsWith('author-time ') && currentHash) {
+          const ts = parseInt(line.slice(12), 10);
+          const date = new Date(ts * 1000).toISOString().slice(0, 10);
+          if (authorsByHash[currentHash]) authorsByHash[currentHash].date = date;
+        } else if (line.startsWith('\t') && lineMap.length) {
+          lineMap[lineMap.length - 1].text = line.slice(1);
+        }
+      }
+
+      if (!lineMap.length) return `No blame data parsed for ${filePath}.`;
+
+      // Find unique authors
+      const authorSet = new Set(
+        Object.values(authorsByHash)
+          .map((a) => a.author)
+          .filter(Boolean),
+      );
+
+      const output = [
+        `Git blame: ${filePath}`,
+        `${lineMap.length} line${lineMap.length !== 1 ? 's' : ''} | Authors: ${[...authorSet].join(', ')}`,
+        '',
+      ];
+
+      for (const entry of lineMap) {
+        const info = authorsByHash[entry.hash] || {};
+        const author = (info.author || 'unknown').slice(0, 16).padEnd(16);
+        const date = (info.date || '??????????').padEnd(11);
+        output.push(
+          `  ${String(entry.lineNum).padStart(5)}  ${entry.hash}  ${date}  ${author}  ${entry.text.slice(0, 80)}`,
+        );
+      }
+
+      return output.join('\n');
+    },
+
+    // ── 3. FIND_CIRCULAR_DEPENDENCIES ─────────────────────────────────────────────
+    // Detects circular import chains in a JS/TS workspace by building a directed
+    // graph of imports and running DFS cycle detection. Circular deps cause subtle
+    // runtime bugs and are hard to spot manually.
+    find_circular_dependencies: async (params, onStage) => {
+      const rootPath = resolveWorkingDirectory(params.path);
+      if (!rootPath) throw new Error('No workspace is open.');
+
+      const extensions = (params.extensions ?? 'js,ts,jsx,tsx')
+        .split(',')
+        .map((e) => e.trim().replace(/^\./, '').toLowerCase());
+
+      onStage(`🔄 Building import graph in ${rootPath}`);
+
+      const extPatterns = extensions.map((e) => `-name "*.${e}"`).join(' -o ');
+      const listResult = await window.electronAPI?.invoke?.('run-shell-command', {
+        command: `find "${rootPath}" -type f \\( ${extPatterns} \\) -not -path "*/node_modules/*" -not -path "*/.git/*" -not -path "*/dist/*" -not -path "*/build/*"`,
+        cwd: rootPath,
+        timeout: 20000,
+        allowRisky: false,
+      });
+
+      if (!listResult?.ok || !listResult.stdout?.trim())
+        return `No source files found in ${rootPath}.`;
+
+      const files = listResult.stdout.trim().split('\n').filter(Boolean).slice(0, 300);
+      onStage(`Scanning ${files.length} files for import graph…`);
+
+      // Build adjacency map: filePath → Set<resolvedFilePath>
+      const graph = {};
+      const importRe =
+        /(?:^import\s+.*?from\s+|^(?:const|let|var)\s+\S+\s*=\s*require\s*\(\s*)['"`](\.\.?\/[^'"`]+)['"`]/gm;
+
+      const resolveImport = (fromFile, importPath) => {
+        const dir = fromFile.split('/').slice(0, -1).join('/');
+        let resolved = dir + '/' + importPath;
+        // Normalise ../ and ./
+        const parts = resolved.split('/');
+        const stack = [];
+        for (const p of parts) {
+          if (p === '..') stack.pop();
+          else if (p !== '.') stack.push(p);
+        }
+        resolved = stack.join('/');
+        // Try to find actual file with extension
+        for (const ext of extensions) {
+          if (files.includes(resolved + '.' + ext)) return resolved + '.' + ext;
+          if (files.includes(resolved + '/index.' + ext)) return resolved + '/index.' + ext;
+        }
+        return files.find((f) => f.startsWith(resolved)) ?? null;
+      };
+
+      for (const fp of files) {
+        try {
+          const { content } = await ipcReadFile(fp);
+          graph[fp] = new Set();
+          let m;
+          importRe.lastIndex = 0;
+          while ((m = importRe.exec(content)) !== null) {
+            const resolved = resolveImport(fp, m[1]);
+            if (resolved && resolved !== fp) graph[fp].add(resolved);
+          }
+        } catch {
+          graph[fp] = new Set();
+        }
+      }
+
+      // DFS cycle detection
+      const cycles = [];
+      const visited = new Set();
+      const inStack = new Set();
+
+      const dfs = (node, path) => {
+        if (inStack.has(node)) {
+          const cycleStart = path.indexOf(node);
+          cycles.push(path.slice(cycleStart).concat(node));
+          return;
+        }
+        if (visited.has(node)) return;
+        visited.add(node);
+        inStack.add(node);
+        for (const neighbor of graph[node] ?? []) {
+          dfs(neighbor, [...path, node]);
+        }
+        inStack.delete(node);
+      };
+
+      for (const file of files) dfs(file, []);
+
+      if (!cycles.length)
+        return `✅ No circular dependencies found in ${rootPath} (${files.length} files scanned).`;
+
+      // Deduplicate cycles (same set of nodes, different entry point)
+      const seen = new Set();
+      const unique = cycles.filter((c) => {
+        const key = [...c].sort().join('|');
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+
+      const shorten = (p) => p.replace(rootPath + '/', '');
+
+      const output = [
+        `Circular dependencies in ${rootPath}:`,
+        `${unique.length} cycle${unique.length !== 1 ? 's' : ''} found across ${files.length} files`,
+        '',
+      ];
+
+      for (let i = 0; i < Math.min(unique.length, 20); i++) {
+        const cycle = unique[i];
+        output.push(`### Cycle ${i + 1} (${cycle.length - 1} hop${cycle.length > 2 ? 's' : ''})`);
+        for (let j = 0; j < cycle.length; j++) {
+          const arrow = j < cycle.length - 1 ? ' →' : ' ← (back to start)';
+          output.push(`  ${shorten(cycle[j])}${arrow}`);
+        }
+        output.push('');
+      }
+      if (unique.length > 20) output.push(`… +${unique.length - 20} more cycles`);
+
+      return output.join('\n');
+    },
+
+    // ── 4. FIND_TEST_COVERAGE_GAPS ────────────────────────────────────────────────
+    // Finds source files that have no corresponding test file anywhere in the
+    // workspace. Lets the AI immediately know which modules lack test coverage
+    // before writing, refactoring, or debugging code.
+    find_test_coverage_gaps: async (params, onStage) => {
+      const rootPath = resolveWorkingDirectory(params.path);
+      if (!rootPath) throw new Error('No workspace is open.');
+
+      const extensions = (params.extensions ?? 'js,ts,jsx,tsx,py')
+        .split(',')
+        .map((e) => e.trim().replace(/^\./, '').toLowerCase());
+      const testPatterns = (params.test_patterns ?? '.test.,.spec.,_test.,test_')
+        .split(',')
+        .map((p) => p.trim());
+
+      onStage(`🧪 Mapping test coverage gaps in ${rootPath}`);
+
+      const extPat = extensions.map((e) => `-name "*.${e}"`).join(' -o ');
+      const listResult = await window.electronAPI?.invoke?.('run-shell-command', {
+        command: `find "${rootPath}" -type f \\( ${extPat} \\) -not -path "*/node_modules/*" -not -path "*/.git/*" -not -path "*/dist/*" -not -path "*/build/*"`,
+        cwd: rootPath,
+        timeout: 20000,
+        allowRisky: false,
+      });
+
+      if (!listResult?.ok || !listResult.stdout?.trim())
+        return `No source files found in ${rootPath}.`;
+
+      const allFiles = listResult.stdout.trim().split('\n').filter(Boolean);
+      const testFiles = allFiles.filter((f) => testPatterns.some((p) => f.includes(p)));
+      const sourceFiles = allFiles.filter((f) => !testPatterns.some((p) => f.includes(p)));
+
+      // For each source file, check if a test file referencing its base name exists
+      const testFileBasenames = new Set(
+        testFiles.map((f) => {
+          const base = f.split('/').pop();
+          return base
+            .replace(/\.(test|spec|_test)\.[^.]+$/, '')
+            .replace(/\.[^.]+$/, '')
+            .toLowerCase();
+        }),
+      );
+
+      const untested = [];
+      const tested = [];
+
+      for (const sf of sourceFiles) {
+        const base = sf
+          .split('/')
+          .pop()
+          .replace(/\.[^.]+$/, '')
+          .toLowerCase();
+        // Also check if a __tests__ folder or test/ folder has anything with the same base
+        const hasTest =
+          testFileBasenames.has(base) || testFiles.some((t) => t.toLowerCase().includes(base));
+        if (hasTest) tested.push(sf);
+        else untested.push(sf);
+      }
+
+      const pct =
+        sourceFiles.length > 0 ? Math.round((tested.length / sourceFiles.length) * 100) : 0;
+
+      const shorten = (p) => p.replace(rootPath + '/', '');
+
+      // Group untested by directory
+      const byDir = {};
+      for (const f of untested) {
+        const dir =
+          f
+            .replace(rootPath + '/', '')
+            .split('/')
+            .slice(0, -1)
+            .join('/') || '.';
+        (byDir[dir] = byDir[dir] || []).push(f);
+      }
+
+      const output = [
+        `Test coverage gap analysis: ${rootPath}`,
+        `Source files: ${sourceFiles.length} | With tests: ${tested.length} | Without tests: ${untested.length}`,
+        `Estimated coverage: ${pct}% of source files have a corresponding test`,
+        `Test files found: ${testFiles.length}`,
+        '',
+      ];
+
+      if (!untested.length) {
+        output.push('✅ Every source file appears to have a corresponding test file.');
+        return output.join('\n');
+      }
+
+      output.push(`### UNTESTED SOURCE FILES (${untested.length})`);
+      const dirs = Object.entries(byDir).sort((a, b) => b[1].length - a[1].length);
+      for (const [dir, files] of dirs.slice(0, 30)) {
+        output.push(`  📁 ${dir}/ (${files.length} file${files.length !== 1 ? 's' : ''})`);
+        files.slice(0, 8).forEach((f) => output.push(`     ${shorten(f).split('/').pop()}`));
+        if (files.length > 8) output.push(`     … +${files.length - 8} more`);
+      }
+
+      return output.join('\n');
+    },
+
+    // ── 5. FIND_API_ENDPOINTS ─────────────────────────────────────────────────────
+    // Detects HTTP route definitions across Express, Fastify, FastAPI, Flask,
+    // Django, Rails, and similar frameworks. Instantly gives the AI a full map
+    // of the API surface without reading every file.
+    find_api_endpoints: async (params, onStage) => {
+      const rootPath = resolveWorkingDirectory(params.path);
+      if (!rootPath) throw new Error('No workspace is open.');
+
+      onStage(`🌐 Scanning for API endpoint definitions in ${rootPath}`);
+
+      // Patterns that capture HTTP verb + route path
+      const patterns = [
+        {
+          label: 'Express/Fastify JS',
+          re: /(?:app|router)\.(get|post|put|patch|delete|all)\s*\(\s*['"`]([^'"`]+)['"`]/,
+          framework: 'node',
+        },
+        {
+          label: 'FastAPI/Flask Python',
+          re: /@(?:app|router)\.(get|post|put|patch|delete)\s*\(\s*['"`]([^'"`]+)['"`]/,
+          framework: 'python',
+        },
+        { label: 'Django urls', re: /path\s*\(\s*['"`]([^'"`]+)['"`]\s*,/, framework: 'django' },
+        {
+          label: 'Rails routes',
+          re: /(?:get|post|put|patch|delete)\s+['"]([^'"]+)['"]/,
+          framework: 'rails',
+        },
+        {
+          label: 'Next.js API',
+          re: /export\s+(?:default\s+)?(?:async\s+)?function\s+handler|export\s+const\s+(?:GET|POST|PUT|PATCH|DELETE)\s*=/,
+          framework: 'nextjs',
+        },
+        {
+          label: 'Hono/Elysia',
+          re: /\.(get|post|put|patch|delete)\s*\(\s*['"`]([^'"`]+)['"`]/,
+          framework: 'node',
+        },
+      ];
+
+      const allQueries = [
+        'app.get(',
+        'app.post(',
+        'router.get(',
+        'router.post(',
+        '@app.get',
+        '@app.post',
+        '@router.get',
+        '@router.post',
+        'path("',
+        "path('",
+        'export const GET',
+        'export const POST',
+      ];
+
+      const searchResults = await Promise.all(
+        allQueries
+          .slice(0, 5)
+          .map((q) =>
+            window.electronAPI?.invoke?.('search-workspace', {
+              rootPath,
+              query: q,
+              maxResults: 80,
+            }),
+          ),
+      );
+
+      const allMatches = searchResults.flatMap((r) => r?.matches ?? []);
+      const seen = new Set();
+      const unique = allMatches.filter((m) => {
+        const key = `${m.path}:${m.lineNumber}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+
+      if (!unique.length) return `No HTTP route definitions found in ${rootPath}.`;
+
+      const endpoints = [];
+      for (const m of unique) {
+        for (const pat of patterns) {
+          const match = m.line.match(pat.re);
+          if (match) {
+            const verb = (match[1] || 'ANY').toUpperCase();
+            const route = match[2] || '(dynamic)';
+            endpoints.push({
+              verb,
+              route,
+              file: m.path.replace(rootPath + '/', ''),
+              line: m.lineNumber,
+              framework: pat.label,
+            });
+            break;
+          }
+        }
+      }
+
+      if (!endpoints.length)
+        return `Found potential route files but could not parse endpoint patterns.`;
+
+      // Group by file
+      const byFile = {};
+      for (const ep of endpoints) (byFile[ep.file] = byFile[ep.file] || []).push(ep);
+
+      const verbOrder = { GET: 0, POST: 1, PUT: 2, PATCH: 3, DELETE: 4, ANY: 5 };
+      const verbColors = { GET: '🟢', POST: '🟡', PUT: '🔵', PATCH: '🟣', DELETE: '🔴', ANY: '⚪' };
+
+      const output = [
+        `API endpoints in ${rootPath}:`,
+        `${endpoints.length} route${endpoints.length !== 1 ? 's' : ''} across ${Object.keys(byFile).length} file${Object.keys(byFile).length !== 1 ? 's' : ''}`,
+        '',
+      ];
+
+      for (const [file, eps] of Object.entries(byFile)) {
+        output.push(`📄 ${file}`);
+        eps
+          .sort((a, b) => (verbOrder[a.verb] ?? 9) - (verbOrder[b.verb] ?? 9))
+          .forEach((ep) => {
+            const icon = verbColors[ep.verb] ?? '⚪';
+            output.push(`   ${icon} ${ep.verb.padEnd(7)} ${ep.route}  (line ${ep.line})`);
+          });
+        output.push('');
+      }
+
+      // Summary table
+      const verbCounts = {};
+      for (const ep of endpoints) verbCounts[ep.verb] = (verbCounts[ep.verb] || 0) + 1;
+      output.push('### VERB SUMMARY');
+      for (const [verb, count] of Object.entries(verbCounts).sort()) {
+        output.push(`  ${verbColors[verb] ?? '⚪'} ${verb.padEnd(8)} ${count}`);
+      }
+
+      return output.join('\n');
+    },
+
+    // ── 6. FIND_ERROR_HANDLING_GAPS ───────────────────────────────────────────────
+    // Finds async functions, Promise chains, and fetch/axios calls that are NOT
+    // wrapped in try/catch or .catch(). Missing error handling is a top source of
+    // silent failures and hard-to-debug production crashes.
+    find_error_handling_gaps: async (params, onStage) => {
+      const filePath = params.path?.trim();
+      const rootPath = params.workspace_path
+        ? resolveWorkingDirectory(params.workspace_path)
+        : filePath
+          ? null
+          : resolveWorkingDirectory(null);
+
+      if (!filePath && !rootPath) throw new Error('Provide path or workspace_path.');
+
+      onStage(`🛡️ Scanning for missing error handling`);
+
+      const scanFile = async (fp) => {
+        try {
+          const { content } = await ipcReadFile(fp);
+          const lines = splitLines(content);
+          const issues = [];
+
+          // Track try/catch regions
+          const tryCatchLines = new Set();
+          let depth = 0;
+          let inTry = false;
+          for (let i = 0; i < lines.length; i++) {
+            if (/\btry\s*\{/.test(lines[i])) inTry = true;
+            if (inTry) tryCatchLines.add(i);
+            depth += (lines[i].match(/\{/g) || []).length - (lines[i].match(/\}/g) || []).length;
+            if (depth <= 0) {
+              inTry = false;
+              depth = 0;
+            }
+          }
+
+          for (let i = 0; i < lines.length; i++) {
+            const line = lines[i].trim();
+            const isInTry = tryCatchLines.has(i);
+
+            // Bare await without surrounding try/catch
+            if (/\bawait\s+\w/.test(line) && !isInTry) {
+              // Check if the function above has a try/catch nearby
+              const nearby = lines.slice(Math.max(0, i - 5), i + 3).join(' ');
+              if (!/try\s*\{/.test(nearby) && !/.catch\(/.test(nearby)) {
+                issues.push({ line: i + 1, type: 'bare await', text: line.slice(0, 100) });
+              }
+            }
+
+            // Promise without .catch
+            if (/\bfetch\s*\(|axios\.\w+\s*\(|\.then\s*\(/.test(line) && !isInTry) {
+              const block = lines.slice(i, Math.min(lines.length, i + 8)).join('\n');
+              if (!block.includes('.catch(') && !block.includes('catch (')) {
+                if (!issues.find((x) => x.line === i + 1))
+                  issues.push({ line: i + 1, type: 'unhandled Promise', text: line.slice(0, 100) });
+              }
+            }
+
+            // new Promise without reject
+            if (/new\s+Promise\s*\(/.test(line)) {
+              const block = lines.slice(i, Math.min(lines.length, i + 15)).join('\n');
+              if (!block.includes('reject') && !block.includes('catch')) {
+                issues.push({
+                  line: i + 1,
+                  type: 'Promise missing reject',
+                  text: line.slice(0, 100),
+                });
+              }
+            }
+          }
+
+          return issues;
+        } catch {
+          return [];
+        }
+      };
+
+      let fileMap = {};
+      if (filePath) {
+        fileMap[filePath] = await scanFile(filePath);
+      } else {
+        const listResult = await window.electronAPI?.invoke?.('run-shell-command', {
+          command: `find "${rootPath}" -type f \\( -name "*.js" -o -name "*.ts" -o -name "*.jsx" -o -name "*.tsx" \\) -not -path "*/node_modules/*" -not -path "*/.git/*"`,
+          cwd: rootPath,
+          timeout: 15000,
+          allowRisky: false,
+        });
+        const files = listResult?.stdout?.trim().split('\n').filter(Boolean).slice(0, 150) ?? [];
+        onStage(`Scanning ${files.length} files…`);
+        for (const fp of files) {
+          const issues = await scanFile(fp);
+          if (issues.length) fileMap[fp] = issues;
+        }
+      }
+
+      const allIssues = Object.values(fileMap).flat();
+      if (!allIssues.length) return `✅ No obvious error handling gaps found.`;
+
+      const shorten = (p) => (rootPath ? p.replace(rootPath + '/', '') : p);
+
+      const output = [
+        `Error handling gaps:`,
+        `${allIssues.length} potential gap${allIssues.length !== 1 ? 's' : ''} across ${Object.keys(fileMap).length} file${Object.keys(fileMap).length !== 1 ? 's' : ''}`,
+        '',
+      ];
+
+      const byType = {};
+      for (const issues of Object.values(fileMap)) {
+        for (const iss of issues) (byType[iss.type] = byType[iss.type] || []).push(iss);
+      }
+      output.push('### BY TYPE');
+      for (const [type, items] of Object.entries(byType)) output.push(`  ${type}: ${items.length}`);
+      output.push('');
+
+      for (const [fp, issues] of Object.entries(fileMap)) {
+        output.push(`📄 ${shorten(fp)} (${issues.length})`);
+        issues
+          .slice(0, 8)
+          .forEach((iss) =>
+            output.push(`   Line ${iss.line} [${iss.type}]: ${iss.text.slice(0, 100)}`),
+          );
+        if (issues.length > 8) output.push(`   … +${issues.length - 8} more`);
+        output.push('');
+      }
+
+      return output.join('\n');
+    },
+
+    // ── 7. GET_DEPENDENCY_GRAPH ───────────────────────────────────────────────────
+    // Builds a file-level import graph and computes fan-in (how many files import
+    // this file) and fan-out (how many files this file imports). High fan-in = core
+    // module that many depend on. High fan-out = god file. Essential for safe
+    // refactoring decisions.
+    get_dependency_graph: async (params, onStage) => {
+      const rootPath = resolveWorkingDirectory(params.path);
+      if (!rootPath) throw new Error('No workspace is open.');
+
+      const extensions = (params.extensions ?? 'js,ts,jsx,tsx')
+        .split(',')
+        .map((e) => e.trim().replace(/^\./, '').toLowerCase());
+      const maxFiles = params.max_files ?? 100;
+
+      onStage(`🗺️ Building dependency graph for ${rootPath}`);
+
+      const extPat = extensions.map((e) => `-name "*.${e}"`).join(' -o ');
+      const listResult = await window.electronAPI?.invoke?.('run-shell-command', {
+        command: `find "${rootPath}" -type f \\( ${extPat} \\) -not -path "*/node_modules/*" -not -path "*/.git/*" -not -path "*/dist/*"`,
+        cwd: rootPath,
+        timeout: 15000,
+        allowRisky: false,
+      });
+
+      if (!listResult?.ok || !listResult.stdout?.trim()) return `No source files found.`;
+
+      const files = listResult.stdout.trim().split('\n').filter(Boolean).slice(0, maxFiles);
+      const fileSet = new Set(files);
+
+      const importRe =
+        /(?:^import\s+.*?from\s+|^(?:const|let|var)\s+\S+\s*=\s*require\s*\(\s*)['"`](\.\.?\/[^'"`\n]+)['"`]/gm;
+
+      const fanOut = {}; // file → count of its imports to internal files
+      const fanIn = {}; // file → count of files that import it
+      const edges = [];
+
+      for (const fp of files) {
+        fanOut[fp] = 0;
+        fanIn[fp] = fanIn[fp] ?? 0;
+      }
+
+      for (const fp of files) {
+        try {
+          const { content } = await ipcReadFile(fp);
+          const dir = fp.split('/').slice(0, -1).join('/');
+          let m;
+          importRe.lastIndex = 0;
+          const seen = new Set();
+          while ((m = importRe.exec(content)) !== null) {
+            const rel = m[1];
+            const parts = (dir + '/' + rel).split('/');
+            const stack = [];
+            for (const p of parts) {
+              if (p === '..') stack.pop();
+              else if (p !== '.') stack.push(p);
+            }
+            const base = stack.join('/');
+            const resolved =
+              files.find((f) => f === base) ||
+              extensions.map((e) => base + '.' + e).find((c) => fileSet.has(c)) ||
+              extensions.map((e) => base + '/index.' + e).find((c) => fileSet.has(c));
+
+            if (resolved && resolved !== fp && !seen.has(resolved)) {
+              seen.add(resolved);
+              fanOut[fp] = (fanOut[fp] || 0) + 1;
+              fanIn[resolved] = (fanIn[resolved] || 0) + 1;
+              edges.push([fp, resolved]);
+            }
+          }
+        } catch {
+          /* skip */
+        }
+      }
+
+      const shorten = (p) => p.replace(rootPath + '/', '');
+
+      const topFanIn = Object.entries(fanIn)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 15);
+      const topFanOut = Object.entries(fanOut)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 15);
+      const isolated = files.filter((f) => !fanIn[f] && !fanOut[f]);
+
+      const output = [
+        `Dependency graph: ${rootPath}`,
+        `Files: ${files.length} | Edges: ${edges.length} | Isolated: ${isolated.length}`,
+        '',
+        '### TOP IMPORTED FILES (high fan-in = core modules)',
+      ];
+
+      for (const [fp, count] of topFanIn) {
+        const bar = '█'.repeat(Math.min(count, 20));
+        output.push(`  ${String(count).padStart(3)}x  ${bar}  ${shorten(fp)}`);
+      }
+
+      output.push('', '### FILES WITH MOST IMPORTS (high fan-out = potential god files)');
+      for (const [fp, count] of topFanOut) {
+        const bar = '█'.repeat(Math.min(count, 20));
+        output.push(`  ${String(count).padStart(3)} →  ${bar}  ${shorten(fp)}`);
+      }
+
+      if (isolated.length) {
+        output.push(``, `### ISOLATED FILES (no imports, not imported by anyone)`);
+        isolated.slice(0, 20).forEach((f) => output.push(`  ${shorten(f)}`));
+        if (isolated.length > 20) output.push(`  … +${isolated.length - 20} more`);
+      }
+
+      return output.join('\n');
+    },
+
+    // ── 8. FIND_SECURITY_PATTERNS ─────────────────────────────────────────────────
+    // Scans for common security anti-patterns: hardcoded secrets, SQL injection
+    // vectors, eval() usage, disabled TLS verification, insecure randomness, etc.
+    // Not a full SAST tool, but surfaces the obvious red flags instantly.
+    find_security_patterns: async (params, onStage) => {
+      const rootPath = resolveWorkingDirectory(params.path);
+      if (!rootPath) throw new Error('No workspace is open.');
+
+      onStage(`🔐 Scanning for security anti-patterns in ${rootPath}`);
+
+      const checks = [
+        { category: 'Hardcoded Secrets', query: 'password =', severity: 'HIGH' },
+        { category: 'Hardcoded Secrets', query: 'api_key =', severity: 'HIGH' },
+        { category: 'Hardcoded Secrets', query: 'secret =', severity: 'HIGH' },
+        { category: 'Hardcoded Secrets', query: 'token =', severity: 'HIGH' },
+        { category: 'Code Injection', query: 'eval(', severity: 'HIGH' },
+        { category: 'Code Injection', query: 'new Function(', severity: 'HIGH' },
+        { category: 'SQL Injection', query: '+ req.', severity: 'MEDIUM' },
+        { category: 'SQL Injection', query: 'query(req.', severity: 'MEDIUM' },
+        { category: 'Insecure TLS', query: 'rejectUnauthorized: false', severity: 'HIGH' },
+        { category: 'Insecure TLS', query: 'verify=False', severity: 'HIGH' },
+        { category: 'Insecure Randomness', query: 'Math.random()', severity: 'MEDIUM' },
+        { category: 'Path Traversal', query: 'req.params', severity: 'LOW' },
+        { category: 'XSS Risk', query: 'innerHTML =', severity: 'MEDIUM' },
+        { category: 'XSS Risk', query: 'dangerouslySetInnerHTML', severity: 'MEDIUM' },
+        { category: 'Open Redirect', query: 'res.redirect(req.', severity: 'MEDIUM' },
+        { category: 'Timing Attack', query: '== req.body.password', severity: 'MEDIUM' },
+        { category: 'Debug Left In', query: 'DEBUG = True', severity: 'LOW' },
+      ];
+
+      const secretRe =
+        /(?:password|secret|api_key|apikey|token|auth)\s*[:=]\s*['"`][^'"`\s]{6,}['"`]/i;
+      const findings = [];
+
+      for (const check of checks) {
+        const result = await window.electronAPI?.invoke?.('search-workspace', {
+          rootPath,
+          query: check.query,
+          maxResults: 20,
+        });
+        for (const m of result?.matches ?? []) {
+          // Skip comments and .env files
+          if (m.line.trim().startsWith('//') || m.line.trim().startsWith('#')) continue;
+          if (m.path.includes('.env') || m.path.includes('test') || m.path.includes('spec'))
+            continue;
+          findings.push({
+            category: check.category,
+            severity: check.severity,
+            path: m.path.replace(rootPath + '/', ''),
+            line: m.lineNumber,
+            text: m.line.trim().slice(0, 100),
+          });
+        }
+      }
+
+      if (!findings.length)
+        return `✅ No obvious security anti-patterns found in ${rootPath}.\nNote: This is a surface-level scan, not a substitute for a full SAST tool.`;
+
+      const bySeverity = { HIGH: [], MEDIUM: [], LOW: [] };
+      for (const f of findings) bySeverity[f.severity]?.push(f);
+
+      const sevIcon = { HIGH: '🔴', MEDIUM: '🟡', LOW: '🔵' };
+
+      const output = [
+        `Security scan: ${rootPath}`,
+        `${findings.length} potential issue${findings.length !== 1 ? 's' : ''} found (surface-level scan only)`,
+        `HIGH: ${bySeverity.HIGH.length} | MEDIUM: ${bySeverity.MEDIUM.length} | LOW: ${bySeverity.LOW.length}`,
+        '',
+        '⚠️  This is not a substitute for a full SAST/security audit.',
+        '',
+      ];
+
+      for (const sev of ['HIGH', 'MEDIUM', 'LOW']) {
+        if (!bySeverity[sev].length) continue;
+        output.push(`### ${sevIcon[sev]} ${sev} (${bySeverity[sev].length})`);
+        const byCategory = {};
+        for (const f of bySeverity[sev])
+          (byCategory[f.category] = byCategory[f.category] || []).push(f);
+        for (const [cat, items] of Object.entries(byCategory)) {
+          output.push(`  ${cat}:`);
+          items.slice(0, 5).forEach((f) => output.push(`    ${f.path}:${f.line} — ${f.text}`));
+          if (items.length > 5) output.push(`    … +${items.length - 5} more`);
+        }
+        output.push('');
+      }
+
+      return output.join('\n');
+    },
+
+    // ── 9. GET_RECENTLY_MODIFIED_FILES ────────────────────────────────────────────
+    // Lists files modified most recently, using git log or filesystem mtime.
+    // Instantly tells the AI where recent work happened — critical for debugging,
+    // code review, and understanding what's in flux.
+    get_recently_modified_files: async (params, onStage) => {
+      const rootPath = resolveWorkingDirectory(params.path);
+      if (!rootPath) throw new Error('No workspace is open.');
+
+      const limit = params.limit ?? 20;
+      const days = params.days ?? 7;
+      const extensions = params.extensions ?? '';
+
+      onStage(`📅 Finding recently modified files in ${rootPath}`);
+
+      // Try git first (more accurate than mtime)
+      const gitResult = await window.electronAPI?.invoke?.('run-shell-command', {
+        command: `git log --name-only --pretty=format:"%ar|%s" --since="${days} days ago" --diff-filter=AM | head -200`,
+        cwd: rootPath,
+        timeout: 15000,
+        allowRisky: false,
+      });
+
+      if (gitResult?.ok && gitResult.stdout?.trim()) {
+        const extFilter = extensions
+          ? extensions.split(',').map((e) => '.' + e.trim().replace(/^\./, ''))
+          : null;
+
+        const lines = gitResult.stdout.trim().split('\n');
+        const fileChanges = new Map(); // file → {when, message}
+        let currentMeta = null;
+
+        for (const line of lines) {
+          if (line.includes('|')) {
+            const [when, ...msgParts] = line.split('|');
+            currentMeta = { when: when.trim(), message: msgParts.join('|').trim() };
+          } else if (line.trim() && currentMeta && !line.startsWith('diff')) {
+            const fp = rootPath + '/' + line.trim();
+            if (!fileChanges.has(line.trim())) {
+              if (!extFilter || extFilter.some((e) => line.trim().endsWith(e))) {
+                fileChanges.set(line.trim(), currentMeta);
+              }
+            }
+          }
+        }
+
+        const files = [...fileChanges.entries()].slice(0, limit);
+        if (files.length) {
+          const output = [
+            `Recently modified files in ${rootPath} (last ${days} day${days !== 1 ? 's' : ''}):`,
+            `${files.length} file${files.length !== 1 ? 's' : ''} changed`,
+            '',
+          ];
+          for (const [fp, meta] of files) {
+            output.push(`  ${meta.when.padEnd(16)}  ${fp}`);
+            output.push(`               ↳ ${meta.message.slice(0, 80)}`);
+          }
+          return output.join('\n');
+        }
+      }
+
+      // Fallback: filesystem mtime
+      const extPat = extensions
+        ? extensions
+            .split(',')
+            .map((e) => `-name "*.${e.trim().replace(/^\./, '')}"`)
+            .join(' -o ')
+        : '-name "*"';
+      const shellResult = await window.electronAPI?.invoke?.('run-shell-command', {
+        command: `find "${rootPath}" -type f \\( ${extPat} \\) -not -path "*/node_modules/*" -not -path "*/.git/*" -newer "${rootPath}/.git/index" -printf "%T+\t%p\n" 2>/dev/null | sort -r | head -${limit}`,
+        cwd: rootPath,
+        timeout: 15000,
+        allowRisky: false,
+      });
+
+      if (!shellResult?.ok || !shellResult.stdout?.trim())
+        return `Could not determine recently modified files in ${rootPath}.`;
+
+      const files = shellResult.stdout.trim().split('\n').filter(Boolean);
+      const output = [`Recently modified files in ${rootPath}:`, ''];
+      for (const line of files) {
+        const [ts, fp] = line.split('\t');
+        output.push(`  ${ts?.slice(0, 16).padEnd(18)}  ${fp?.replace(rootPath + '/', '')}`);
+      }
+      return output.join('\n');
+    },
+
+    // ── 10. FIND_NAMING_INCONSISTENCIES ──────────────────────────────────────────
+    // Detects mixed naming conventions within a file or workspace (camelCase vs
+    // snake_case vs PascalCase vs kebab-case on variables/functions/files). Naming
+    // inconsistency is a reliable signal of multi-author code or rushed refactors.
+    find_naming_inconsistencies: async (params, onStage) => {
+      const filePath = params.path?.trim();
+      const rootPath = params.workspace_path
+        ? resolveWorkingDirectory(params.workspace_path)
+        : null;
+      if (!filePath && !rootPath) throw new Error('Provide path or workspace_path.');
+
+      onStage(`📛 Scanning for naming convention inconsistencies`);
+
+      const classify = (name) => {
+        if (/^[A-Z][a-zA-Z0-9]*$/.test(name)) return 'PascalCase';
+        if (/^[a-z][a-zA-Z0-9]*$/.test(name) && name.includes('') && !/[_-]/.test(name))
+          return 'camelCase';
+        if (/^[a-z][a-z0-9_]*$/.test(name) && name.includes('_')) return 'snake_case';
+        if (/^[a-z][a-z0-9-]*$/.test(name) && name.includes('-')) return 'kebab-case';
+        if (/^[A-Z][A-Z0-9_]*$/.test(name)) return 'UPPER_SNAKE';
+        return null;
+      };
+
+      const scanFile = async (fp) => {
+        try {
+          const { content } = await ipcReadFile(fp);
+          const lines = splitLines(content);
+          const names = {
+            camelCase: [],
+            snake_case: [],
+            PascalCase: [],
+            'kebab-case': [],
+            UPPER_SNAKE: [],
+          };
+
+          // Extract identifiers from declarations
+          const declRe =
+            /(?:const|let|var|function|class|def|type|interface)\s+([a-zA-Z_][a-zA-Z0-9_-]*)/g;
+          for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+            if (/^\s*(\/\/|#|\/\*)/.test(line)) continue;
+            let m;
+            declRe.lastIndex = 0;
+            while ((m = declRe.exec(line)) !== null) {
+              const name = m[1];
+              if (name.length < 3) continue;
+              const style = classify(name);
+              if (style) names[style].push({ name, line: i + 1 });
+            }
+          }
+
+          const present = Object.entries(names).filter(([, v]) => v.length > 0);
+          if (present.length <= 1) return null;
+
+          // Multiple styles = inconsistency
+          return { file: fp, styles: Object.fromEntries(present) };
+        } catch {
+          return null;
+        }
+      };
+
+      const results = [];
+
+      if (filePath) {
+        const r = await scanFile(filePath);
+        if (r) results.push(r);
+      } else {
+        const listResult = await window.electronAPI?.invoke?.('run-shell-command', {
+          command: `find "${rootPath}" -type f \\( -name "*.js" -o -name "*.ts" -o -name "*.py" -o -name "*.jsx" -o -name "*.tsx" \\) -not -path "*/node_modules/*" -not -path "*/.git/*"`,
+          cwd: rootPath,
+          timeout: 15000,
+          allowRisky: false,
+        });
+        const files = listResult?.stdout?.trim().split('\n').filter(Boolean).slice(0, 100) ?? [];
+        for (const fp of files) {
+          const r = await scanFile(fp);
+          if (r) results.push(r);
+        }
+      }
+
+      if (!results.length) return `✅ No naming convention inconsistencies detected.`;
+
+      const shorten = (p) => (rootPath ? p.replace(rootPath + '/', '') : p);
+      const output = [
+        `Naming inconsistencies found in ${results.length} file${results.length !== 1 ? 's' : ''}:`,
+        '',
+      ];
+
+      for (const r of results.slice(0, 30)) {
+        const styles = Object.entries(r.styles)
+          .map(([s, v]) => `${s}(${v.length})`)
+          .join('  ');
+        output.push(`📄 ${shorten(r.file)}`);
+        output.push(`   Styles found: ${styles}`);
+        // Show a few examples of each style
+        for (const [style, items] of Object.entries(r.styles)) {
+          const examples = items
+            .slice(0, 3)
+            .map((x) => x.name)
+            .join(', ');
+          output.push(
+            `   ${style}: ${examples}${items.length > 3 ? ` … +${items.length - 3}` : ''}`,
+          );
+        }
+        output.push('');
+      }
+
+      return output.join('\n');
+    },
+
+    // ── 11. GET_CONFIG_FILES ──────────────────────────────────────────────────────
+    // Locates and summarizes every configuration file in a workspace: package.json,
+    // tsconfig, eslint, prettier, docker, CI, etc. Gives the AI a complete picture
+    // of project tooling in a single call — without reading each file individually.
+    get_config_files: async (params, onStage) => {
+      const rootPath = resolveWorkingDirectory(params.path);
+      if (!rootPath) throw new Error('No workspace is open.');
+
+      onStage(`⚙️ Discovering configuration files in ${rootPath}`);
+
+      const CONFIG_PATTERNS = [
+        { pattern: 'package.json', category: 'Node', key: true },
+        { pattern: 'tsconfig*.json', category: 'TypeScript', key: true },
+        { pattern: '.eslintrc*', category: 'Linting', key: false },
+        { pattern: 'eslint.config*', category: 'Linting', key: false },
+        { pattern: '.prettierrc*', category: 'Formatting', key: false },
+        { pattern: 'prettier.config*', category: 'Formatting', key: false },
+        { pattern: 'jest.config*', category: 'Testing', key: false },
+        { pattern: 'vitest.config*', category: 'Testing', key: false },
+        { pattern: 'vite.config*', category: 'Build', key: false },
+        { pattern: 'webpack.config*', category: 'Build', key: false },
+        { pattern: 'rollup.config*', category: 'Build', key: false },
+        { pattern: 'babel.config*', category: 'Transpile', key: false },
+        { pattern: '.babelrc*', category: 'Transpile', key: false },
+        { pattern: 'Dockerfile*', category: 'Docker', key: false },
+        { pattern: 'docker-compose*', category: 'Docker', key: false },
+        { pattern: '.env*', category: 'Env', key: false },
+        { pattern: '.github/workflows/*.yml', category: 'CI/CD', key: false },
+        { pattern: '.gitlab-ci.yml', category: 'CI/CD', key: false },
+        { pattern: 'Makefile', category: 'Build', key: false },
+        { pattern: 'pyproject.toml', category: 'Python', key: true },
+        { pattern: 'setup.py', category: 'Python', key: true },
+        { pattern: 'requirements*.txt', category: 'Python', key: false },
+        { pattern: 'go.mod', category: 'Go', key: true },
+        { pattern: 'Cargo.toml', category: 'Rust', key: true },
+        { pattern: '*.config.js', category: 'Config', key: false },
+        { pattern: '*.config.ts', category: 'Config', key: false },
+      ];
+
+      const foundConfigs = [];
+
+      for (const cfg of CONFIG_PATTERNS) {
+        const result = await window.electronAPI?.invoke?.('run-shell-command', {
+          command: `find "${rootPath}" -maxdepth 4 -name "${cfg.pattern}" -not -path "*/node_modules/*" -not -path "*/.git/*" 2>/dev/null | head -10`,
+          cwd: rootPath,
+          timeout: 8000,
+          allowRisky: false,
+        });
+        if (result?.ok && result.stdout?.trim()) {
+          for (const fp of result.stdout.trim().split('\n').filter(Boolean)) {
+            foundConfigs.push({ path: fp, category: cfg.category, key: cfg.key });
+          }
+        }
+      }
+
+      if (!foundConfigs.length) return `No configuration files found in ${rootPath}.`;
+
+      const byCategory = {};
+      for (const cfg of foundConfigs)
+        (byCategory[cfg.category] = byCategory[cfg.category] || []).push(cfg);
+
+      const shorten = (p) => p.replace(rootPath + '/', '');
+
+      const output = [
+        `Configuration files in ${rootPath}:`,
+        `${foundConfigs.length} file${foundConfigs.length !== 1 ? 's' : ''} across ${Object.keys(byCategory).length} categories`,
+        '',
+      ];
+
+      for (const [cat, configs] of Object.entries(byCategory)) {
+        output.push(`### ${cat}`);
+        for (const cfg of configs) {
+          const marker = cfg.key ? ' ⭐' : '';
+          output.push(`  ${shorten(cfg.path)}${marker}`);
+        }
+        output.push('');
+      }
+
+      // Summarize key config values from package.json if present
+      const pkgJson = foundConfigs.find((c) => c.path.endsWith('package.json'));
+      if (pkgJson) {
+        try {
+          const { content } = await ipcReadFile(pkgJson.path);
+          const pkg = JSON.parse(content);
+          output.push('### PACKAGE.JSON SUMMARY');
+          if (pkg.name) output.push(`  name:    ${pkg.name}`);
+          if (pkg.version) output.push(`  version: ${pkg.version}`);
+          if (pkg.main) output.push(`  main:    ${pkg.main}`);
+          if (pkg.type) output.push(`  type:    ${pkg.type}`);
+          if (pkg.engines) output.push(`  engines: ${JSON.stringify(pkg.engines)}`);
+        } catch {
+          /* skip */
+        }
+      }
+
+      return output.join('\n');
+    },
+
+    // ── 12. FIND_ASYNC_PATTERNS ───────────────────────────────────────────────────
+    // Gives the AI a complete map of async usage in a file or workspace: async
+    // functions, Promise chains, callbacks, setTimeout/setInterval, EventEmitter.
+    // Understands the "async shape" before making concurrency-related changes.
+    find_async_patterns: async (params, onStage) => {
+      const filePath = params.path?.trim();
+      const rootPath = params.workspace_path
+        ? resolveWorkingDirectory(params.workspace_path)
+        : null;
+      if (!filePath && !rootPath) throw new Error('Provide path or workspace_path.');
+
+      onStage(`⚡ Mapping async patterns`);
+
+      const PATTERNS = [
+        { label: 'async function', re: /\basync\s+function\s+(\w+)/ },
+        {
+          label: 'async arrow',
+          re: /(?:const|let|var)\s+(\w+)\s*=\s*async\s*(?:\([^)]*\)|[a-z_]\w*)\s*=>/,
+        },
+        { label: 'await', re: /\bawait\s+\w/ },
+        { label: 'Promise.all', re: /Promise\.all\s*\(/ },
+        { label: 'Promise.race', re: /Promise\.race\s*\(/ },
+        { label: 'Promise.allSettled', re: /Promise\.allSettled\s*\(/ },
+        { label: 'new Promise', re: /new\s+Promise\s*\(/ },
+        { label: '.then()', re: /\.then\s*\(/ },
+        { label: '.catch()', re: /\.catch\s*\(/ },
+        { label: '.finally()', re: /\.finally\s*\(/ },
+        { label: 'setTimeout', re: /\bsetTimeout\s*\(/ },
+        { label: 'setInterval', re: /\bsetInterval\s*\(/ },
+        { label: 'EventEmitter', re: /\bon\s*\(\s*['"`]/ },
+        { label: 'callback pattern', re: /function\s*\([^)]*callback|,\s*cb\s*[,)]/ },
+      ];
+
+      const scanFile = async (fp) => {
+        try {
+          const { content } = await ipcReadFile(fp);
+          const lines = splitLines(content);
+          const hits = {};
+          for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+            if (/^\s*(\/\/|#)/.test(line)) continue;
+            for (const p of PATTERNS) {
+              if (p.re.test(line)) {
+                if (!hits[p.label]) hits[p.label] = [];
+                hits[p.label].push(i + 1);
+              }
+            }
+          }
+          return hits;
+        } catch {
+          return {};
+        }
+      };
+
+      let fileMap = {};
+      if (filePath) {
+        fileMap[filePath] = await scanFile(filePath);
+      } else {
+        const listResult = await window.electronAPI?.invoke?.('run-shell-command', {
+          command: `find "${rootPath}" -type f \\( -name "*.js" -o -name "*.ts" -o -name "*.jsx" -o -name "*.tsx" \\) -not -path "*/node_modules/*" -not -path "*/.git/*"`,
+          cwd: rootPath,
+          timeout: 15000,
+          allowRisky: false,
+        });
+        const files = listResult?.stdout?.trim().split('\n').filter(Boolean).slice(0, 100) ?? [];
+        for (const fp of files) {
+          const h = await scanFile(fp);
+          if (Object.keys(h).length) fileMap[fp] = h;
+        }
+      }
+
+      const shorten = (p) => (rootPath ? p.replace(rootPath + '/', '') : p);
+
+      // Aggregate totals
+      const totals = {};
+      for (const hits of Object.values(fileMap)) {
+        for (const [label, lines] of Object.entries(hits)) {
+          totals[label] = (totals[label] || 0) + lines.length;
+        }
+      }
+
+      const output = [
+        `Async pattern analysis: ${filePath ?? rootPath}`,
+        `${Object.keys(fileMap).length} file${Object.keys(fileMap).length !== 1 ? 's' : ''} analyzed`,
+        '',
+        '### PATTERN TOTALS',
+        ...Object.entries(totals)
+          .sort((a, b) => b[1] - a[1])
+          .map(([label, count]) => `  ${label.padEnd(20)} ${count}`),
+        '',
+      ];
+
+      if (filePath) {
+        const hits = fileMap[filePath] ?? {};
+        for (const [label, lineNums] of Object.entries(hits)) {
+          output.push(`### ${label.toUpperCase()} (${lineNums.length})`);
+          lineNums.slice(0, 10).forEach((n) => output.push(`  Line ${n}`));
+          if (lineNums.length > 10) output.push(`  … +${lineNums.length - 10} more`);
+          output.push('');
+        }
+      } else {
+        output.push('### FILES WITH MOST ASYNC COMPLEXITY');
+        const scored = Object.entries(fileMap)
+          .map(([fp, hits]) => ({
+            fp,
+            score: Object.values(hits).reduce((s, v) => s + v.length, 0),
+          }))
+          .sort((a, b) => b.score - a.score)
+          .slice(0, 20);
+        for (const { fp, score } of scored) {
+          const labels = Object.entries(fileMap[fp])
+            .sort((a, b) => b[1].length - a[1].length)
+            .slice(0, 4)
+            .map(([l, v]) => `${l}(${v.length})`)
+            .join('  ');
+          output.push(`  ${shorten(fp)}`);
+          output.push(`    ${labels}`);
+        }
+      }
+
+      return output.join('\n');
+    },
+
+    // ── 13. MAP_COMPONENT_TREE ────────────────────────────────────────────────────
+    // Builds a React/Vue component hierarchy by analysing JSX/TSX imports and
+    // render calls. Shows which components are composed inside which parents.
+    // Gives the AI a mental model of the UI tree before making component changes.
+    map_component_tree: async (params, onStage) => {
+      const rootPath = resolveWorkingDirectory(params.path);
+      if (!rootPath) throw new Error('No workspace is open.');
+
+      const entryFile = params.entry_file?.trim() ?? '';
+      onStage(`🌲 Mapping component tree in ${rootPath}`);
+
+      const listResult = await window.electronAPI?.invoke?.('run-shell-command', {
+        command: `find "${rootPath}" -type f \\( -name "*.jsx" -o -name "*.tsx" \\) -not -path "*/node_modules/*" -not -path "*/.git/*" -not -path "*/dist/*"`,
+        cwd: rootPath,
+        timeout: 15000,
+        allowRisky: false,
+      });
+
+      if (!listResult?.ok || !listResult.stdout?.trim())
+        return `No JSX/TSX component files found in ${rootPath}.`;
+
+      const files = listResult.stdout.trim().split('\n').filter(Boolean);
+      onStage(`Analyzing ${files.length} component files…`);
+
+      // Extract: component name → { file, renders: Set<componentName> }
+      const components = {};
+      const jsxTagRe = /<([A-Z][a-zA-Z0-9]*)\s*[^>]*\/?>/g;
+      const exportRe = /export\s+(?:default\s+)?(?:function|class|const)\s+([A-Z][a-zA-Z0-9]*)/;
+
+      for (const fp of files) {
+        try {
+          const { content } = await ipcReadFile(fp);
+          const exportMatch = content.match(exportRe);
+          const compName =
+            exportMatch?.[1] ??
+            fp
+              .split('/')
+              .pop()
+              .replace(/\.[jt]sx?$/, '');
+
+          const renderedComponents = new Set();
+          let m;
+          jsxTagRe.lastIndex = 0;
+          while ((m = jsxTagRe.exec(content)) !== null) {
+            if (m[1] !== compName) renderedComponents.add(m[1]);
+          }
+
+          components[compName] = {
+            file: fp.replace(rootPath + '/', ''),
+            renders: renderedComponents,
+          };
+        } catch {
+          /* skip */
+        }
+      }
+
+      if (!Object.keys(components).length) return `No components detected in ${rootPath}.`;
+
+      // Find root components (not rendered by anyone)
+      const allRendered = new Set(Object.values(components).flatMap((c) => [...c.renders]));
+      const roots = Object.keys(components).filter((c) => !allRendered.has(c));
+
+      const output = [
+        `Component tree: ${rootPath}`,
+        `${Object.keys(components).length} components found | Likely root${roots.length !== 1 ? 's' : ''}: ${roots.join(', ') || 'none detected'}`,
+        '',
+      ];
+
+      const printTree = (name, depth, seen = new Set()) => {
+        if (seen.has(name) || depth > 6) return;
+        seen.add(name);
+        const comp = components[name];
+        if (!comp) return;
+        const indent = '  '.repeat(depth);
+        output.push(`${indent}${depth === 0 ? '📦 ' : '  └─ '}${name}  (${comp.file})`);
+        for (const child of comp.renders) {
+          printTree(child, depth + 1, new Set(seen));
+        }
+      };
+
+      const treeRoots = entryFile
+        ? Object.keys(components).filter((c) => components[c].file.includes(entryFile))
+        : roots.slice(0, 5);
+
+      for (const root of treeRoots) {
+        output.push(`### TREE FROM: ${root}`);
+        printTree(root, 0);
+        output.push('');
+      }
+
+      // Leaf components
+      const leaves = Object.entries(components)
+        .filter(([, c]) => c.renders.size === 0)
+        .map(([n]) => n);
+      if (leaves.length) {
+        output.push(`### LEAF COMPONENTS (no children): ${leaves.length}`);
+        output.push('  ' + leaves.slice(0, 20).join(', '));
+      }
+
+      return output.join('\n');
+    },
+
+    // ── 14. COUNT_CODE_BY_AUTHOR ──────────────────────────────────────────────────
+    // Uses git blame to compute per-author line counts across the workspace.
+    // Shows who wrote what percentage of the codebase — valuable for understanding
+    // ownership, finding the right person to ask, and identifying bus-factor risks.
+    count_code_by_author: async (params, onStage) => {
+      const workingDirectory = resolveWorkingDirectory(params.working_directory);
+      if (!workingDirectory)
+        throw new Error('No workspace is open. Set a workspace or provide working_directory.');
+
+      const maxFiles = params.max_files ?? 50;
+      const fileGlob = params.file_glob ?? '*.{js,ts,jsx,tsx,py}';
+
+      onStage(`👥 Counting code by author in ${workingDirectory}`);
+
+      const result = await window.electronAPI?.invoke?.('run-shell-command', {
+        command: `git ls-files | head -${maxFiles}`,
+        cwd: workingDirectory,
+        timeout: 10000,
+        allowRisky: false,
+      });
+
+      if (!result?.ok || !result.stdout?.trim())
+        return `Could not list tracked files. Ensure ${workingDirectory} is a git repo.`;
+
+      const files = result.stdout.trim().split('\n').filter(Boolean);
+      onStage(`Blaming ${files.length} files…`);
+
+      const blameResult = await window.electronAPI?.invoke?.('run-shell-command', {
+        command: `git ls-files | head -${maxFiles} | xargs -I{} git blame --line-porcelain {} 2>/dev/null | grep "^author " | sort | uniq -c | sort -rn`,
+        cwd: workingDirectory,
+        timeout: 30000,
+        allowRisky: false,
+      });
+
+      if (!blameResult?.ok || !blameResult.stdout?.trim()) {
+        // Fallback: count commits per author
+        const logResult = await window.electronAPI?.invoke?.('run-shell-command', {
+          command: `git log --pretty=format:"%an" | sort | uniq -c | sort -rn | head -20`,
+          cwd: workingDirectory,
+          timeout: 10000,
+          allowRisky: false,
+        });
+
+        if (!logResult?.ok) return `Could not compute author statistics.`;
+
+        const lines = logResult.stdout.trim().split('\n').filter(Boolean);
+        const output = [`Code by author (commit count) in ${workingDirectory}:`, ''];
+        let totalCommits = 0;
+        const parsed = lines
+          .map((l) => {
+            const m = l.trim().match(/^(\d+)\s+(.+)$/);
+            if (m) {
+              totalCommits += parseInt(m[1], 10);
+              return { count: parseInt(m[1], 10), author: m[2] };
+            }
+            return null;
+          })
+          .filter(Boolean);
+
+        for (const { count, author } of parsed) {
+          const pct = Math.round((count / Math.max(totalCommits, 1)) * 100);
+          const bar = '█'.repeat(Math.round(pct / 5));
+          output.push(
+            `  ${String(count).padStart(5)} commits  ${String(pct).padStart(3)}%  ${bar.padEnd(20)}  ${author}`,
+          );
+        }
+        return output.join('\n');
+      }
+
+      // Parse blame output: "  N author Name"
+      const authorCounts = {};
+      let totalLines = 0;
+      for (const line of blameResult.stdout.trim().split('\n')) {
+        const m = line.trim().match(/^(\d+)\s+author\s+(.+)$/);
+        if (m) {
+          const count = parseInt(m[1], 10);
+          const author = m[2].trim();
+          authorCounts[author] = (authorCounts[author] || 0) + count;
+          totalLines += count;
+        }
+      }
+
+      const sorted = Object.entries(authorCounts).sort((a, b) => b[1] - a[1]);
+
+      const output = [
+        `Code ownership by author: ${workingDirectory}`,
+        `${totalLines.toLocaleString()} lines across ${files.length} files | ${sorted.length} contributor${sorted.length !== 1 ? 's' : ''}`,
+        '',
+      ];
+
+      for (const [author, count] of sorted) {
+        const pct = Math.round((count / Math.max(totalLines, 1)) * 100);
+        const bar = '█'.repeat(Math.round(pct / 3));
+        output.push(
+          `  ${String(count).padStart(7)} lines  ${String(pct).padStart(3)}%  ${bar.padEnd(34)}  ${author}`,
+        );
+      }
+
+      if (sorted.length >= 2) {
+        const topTwo = sorted.slice(0, 2);
+        const topPct = Math.round((topTwo[0][1] / Math.max(totalLines, 1)) * 100);
+        output.push('');
+        if (topPct > 70) {
+          output.push(`⚠️  Bus factor risk: ${topTwo[0][0]} owns ${topPct}% of lines.`);
+        }
+      }
+
+      return output.join('\n');
+    },
+
+    // ── 15. FIND_FEATURE_FLAGS ────────────────────────────────────────────────────
+    // Detects feature flag / feature toggle patterns across the codebase.
+    // Finds conditional blocks gated on flags, lists all known flag names,
+    // and surfaces flags that may be permanently on/off (stale flags).
+    find_feature_flags: async (params, onStage) => {
+      const rootPath = resolveWorkingDirectory(params.path);
+      if (!rootPath) throw new Error('No workspace is open.');
+
+      onStage(`🚩 Scanning for feature flags in ${rootPath}`);
+
+      const FLAG_PATTERNS = [
+        /(?:isFeatureEnabled|featureFlags?|getFlag|flags?\.get|flags?\[|FEATURE_|FF_|ENABLE_|feature_flag)\s*\(?['"`]?([A-Z_a-z][A-Z_a-z0-9]*)['"`]?\)?/g,
+        /if\s*\(\s*(?:process\.env|config)\.[A-Z_]{3,}\s*\)/g,
+        /LaunchDarkly|Unleash|Flagsmith|Split\.io|ConfigCat|Optimizely/gi,
+      ];
+
+      const queries = [
+        'featureFlag',
+        'FEATURE_',
+        'isEnabled',
+        'feature_flag',
+        'LaunchDarkly',
+        'Unleash',
+        'flag(',
+        'flags.',
+      ];
+
+      const allMatches = [];
+      for (const q of queries) {
+        const r = await window.electronAPI?.invoke?.('search-workspace', {
+          rootPath,
+          query: q,
+          maxResults: 80,
+        });
+        if (r?.matches) allMatches.push(...r.matches);
+      }
+
+      const seen = new Set();
+      const unique = allMatches.filter((m) => {
+        const key = `${m.path}:${m.lineNumber}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+
+      if (!unique.length) return `No feature flag patterns found in ${rootPath}.`;
+
+      // Extract flag names
+      const flagNames = new Map(); // name → [{file, line}]
+      for (const m of unique) {
+        for (const re of FLAG_PATTERNS.slice(0, 1)) {
+          let match;
+          re.lastIndex = 0;
+          while ((match = re.exec(m.line)) !== null) {
+            const name = match[1];
+            if (name && name.length > 2) {
+              if (!flagNames.has(name)) flagNames.set(name, []);
+              flagNames
+                .get(name)
+                .push({ file: m.path.replace(rootPath + '/', ''), line: m.lineNumber });
+            }
+          }
+        }
+      }
+
+      const shorten = (p) => p.replace(rootPath + '/', '');
+
+      const output = [
+        `Feature flags in ${rootPath}:`,
+        `${unique.length} references | ${flagNames.size} unique flag name${flagNames.size !== 1 ? 's' : ''} detected`,
+        '',
+      ];
+
+      if (flagNames.size) {
+        output.push('### FLAG NAMES (by usage frequency)');
+        const sorted = [...flagNames.entries()].sort((a, b) => b[1].length - a[1].length);
+        for (const [name, locs] of sorted.slice(0, 30)) {
+          output.push(`  ${name.padEnd(35)} used ${locs.length}x`);
+          locs.slice(0, 2).forEach((l) => output.push(`    ${l.file}:${l.line}`));
+        }
+        output.push('');
+      }
+
+      // Show call sites grouped by file
+      const byFile = {};
+      for (const m of unique) (byFile[shorten(m.path)] = byFile[shorten(m.path)] || []).push(m);
+      output.push('### FILES WITH FLAG USAGE');
+      for (const [fp, items] of Object.entries(byFile).slice(0, 20)) {
+        output.push(`  📄 ${fp} (${items.length} reference${items.length !== 1 ? 's' : ''})`);
+      }
+
+      return output.join('\n');
+    },
+
+    // ── 16. GET_FUNCTION_CALL_FREQUENCY ──────────────────────────────────────────
+    // Counts how often each function/method is called across a workspace.
+    // High-frequency calls are hot paths — changes there have wide impact.
+    // Zero-frequency internal functions are dead code candidates.
+    get_function_call_frequency: async (params, onStage) => {
+      const { path: filePath } = params;
+      if (!filePath?.trim()) throw new Error('Missing required param: path');
+
+      const rootPath = params.workspace_path
+        ? resolveWorkingDirectory(params.workspace_path)
+        : resolveWorkingDirectory(null);
+
+      onStage(`📊 Analyzing function call frequency for ${filePath}`);
+      const { content } = await ipcReadFile(filePath);
+      const lines = splitLines(content);
+
+      // Extract all function names defined in this file
+      const fnNames = [];
+      const fnRe =
+        /^(?:export\s+)?(?:async\s+)?function\s+(\w+)|^(?:export\s+)?(?:const|let|var)\s+(\w+)\s*=\s*(?:async\s*)?\(?/;
+
+      for (const line of lines) {
+        const m = line.trim().match(fnRe);
+        if (m) {
+          const name = m[1] || m[2];
+          if (name && name.length > 2 && !fnNames.includes(name)) fnNames.push(name);
+        }
+      }
+
+      if (!fnNames.length) return `No function definitions found in ${filePath}.`;
+
+      onStage(`Counting calls for ${fnNames.length} functions…`);
+
+      const callCounts = await Promise.all(
+        fnNames.map(async (name) => {
+          const r = await window.electronAPI?.invoke?.('search-workspace', {
+            rootPath,
+            query: name + '(',
+            maxResults: 100,
+          });
+          const matches = (r?.matches ?? []).filter(
+            (m) => !m.path.includes('.test.') && !m.path.includes('.spec.'),
+          );
+          // Subtract definition line itself
+          const callsOnly = matches.filter((m) => {
+            const t = m.line.trim();
+            return (
+              !/^(?:export\s+)?(?:async\s+)?function\s+/.test(t) &&
+              !/^(?:const|let|var)\s+\w+\s*=/.test(t)
+            );
+          });
+          return { name, callCount: callsOnly.length, totalRefs: matches.length };
+        }),
+      );
+
+      callCounts.sort((a, b) => b.callCount - a.callCount);
+
+      const maxCalls = Math.max(...callCounts.map((c) => c.callCount), 1);
+      const output = [
+        `Function call frequency: ${filePath}`,
+        `${fnNames.length} functions | Search scope: ${rootPath ?? 'workspace'}`,
+        '',
+        '### CALL FREQUENCY (sorted by usage)',
+      ];
+
+      for (const { name, callCount, totalRefs } of callCounts) {
+        const bar = '█'.repeat(Math.min(Math.round((callCount / maxCalls) * 15), 15));
+        const flag = callCount === 0 ? '  ⚠️ potentially dead' : '';
+        output.push(`  ${String(callCount).padStart(4)}x  ${bar.padEnd(16)}  ${name}${flag}`);
+      }
+
+      const deadFns = callCounts.filter((c) => c.callCount === 0);
+      if (deadFns.length) {
+        output.push('', `### POTENTIALLY DEAD FUNCTIONS (0 external calls)`);
+        deadFns.forEach((f) => output.push(`  ${f.name}`));
+      }
+
+      return output.join('\n');
+    },
+
+    // ── 17. SUMMARIZE_FILE_CHANGES ────────────────────────────────────────────────
+    // Runs `git show` or `git diff HEAD~N` on a specific file and distills the
+    // recent changes into a structured summary: lines added/removed, functions
+    // touched, and a plain-language description of what changed. Gives the AI
+    // immediate commit-level context without reading raw diffs.
+    summarize_file_changes: async (params, onStage) => {
+      const { path: filePath } = params;
+      if (!filePath?.trim()) throw new Error('Missing required param: path');
+
+      const workingDirectory = resolveWorkingDirectory(params.working_directory);
+      if (!workingDirectory) throw new Error('No workspace is open. Provide working_directory.');
+
+      const commits = params.commits ?? 1;
+
+      onStage(`📝 Summarizing changes to ${filePath}`);
+
+      const diffResult = await window.electronAPI?.invoke?.('run-shell-command', {
+        command: `git log --oneline -${commits} -- "${filePath}"`,
+        cwd: workingDirectory,
+        timeout: 10000,
+        allowRisky: false,
+      });
+
+      if (!diffResult?.ok || !diffResult.stdout?.trim())
+        return `No recent git history found for ${filePath}.`;
+
+      const recentCommits = diffResult.stdout.trim().split('\n');
+
+      const output = [
+        `Change summary: ${filePath}`,
+        `Last ${recentCommits.length} commit${recentCommits.length !== 1 ? 's' : ''}:`,
+        '',
+      ];
+
+      for (const commitLine of recentCommits) {
+        const [hash, ...msgParts] = commitLine.split(' ');
+        const message = msgParts.join(' ');
+        output.push(`### ${hash}: ${message}`);
+
+        const showResult = await window.electronAPI?.invoke?.('run-shell-command', {
+          command: `git show --stat ${hash} -- "${filePath}"`,
+          cwd: workingDirectory,
+          timeout: 10000,
+          allowRisky: false,
+        });
+
+        if (showResult?.ok && showResult.stdout?.trim()) {
+          const statLines = showResult.stdout.trim().split('\n');
+          const summary = statLines[statLines.length - 1];
+          if (summary) output.push(`  ${summary}`);
+        }
+
+        // Get the actual diff for this commit
+        const patchResult = await window.electronAPI?.invoke?.('run-shell-command', {
+          command: `git show ${hash} -- "${filePath}" | grep "^[+-]" | grep -v "^[+-][+-][+-]" | head -60`,
+          cwd: workingDirectory,
+          timeout: 10000,
+          allowRisky: false,
+        });
+
+        if (patchResult?.ok && patchResult.stdout?.trim()) {
+          const diffLines = patchResult.stdout.trim().split('\n');
+          const added = diffLines.filter((l) => l.startsWith('+')).length;
+          const removed = diffLines.filter((l) => l.startsWith('-')).length;
+          output.push(`  +${added} lines added, -${removed} lines removed`);
+
+          // Find touched functions
+          const fnRe =
+            /^[+-]\s*(?:export\s+)?(?:async\s+)?function\s+(\w+)|^[+-]\s*(?:const|let|var)\s+(\w+)\s*=/;
+          const touched = new Set();
+          for (const dl of diffLines) {
+            const m = dl.match(fnRe);
+            if (m) touched.add(m[1] || m[2]);
+          }
+          if (touched.size) output.push(`  Functions touched: ${[...touched].join(', ')}`);
+
+          // Show first few interesting diff lines
+          const interesting = diffLines
+            .filter((l) => l.trim().length > 3 && !l.startsWith('+++') && !l.startsWith('---'))
+            .slice(0, 8);
+          if (interesting.length) {
+            output.push('  Preview:');
+            interesting.forEach((l) => output.push(`    ${l.slice(0, 100)}`));
+          }
+        }
+        output.push('');
+      }
+
+      return output.join('\n');
+    },
+
+    // ── 18. FIND_PERFORMANCE_PATTERNS ────────────────────────────────────────────
+    // Scans for common performance anti-patterns: nested loops with N+1 queries,
+    // synchronous operations in async contexts, heavy work in render cycles,
+    // missing memoization, large array operations, etc.
+    find_performance_patterns: async (params, onStage) => {
+      const filePath = params.path?.trim();
+      const rootPath = params.workspace_path
+        ? resolveWorkingDirectory(params.workspace_path)
+        : null;
+      if (!filePath && !rootPath) throw new Error('Provide path or workspace_path.');
+
+      onStage(`⚡ Scanning for performance anti-patterns`);
+
+      const CHECKS = [
+        {
+          label: 'N+1 query risk (await in loop)',
+          re: /for\s*\(.*\)|\.forEach\(|for\s+\w+\s+of\b/,
+          followRe: /\bawait\b/,
+          range: 3,
+        },
+        { label: 'Synchronous FS in async context', re: /readFileSync|writeFileSync|execSync/ },
+        {
+          label: 'JSON.parse in hot loop',
+          re: /(?:for|forEach|map|filter|reduce).*JSON\.parse|JSON\.parse.*(?:for|forEach)/,
+        },
+        {
+          label: 'Heavy work in render/useEffect',
+          re: /useEffect|componentDidUpdate|render\s*\(\s*\)/,
+        },
+        {
+          label: 'Missing memo/useMemo',
+          re: /const\s+\w+\s*=\s*\[.*\]\.filter\(|\.map\(.*\)\.filter\(/,
+        },
+        { label: 'Spread in loop', re: /(?:for|map|reduce)[\s\S]{0,30}\.\.\.\w/ },
+        { label: 'select(*) or SELECT *', re: /SELECT\s+\*\s+FROM|\.find\(\s*\)/ },
+        { label: 'Missing index hint (large query)', re: /WHERE\s+(?!.*INDEX)\w+\s*=/i },
+        {
+          label: 'Busy wait / polling',
+          re: /while\s*\(true\)|setInterval\s*\(\s*(?:async)?\s*\(\s*\)\s*=>\s*\{[\s\S]{0,200}await/,
+        },
+        {
+          label: 'Array inside render',
+          re: /(?:const|let)\s+\w+\s*=\s*\[.*\].*return\s*\(|return\s*\(\s*</,
+        },
+      ];
+
+      const scanFile = async (fp) => {
+        try {
+          const { content } = await ipcReadFile(fp);
+          const lines = splitLines(content);
+          const issues = [];
+
+          for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+            if (/^\s*(\/\/|#)/.test(line)) continue;
+
+            for (const check of CHECKS) {
+              if (check.followRe) {
+                // Check if pattern exists followed by another within `range` lines
+                if (check.re.test(line)) {
+                  const window = lines.slice(i + 1, i + 1 + (check.range ?? 3)).join('\n');
+                  if (check.followRe.test(window)) {
+                    issues.push({
+                      line: i + 1,
+                      label: check.label,
+                      text: line.trim().slice(0, 100),
+                    });
+                  }
+                }
+              } else {
+                if (check.re.test(line)) {
+                  issues.push({ line: i + 1, label: check.label, text: line.trim().slice(0, 100) });
+                }
+              }
+            }
+          }
+          return issues;
+        } catch {
+          return [];
+        }
+      };
+
+      let fileMap = {};
+      if (filePath) {
+        fileMap[filePath] = await scanFile(filePath);
+      } else {
+        const listResult = await window.electronAPI?.invoke?.('run-shell-command', {
+          command: `find "${rootPath}" -type f \\( -name "*.js" -o -name "*.ts" -o -name "*.jsx" -o -name "*.tsx" -o -name "*.py" \\) -not -path "*/node_modules/*" -not -path "*/.git/*"`,
+          cwd: rootPath,
+          timeout: 15000,
+          allowRisky: false,
+        });
+        const files = listResult?.stdout?.trim().split('\n').filter(Boolean).slice(0, 100) ?? [];
+        for (const fp of files) {
+          const issues = await scanFile(fp);
+          if (issues.length) fileMap[fp] = issues;
+        }
+      }
+
+      const allIssues = Object.values(fileMap).flat();
+      if (!allIssues.length) return `✅ No obvious performance anti-patterns detected.`;
+
+      const shorten = (p) => (rootPath ? p.replace(rootPath + '/', '') : p);
+      const byLabel = {};
+      for (const iss of allIssues) (byLabel[iss.label] = byLabel[iss.label] || []).push(iss);
+
+      const output = [
+        `Performance anti-patterns: ${filePath ?? rootPath}`,
+        `${allIssues.length} potential issue${allIssues.length !== 1 ? 's' : ''} across ${Object.keys(fileMap).length} file${Object.keys(fileMap).length !== 1 ? 's' : ''}`,
+        '',
+        '### BY PATTERN TYPE',
+        ...Object.entries(byLabel)
+          .sort((a, b) => b[1].length - a[1].length)
+          .map(([label, items]) => `  ${label}: ${items.length}`),
+        '',
+      ];
+
+      for (const [fp, issues] of Object.entries(fileMap)) {
+        output.push(`📄 ${shorten(fp)} (${issues.length})`);
+        issues
+          .slice(0, 6)
+          .forEach((iss) => output.push(`   Line ${iss.line} — ${iss.label}\n     ${iss.text}`));
+        if (issues.length > 6) output.push(`   … +${issues.length - 6} more`);
+        output.push('');
+      }
+
+      return output.join('\n');
+    },
+
+    // ── 19. GET_WORKSPACE_HEALTH_SCORE ────────────────────────────────────────────
+    // Aggregates multiple code quality signals into a single health dashboard:
+    // lint errors, test presence, circular deps, long functions, missing error
+    // handling, hardcoded secrets, console statements, and stale TODOs.
+    // The single best "orient me" tool before starting any significant work.
+    get_workspace_health_score: async (params, onStage) => {
+      const rootPath = resolveWorkingDirectory(params.path);
+      if (!rootPath) throw new Error('No workspace is open.');
+
+      onStage(`🏥 Computing workspace health score…`);
+
+      const checks = {};
+
+      // 1. Count source files
+      const listResult = await window.electronAPI?.invoke?.('run-shell-command', {
+        command: `find "${rootPath}" -type f \\( -name "*.js" -o -name "*.ts" -o -name "*.jsx" -o -name "*.tsx" -o -name "*.py" \\) -not -path "*/node_modules/*" -not -path "*/.git/*" | wc -l`,
+        cwd: rootPath,
+        timeout: 10000,
+        allowRisky: false,
+      });
+      checks.sourceFiles = parseInt(listResult?.stdout?.trim() ?? '0', 10);
+
+      // 2. Test files
+      const testResult = await window.electronAPI?.invoke?.('run-shell-command', {
+        command: `find "${rootPath}" -type f \\( -name "*.test.*" -o -name "*.spec.*" \\) -not -path "*/node_modules/*" | wc -l`,
+        cwd: rootPath,
+        timeout: 10000,
+        allowRisky: false,
+      });
+      checks.testFiles = parseInt(testResult?.stdout?.trim() ?? '0', 10);
+
+      // 3. TODOs
+      const todoResult = await window.electronAPI?.invoke?.('search-workspace', {
+        rootPath,
+        query: 'TODO',
+        maxResults: 200,
+      });
+      checks.todos = todoResult?.matches?.length ?? 0;
+
+      // 4. Console statements
+      const consoleResult = await window.electronAPI?.invoke?.('search-workspace', {
+        rootPath,
+        query: 'console.log(',
+        maxResults: 100,
+      });
+      checks.consoleLogs = consoleResult?.matches?.length ?? 0;
+
+      // 5. Hardcoded secrets hint
+      const secretResult = await window.electronAPI?.invoke?.('search-workspace', {
+        rootPath,
+        query: 'password =',
+        maxResults: 20,
+      });
+      checks.potentialSecrets = (secretResult?.matches ?? []).filter(
+        (m) => !m.line.trim().startsWith('//') && !m.path.includes('.env'),
+      ).length;
+
+      // 6. Long files
+      const longFileResult = await window.electronAPI?.invoke?.('run-shell-command', {
+        command: `find "${rootPath}" -type f \\( -name "*.js" -o -name "*.ts" \\) -not -path "*/node_modules/*" | xargs wc -l 2>/dev/null | sort -rn | awk '$1 > 500 {print}' | wc -l`,
+        cwd: rootPath,
+        timeout: 15000,
+        allowRisky: false,
+      });
+      checks.longFiles = parseInt(longFileResult?.stdout?.trim() ?? '0', 10);
+
+      // 7. Git health
+      const gitResult = await window.electronAPI?.invoke?.('run-shell-command', {
+        command: `git status --porcelain 2>/dev/null | wc -l`,
+        cwd: rootPath,
+        timeout: 10000,
+        allowRisky: false,
+      });
+      checks.uncommittedChanges = parseInt(gitResult?.stdout?.trim() ?? '0', 10);
+
+      const branchResult = await window.electronAPI?.invoke?.('run-shell-command', {
+        command: `git branch 2>/dev/null | wc -l`,
+        cwd: rootPath,
+        timeout: 10000,
+        allowRisky: false,
+      });
+      checks.branches = parseInt(branchResult?.stdout?.trim() ?? '0', 10);
+
+      // 8. Dependencies
+      const depResult = await window.electronAPI?.invoke?.('run-shell-command', {
+        command: `[ -f "${rootPath}/package.json" ] && node -e "const p=require('${rootPath}/package.json'); console.log(Object.keys({...p.dependencies,...p.devDependencies}).length)" 2>/dev/null || echo 0`,
+        cwd: rootPath,
+        timeout: 10000,
+        allowRisky: false,
+      });
+      checks.totalDeps = parseInt(depResult?.stdout?.trim() ?? '0', 10);
+
+      // Scoring (0-100)
+      const scoreItems = [];
+      const testRatio = checks.testFiles / Math.max(checks.sourceFiles, 1);
+      const testScore = Math.min(Math.round(testRatio * 100), 25);
+      scoreItems.push({
+        name: 'Test coverage',
+        score: testScore,
+        max: 25,
+        detail: `${checks.testFiles} test files / ${checks.sourceFiles} source files`,
+      });
+
+      const consoleScore = Math.max(0, 15 - Math.floor(checks.consoleLogs / 3));
+      scoreItems.push({
+        name: 'No debug leftovers',
+        score: consoleScore,
+        max: 15,
+        detail: `${checks.consoleLogs} console.log calls`,
+      });
+
+      const secretScore =
+        checks.potentialSecrets === 0 ? 20 : Math.max(0, 20 - checks.potentialSecrets * 5);
+      scoreItems.push({
+        name: 'No hardcoded secrets',
+        score: secretScore,
+        max: 20,
+        detail: `${checks.potentialSecrets} potential secrets found`,
+      });
+
+      const todoScore = Math.max(0, 10 - Math.floor(checks.todos / 10));
+      scoreItems.push({
+        name: 'Low TODO debt',
+        score: todoScore,
+        max: 10,
+        detail: `${checks.todos} TODO comments`,
+      });
+
+      const fileScore = Math.max(0, 15 - Math.floor(checks.longFiles / 2));
+      scoreItems.push({
+        name: 'File size discipline',
+        score: fileScore,
+        max: 15,
+        detail: `${checks.longFiles} files > 500 lines`,
+      });
+
+      const gitScore =
+        checks.uncommittedChanges < 5
+          ? 15
+          : Math.max(0, 15 - Math.floor(checks.uncommittedChanges / 3));
+      scoreItems.push({
+        name: 'Clean git status',
+        score: gitScore,
+        max: 15,
+        detail: `${checks.uncommittedChanges} uncommitted changes`,
+      });
+
+      const totalScore = scoreItems.reduce((s, i) => s + i.score, 0);
+      const grade =
+        totalScore >= 85
+          ? 'A'
+          : totalScore >= 70
+            ? 'B'
+            : totalScore >= 55
+              ? 'C'
+              : totalScore >= 40
+                ? 'D'
+                : 'F';
+
+      const gradeEmoji = { A: '🟢', B: '🟡', C: '🟠', D: '🔴', F: '🔴' };
+
+      const output = [
+        `╔══════════════════════════════════════════╗`,
+        `  WORKSPACE HEALTH SCORE`,
+        `  ${rootPath.split('/').pop()}`,
+        `╚══════════════════════════════════════════╝`,
+        '',
+        `  ${gradeEmoji[grade]} Overall: ${totalScore}/100  (Grade ${grade})`,
+        '',
+        '### SCORE BREAKDOWN',
+        ...scoreItems.map((item) => {
+          const bar = '█'.repeat(item.score) + '░'.repeat(item.max - item.score);
+          return `  ${item.name.padEnd(28)} ${String(item.score).padStart(2)}/${item.max}  ${bar}  ${item.detail}`;
+        }),
+        '',
+        '### QUICK STATS',
+        `  Source files:       ${checks.sourceFiles}`,
+        `  Test files:         ${checks.testFiles}`,
+        `  Total deps:         ${checks.totalDeps}`,
+        `  Git branches:       ${checks.branches}`,
+        `  Uncommitted:        ${checks.uncommittedChanges}`,
+        '',
+        totalScore >= 70
+          ? '✅ Codebase looks healthy. Focus on areas below 70%.'
+          : '⚠️  Several quality concerns detected. See breakdown above.',
+      ];
+
+      return output.join('\n');
+    },
+
+    // ── 20. GET_ARCHITECTURE_OVERVIEW ─────────────────────────────────────────────
+    // Produces a high-level architectural summary: layers of the codebase,
+    // separation of concerns, module boundaries, entry points, data flow direction,
+    // and a plain-language description of how the system is structured.
+    // The best tool to call when the AI needs to understand a new codebase
+    // holistically before making any architectural decisions.
+    get_architecture_overview: async (params, onStage) => {
+      const rootPath = resolveWorkingDirectory(params.path);
+      if (!rootPath) throw new Error('No workspace is open.');
+
+      onStage(`🏗️ Building architectural overview of ${rootPath}`);
+
+      // 1. Get workspace snapshot
+      const [inspectResult, treeResult, gitResult] = await Promise.all([
+        window.electronAPI?.invoke?.('inspect-workspace', { rootPath }),
+        window.electronAPI?.invoke?.('list-directory-tree', {
+          dirPath: rootPath,
+          maxDepth: 3,
+          maxEntries: 200,
+        }),
+        window.electronAPI?.invoke?.('run-shell-command', {
+          command: `git log --oneline -5 2>/dev/null || echo "(no git)"`,
+          cwd: rootPath,
+          timeout: 8000,
+          allowRisky: false,
+        }),
+      ]);
+
+      const summary = inspectResult?.summary;
+      const treeLines = treeResult?.lines ?? [];
+
+      // 2. Identify architectural layers from directory names
+      const LAYER_HINTS = {
+        'api|routes|controllers|handlers|endpoints': 'API Layer',
+        'services|domain|core|business|usecases|use_cases': 'Business Logic',
+        'models|entities|schemas|db|database|repositories|repos': 'Data / Persistence',
+        'components|views|pages|screens|ui': 'Presentation / UI',
+        'utils|helpers|lib|shared|common': 'Shared Utilities',
+        'hooks|context|store|state|redux|zustand|mobx': 'State Management',
+        'middleware|guards|interceptors|decorators': 'Middleware / Cross-cutting',
+        'config|settings|env': 'Configuration',
+        'tests|__tests__|spec|e2e|fixtures': 'Testing',
+        'scripts|tools|cli': 'Dev Tooling',
+        'types|interfaces|models': 'Type Definitions',
+      };
+
+      const topDirs = treeLines
+        .filter((l) => l.endsWith('/') && l.split('/').length <= 3)
+        .map((l) => l.trim().replace(/\/$/, '').split('/').pop().toLowerCase());
+
+      const detectedLayers = {};
+      for (const dir of topDirs) {
+        for (const [pattern, label] of Object.entries(LAYER_HINTS)) {
+          if (new RegExp(pattern).test(dir)) {
+            if (!detectedLayers[label]) detectedLayers[label] = [];
+            detectedLayers[label].push(dir);
+          }
+        }
+      }
+
+      // 3. Find entry points
+      const ENTRY_PATTERNS = [
+        'index.js',
+        'index.ts',
+        'main.js',
+        'main.ts',
+        'app.js',
+        'app.ts',
+        'server.js',
+        'server.ts',
+        'main.py',
+        'app.py',
+        '__main__.py',
+      ];
+      const entryPoints = treeLines.filter(
+        (l) => ENTRY_PATTERNS.some((e) => l.trim().endsWith(e)) && !l.includes('node_modules'),
+      );
+
+      // 4. Detect architectural pattern
+      const allDirs = topDirs.join(' ');
+      let archPattern = 'Unknown';
+      if (/controller.*service|service.*repository|repository/.test(allDirs))
+        archPattern = 'Layered / MVC';
+      else if (/domain|usecase|entit/.test(allDirs)) archPattern = 'Clean Architecture / DDD';
+      else if (/feature|modules?/.test(allDirs)) archPattern = 'Feature-based / Modular';
+      else if (
+        /api|service|gateway/.test(allDirs) &&
+        summary?.frameworks?.join('').includes('Express')
+      )
+        archPattern = 'Microservice / API-first';
+      else if (
+        summary?.frameworks?.some((f) =>
+          ['next', 'nuxt', 'remix', 'gatsby'].includes(f?.toLowerCase()),
+        )
+      )
+        archPattern = 'Full-stack Framework (SSR/SSG)';
+      else if (
+        summary?.frameworks?.some((f) =>
+          ['react', 'vue', 'angular', 'svelte'].includes(f?.toLowerCase()),
+        )
+      )
+        archPattern = 'SPA / Client-side';
+      else if (/routes|pages/.test(allDirs)) archPattern = 'Router-centric';
+
+      // 5. Data flow direction inference
+      let dataFlow = 'Cannot determine without deeper analysis.';
+      if (archPattern.includes('Layered') || archPattern.includes('Clean')) {
+        dataFlow =
+          'Request → Controller/Handler → Service → Repository → Database\nResponse flows in reverse.';
+      } else if (archPattern.includes('SPA')) {
+        dataFlow = 'User Event → Component → State/Store → API call → Update State → Re-render';
+      } else if (archPattern.includes('SSR')) {
+        dataFlow =
+          'Browser request → Server renders page → Client hydrates → User events → API updates';
+      }
+
+      // 6. Summarize recent commits for context
+      const recentCommits = gitResult?.stdout?.trim().split('\n').filter(Boolean).slice(0, 5) ?? [];
+
+      const output = [
+        `╔══════════════════════════════════════════════════╗`,
+        `  ARCHITECTURE OVERVIEW`,
+        `  ${rootPath.split('/').pop()}`,
+        `╚══════════════════════════════════════════════════╝`,
+        '',
+        `### DETECTED PATTERN`,
+        `  ${archPattern}`,
+        '',
+        `### TECH STACK`,
+        `  Languages:  ${(summary?.languages ?? []).join(', ') || 'unknown'}`,
+        `  Frameworks: ${(summary?.frameworks ?? []).join(', ') || 'none detected'}`,
+        `  Testing:    ${(summary?.testing ?? []).join(', ') || 'none detected'}`,
+        `  Pkg mgr:    ${summary?.packageManager || 'unknown'}`,
+        '',
+      ];
+
+      if (Object.keys(detectedLayers).length) {
+        output.push('### ARCHITECTURAL LAYERS');
+        for (const [layer, dirs] of Object.entries(detectedLayers)) {
+          output.push(`  ${layer.padEnd(32)} ← ${dirs.join(', ')}`);
+        }
+        output.push('');
+      }
+
+      output.push('### DATA FLOW');
+      output.push(`  ${dataFlow.replace(/\n/g, '\n  ')}`);
+      output.push('');
+
+      if (entryPoints.length) {
+        output.push('### ENTRY POINTS');
+        entryPoints.slice(0, 8).forEach((ep) => output.push(`  ${ep.trim()}`));
+        output.push('');
+      }
+
+      if (summary?.packageScripts && Object.keys(summary.packageScripts).length) {
+        output.push('### KEY SCRIPTS');
+        Object.entries(summary.packageScripts)
+          .slice(0, 6)
+          .forEach(([k, v]) => output.push(`  ${k.padEnd(15)} ${v.slice(0, 60)}`));
+        output.push('');
+      }
+
+      if (recentCommits.length && !recentCommits[0].includes('no git')) {
+        output.push('### RECENT COMMITS');
+        recentCommits.forEach((c) => output.push(`  ${c}`));
+        output.push('');
+      }
+
+      output.push('### AI GUIDANCE');
+      output.push(`  Pattern detected: ${archPattern}`);
+      if (detectedLayers['API Layer'])
+        output.push(`  API surface likely in: ${detectedLayers['API Layer'].join(', ')}`);
+      if (detectedLayers['Business Logic'])
+        output.push(`  Business logic likely in: ${detectedLayers['Business Logic'].join(', ')}`);
+      if (detectedLayers['Data / Persistence'])
+        output.push(`  Data layer likely in: ${detectedLayers['Data / Persistence'].join(', ')}`);
+      output.push('  Run get_dependency_graph and find_api_endpoints for deeper analysis.');
+
+      return output.join('\n');
     },
   },
 });
