@@ -12,6 +12,7 @@ import {
 } from './SubAgentPanels.js';
 
 const RENDER_THROTTLE_MS = 80;
+const REASONING_TAG_NAMES = new Set(['think', 'thinking', 'reason', 'reasoning', 'analysis']);
 
 const BROWSER_TOOL_LABELS = {
   spawn_sub_agents: 'Delegating to focused sub-agents...',
@@ -43,6 +44,98 @@ const BROWSER_TOOL_LABELS = {
   browser_forward: 'Going forward in the browser...',
   browser_refresh: 'Refreshing the page...',
 };
+
+function parseLeadingHtmlTagToken(value) {
+  const text = String(value ?? '');
+  if (!text.startsWith('<')) return { complete: true, isTag: false, raw: '' };
+
+  if (text.length >= 2 && !/[A-Za-z/!]/.test(text[1])) {
+    return { complete: true, isTag: false, raw: '<' };
+  }
+
+  const closeIndex = text.indexOf('>');
+  if (closeIndex === -1) return { complete: false, isTag: false, raw: '' };
+
+  const raw = text.slice(0, closeIndex + 1);
+  const match = raw.match(/^<\s*(\/?)\s*([A-Za-z][A-Za-z0-9:_-]*)\b[^>]*>$/);
+  if (!match) return { complete: true, isTag: false, raw };
+
+  const isClosing = Boolean(match[1]);
+  const tagName = match[2].toLowerCase();
+  const isReasoningTag = REASONING_TAG_NAMES.has(tagName);
+
+  return {
+    complete: true,
+    isTag: true,
+    raw,
+    isReasoningOpen: isReasoningTag && !isClosing,
+    isReasoningClose: isReasoningTag && isClosing,
+  };
+}
+
+function createReasoningTagStreamFilter() {
+  let _buffer = '';
+  let _reasoningDepth = 0;
+
+  return {
+    appendChunk(chunk) {
+      _buffer += String(chunk ?? '');
+      if (!_buffer) return { visibleChunk: '', reasoningChunk: '' };
+
+      let visibleChunk = '';
+      let reasoningChunk = '';
+
+      while (_buffer) {
+        if (!_buffer.startsWith('<')) {
+          const nextTagIndex = _buffer.indexOf('<');
+          const textPart = nextTagIndex === -1 ? _buffer : _buffer.slice(0, nextTagIndex);
+          if (_reasoningDepth > 0) reasoningChunk += textPart;
+          else visibleChunk += textPart;
+          _buffer = nextTagIndex === -1 ? '' : _buffer.slice(nextTagIndex);
+          continue;
+        }
+
+        const parsed = parseLeadingHtmlTagToken(_buffer);
+        if (!parsed.complete) break;
+
+        const consumed = parsed.raw || '<';
+        if (!parsed.isTag) {
+          if (_reasoningDepth > 0) reasoningChunk += consumed;
+          else visibleChunk += consumed;
+          _buffer = _buffer.slice(consumed.length);
+          continue;
+        }
+
+        if (parsed.isReasoningOpen) {
+          _reasoningDepth += 1;
+        } else if (parsed.isReasoningClose) {
+          _reasoningDepth = Math.max(0, _reasoningDepth - 1);
+        } else if (_reasoningDepth > 0) {
+          reasoningChunk += consumed;
+        } else {
+          visibleChunk += consumed;
+        }
+
+        _buffer = _buffer.slice(consumed.length);
+      }
+
+      return { visibleChunk, reasoningChunk };
+    },
+
+    flushVisibleRemainder() {
+      if (!_buffer) return '';
+      const remainder = _reasoningDepth > 0 ? '' : _buffer;
+      _buffer = '';
+      _reasoningDepth = 0;
+      return remainder;
+    },
+
+    reset() {
+      _buffer = '';
+      _reasoningDepth = 0;
+    },
+  };
+}
 
 function humanizeBrowserToolLog(text) {
   const failureMatch = String(text ?? '').match(/^(browser_[a-z_]+)\s+failed:\s*(.+)$/i);
@@ -444,6 +537,7 @@ export function createLiveRow(doSendFromStateFn) {
   let _cursorEl = null;
   let _thinkingState = 'working';
   let _replyAttachments = [];
+  const _streamFilter = createReasoningTagStreamFilter();
   const _subAgentTracker = createLiveSubAgentRunTracker(replyMediaEl);
   // Tracks whether any expandable content has arrived (log items or reasoning).
   // The caret is shown only once this is true.
@@ -492,6 +586,16 @@ export function createLiveRow(doSendFromStateFn) {
     thinkingTraceContentEl.textContent = text;
   }
 
+  function appendReasoningChunk(chunk) {
+    const text = String(chunk ?? '');
+    if (!text) return false;
+    _reasoning += text;
+    revealCaret();
+    setThinkingOpen(true);
+    renderReasoning();
+    return true;
+  }
+
   return {
     row,
 
@@ -533,13 +637,7 @@ export function createLiveRow(doSendFromStateFn) {
     },
 
     streamThinking(chunk) {
-      const text = String(chunk ?? '');
-      if (!text) return;
-      _reasoning += text;
-      // Reveal caret and open body when reasoning starts
-      revealCaret();
-      setThinkingOpen(true);
-      renderReasoning();
+      if (!appendReasoningChunk(chunk)) return;
       smoothScrollToBottom();
     },
 
@@ -578,8 +676,10 @@ export function createLiveRow(doSendFromStateFn) {
         _cursorEl = document.createElement('span');
         _cursorEl.className = 'stream-cursor';
       }
-
-      _accumulated += chunk;
+      const { visibleChunk, reasoningChunk } = _streamFilter.appendChunk(chunk);
+      const didUpdateReasoning = appendReasoningChunk(reasoningChunk);
+      if (visibleChunk) _accumulated += visibleChunk;
+      if (!visibleChunk && !didUpdateReasoning) return;
 
       const now = Date.now();
       if (now - _lastRenderAt >= RENDER_THROTTLE_MS) {
@@ -594,6 +694,7 @@ export function createLiveRow(doSendFromStateFn) {
     clearReply() {
       _streamActive = false;
       _accumulated = '';
+      _streamFilter.reset();
       _cursorEl?.remove();
       _cursorEl = null;
       replyTextEl.classList.remove('is-streaming');
@@ -602,15 +703,17 @@ export function createLiveRow(doSendFromStateFn) {
     },
 
     finalize(markdown, usage, provider, modelId) {
-      _accumulated = markdown;
+      _streamFilter.reset();
+      const safeMarkdown = stripAssistantReasoningTags(markdown) || '(empty response)';
+      _accumulated = safeMarkdown;
       renderReasoning(true);
       _cursorEl?.remove();
       _cursorEl = null;
       replyTextEl.classList.remove('is-streaming');
       if (_thinkingState !== 'error') setThinkingState('complete');
-      replyTextEl.innerHTML = renderMarkdown(markdown);
+      replyTextEl.innerHTML = renderMarkdown(safeMarkdown);
       actionsEl.style.display = 'flex';
-      attachCopyEvent(actionsEl.querySelector('.copy-msg-btn'), markdown);
+      attachCopyEvent(actionsEl.querySelector('.copy-msg-btn'), safeMarkdown);
 
       // Collapse the thinking shell after finalization if there's content
       if (_hasContent && thinkingToggleEl?.getAttribute('aria-expanded') === 'true') {
@@ -638,20 +741,25 @@ export function createLiveRow(doSendFromStateFn) {
     },
 
     set(markdown) {
-      _accumulated = markdown;
+      _streamFilter.reset();
+      const safeMarkdown = stripAssistantReasoningTags(markdown) || '(empty response)';
+      _accumulated = safeMarkdown;
       renderReasoning(true);
       _cursorEl?.remove();
       _cursorEl = null;
       replyTextEl.classList.remove('is-streaming');
       if (_thinkingState !== 'error') setThinkingState('complete');
-      replyTextEl.innerHTML = renderMarkdown(markdown);
+      replyTextEl.innerHTML = renderMarkdown(safeMarkdown);
       actionsEl.style.display = 'flex';
-      attachCopyEvent(actionsEl.querySelector('.copy-msg-btn'), markdown);
+      attachCopyEvent(actionsEl.querySelector('.copy-msg-btn'), safeMarkdown);
       smoothScrollToBottom();
     },
 
     /** Called when the user clicks stop mid-stream */
     setAborted() {
+      const trailingVisible = _streamFilter.flushVisibleRemainder();
+      if (trailingVisible) _accumulated += trailingVisible;
+      _accumulated = stripAssistantReasoningTags(_accumulated);
       renderReasoning(true);
       _cursorEl?.remove();
       _cursorEl = null;
