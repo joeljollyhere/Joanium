@@ -538,6 +538,201 @@ export async function executeCalendarChatTool(ctx, toolName, params = {}) {
         .join('\n');
     }
 
+    // 21
+    case 'calendar_rename_event': {
+      const { event_id, calendar_id, summary } = params;
+      if (!event_id?.trim()) throw new Error('Missing required param: event_id');
+      if (!summary?.trim()) throw new Error('Missing required param: summary');
+      const updated = await CalendarAPI.renameEvent(
+        credentials,
+        calendar_id?.trim() || 'primary',
+        event_id.trim(),
+        summary.trim(),
+      );
+      return `Event renamed to **${updated.summary}** (ID: \`${event_id}\`).`;
+    }
+
+    // 22
+    case 'calendar_set_event_color': {
+      const { event_id, calendar_id, color_id } = params;
+      if (!event_id?.trim()) throw new Error('Missing required param: event_id');
+      if (color_id === undefined || color_id === null)
+        throw new Error('Missing required param: color_id (1–11)');
+      const COLOR_NAMES = {
+        1: 'Lavender',
+        2: 'Sage',
+        3: 'Grape',
+        4: 'Flamingo',
+        5: 'Banana',
+        6: 'Tangerine',
+        7: 'Peacock',
+        8: 'Graphite',
+        9: 'Blueberry',
+        10: 'Basil',
+        11: 'Tomato',
+      };
+      const updated = await CalendarAPI.setEventColor(
+        credentials,
+        calendar_id?.trim() || 'primary',
+        event_id.trim(),
+        color_id,
+      );
+      const name = COLOR_NAMES[Number(color_id)] ?? `Color ${color_id}`;
+      return `Event **${updated.summary}** color set to ${name} (ID ${color_id}).`;
+    }
+
+    // 23
+    case 'calendar_get_this_weekend': {
+      const events = await CalendarAPI.getThisWeekendEvents(credentials);
+      if (!events.length) return 'No events this weekend.';
+      return `This weekend's events - ${events.length} event${events.length !== 1 ? 's' : ''}:\n\n${events.map((e, i) => formatEvent(e, i + 1)).join('\n\n')}`;
+    }
+
+    // 24
+    case 'calendar_set_event_reminders': {
+      const { event_id, calendar_id, minutes } = params;
+      if (!event_id?.trim()) throw new Error('Missing required param: event_id');
+      const minutesList = minutes
+        ? String(minutes)
+            .split(',')
+            .map((m) => m.trim())
+            .filter(Boolean)
+        : [];
+      const updated = await CalendarAPI.setEventReminders(
+        credentials,
+        calendar_id?.trim() || 'primary',
+        event_id.trim(),
+        minutesList,
+      );
+      const desc = minutesList.length
+        ? `Reminders set: ${minutesList.map((m) => `${m} min before`).join(', ')}.`
+        : 'Reminders reset to calendar default.';
+      return `**${updated.summary}** — ${desc}`;
+    }
+
+    // 25
+    case 'calendar_bulk_create_events': {
+      const { events_json, calendar_id } = params;
+      if (!events_json?.trim()) throw new Error('Missing required param: events_json');
+      let eventDataArray;
+      try {
+        eventDataArray = JSON.parse(events_json);
+        if (!Array.isArray(eventDataArray)) throw new Error('events_json must be a JSON array');
+      } catch (e) {
+        throw new Error(`Invalid events_json: ${e.message}`);
+      }
+      // Normalise camelCase ↔ snake_case fields
+      const normalised = eventDataArray.map((e) => ({
+        summary: e.summary,
+        startDateTime: e.startDateTime ?? e.start_datetime,
+        endDateTime: e.endDateTime ?? e.end_datetime,
+        description: e.description ?? '',
+        location: e.location ?? '',
+        attendees: Array.isArray(e.attendees) ? e.attendees : [],
+        allDay: e.allDay ?? e.all_day ?? false,
+      }));
+      const created = await CalendarAPI.bulkCreateEvents(
+        credentials,
+        calendar_id?.trim() || 'primary',
+        normalised,
+      );
+      const lines = created
+        .map(
+          (ev, i) =>
+            `${i + 1}. **${ev.summary}** — ${formatEventTime(ev.start)}${ev.id ? ` (\`${ev.id}\`)` : ''}`,
+        )
+        .join('\n');
+      return `Created ${created.length} event${created.length !== 1 ? 's' : ''}:\n\n${lines}`;
+    }
+
+    // 26
+    case 'calendar_get_video_conference_events': {
+      const days = params.days ?? 30;
+      const max = params.max_results ?? 20;
+      const events = await CalendarAPI.getEventsWithVideoConference(credentials, days, max);
+      if (!events.length)
+        return `No events with video conference links found in the next ${days} days.`;
+      const lines = events
+        .map((e, i) => {
+          const meet =
+            e.conferenceData.entryPoints.find((ep) => ep.entryPointType === 'video') ??
+            e.conferenceData.entryPoints[0];
+          const base = formatEvent(e, i + 1);
+          return `${base}\n   Join: ${meet.uri}`;
+        })
+        .join('\n\n');
+      return `Events with video conference links (next ${days} days) — ${events.length} found:\n\n${lines}`;
+    }
+
+    // 27
+    case 'calendar_rsvp_event': {
+      const { event_id, calendar_id, email, status } = params;
+      if (!event_id?.trim()) throw new Error('Missing required param: event_id');
+      if (!email?.trim()) throw new Error('Missing required param: email');
+      if (!status?.trim())
+        throw new Error('Missing required param: status (accepted / declined / tentative)');
+      const updated = await CalendarAPI.rsvpEvent(
+        credentials,
+        calendar_id?.trim() || 'primary',
+        event_id.trim(),
+        email.trim(),
+        status.trim(),
+      );
+      const label =
+        { accepted: 'Accepted ✅', declined: 'Declined ❌', tentative: 'Tentatively accepted 🤔' }[
+          status
+        ] ?? status;
+      return `RSVP updated for **${updated.summary}**: ${label} (as ${email}).`;
+    }
+
+    // 28
+    case 'calendar_get_recently_modified': {
+      const { updated_min, calendar_id, max_results } = params;
+      if (!updated_min?.trim())
+        throw new Error('Missing required param: updated_min (ISO 8601 timestamp)');
+      const events = await CalendarAPI.getRecentlyModifiedEvents(
+        credentials,
+        calendar_id?.trim() || 'primary',
+        updated_min.trim(),
+        max_results ?? 20,
+      );
+      if (!events.length) return `No events modified since ${updated_min}.`;
+      return `Events modified since ${updated_min} — ${events.length} found:\n\n${events.map((e, i) => formatEvent(e, i + 1)).join('\n\n')}`;
+    }
+
+    // 29
+    case 'calendar_get_recurring_instances': {
+      const { event_id, calendar_id, max_results } = params;
+      if (!event_id?.trim())
+        throw new Error('Missing required param: event_id (recurring event ID)');
+      const instances = await CalendarAPI.getRecurringEventInstances(
+        credentials,
+        calendar_id?.trim() || 'primary',
+        event_id.trim(),
+        max_results ?? 20,
+      );
+      if (!instances.length) return 'No instances found for this recurring event.';
+      return `Instances of recurring event (${instances.length} shown):\n\n${instances.map((e, i) => formatEvent(e, i + 1)).join('\n\n')}`;
+    }
+
+    // 30
+    case 'calendar_get_meeting_hours': {
+      const { time_min, time_max, calendar_id } = params;
+      if (!time_min?.trim()) throw new Error('Missing required param: time_min');
+      if (!time_max?.trim()) throw new Error('Missing required param: time_max');
+      const { count, totalMinutes, totalHours } = await CalendarAPI.getMeetingHours(
+        credentials,
+        calendar_id?.trim() || 'primary',
+        time_min.trim(),
+        time_max.trim(),
+      );
+      if (!count) return `No timed events found between ${time_min} and ${time_max}.`;
+      const hrs = Math.floor(totalMinutes / 60);
+      const mins = totalMinutes % 60;
+      const humanDuration = hrs > 0 ? `${hrs}h ${mins}m` : `${mins}m`;
+      return `Meeting summary (${time_min} → ${time_max}):\n\n• **${count}** timed event${count !== 1 ? 's' : ''}\n• **${humanDuration}** total (${totalHours} hours)`;
+    }
+
     default:
       throw new Error(`Unknown Calendar tool: ${toolName}`);
   }

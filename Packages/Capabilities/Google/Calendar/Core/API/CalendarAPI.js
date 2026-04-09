@@ -476,3 +476,122 @@ export async function getEventsOnDate(creds, dateStr) {
     orderBy: 'startTime',
   });
 }
+
+// 21 – rename only the title
+export async function renameEvent(creds, calendarId = 'primary', eventId, newSummary) {
+  if (!newSummary?.trim()) throw new Error('newSummary is required');
+  return patchEvent(creds, calendarId, eventId, { summary: newSummary.trim() });
+}
+
+// 22 – set event color (colorId 1–11)
+export async function setEventColor(creds, calendarId = 'primary', eventId, colorId) {
+  return patchEvent(creds, calendarId, eventId, { colorId: String(colorId) });
+}
+
+// 23 – this weekend (Sat + Sun)
+export async function getThisWeekendEvents(creds) {
+  const now = new Date();
+  const day = now.getDay(); // 0=Sun,6=Sat
+  const diffToSat = day === 0 ? -1 : 6 - day;
+  const sat = new Date(now.getFullYear(), now.getMonth(), now.getDate() + diffToSat);
+  const sun = new Date(sat);
+  sun.setDate(sat.getDate() + 1);
+  sun.setHours(23, 59, 59);
+  return listEvents(creds, 'primary', {
+    timeMin: sat.toISOString(),
+    timeMax: sun.toISOString(),
+    maxResults: 50,
+    singleEvents: true,
+    orderBy: 'startTime',
+  });
+}
+
+// 24 – replace all reminders on an event
+export async function setEventReminders(creds, calendarId = 'primary', eventId, minutesList = []) {
+  const reminders = minutesList.length
+    ? {
+        useDefault: false,
+        overrides: minutesList.map((m) => ({ method: 'popup', minutes: Number(m) })),
+      }
+    : { useDefault: true };
+  return patchEvent(creds, calendarId, eventId, { reminders });
+}
+
+// 25 – bulk create events from an array
+export async function bulkCreateEvents(creds, calendarId = 'primary', eventDataArray = []) {
+  if (!eventDataArray.length) throw new Error('eventDataArray must not be empty');
+  return Promise.all(eventDataArray.map((ed) => createEvent(creds, calendarId, ed)));
+}
+
+// 26 – get all events that have a Google Meet / video conference link
+export async function getEventsWithVideoConference(creds, days = 30, maxResults = 20) {
+  const events = await getUpcomingEvents(creds, days, maxResults);
+  return events.filter((e) => e.conferenceData?.entryPoints?.length > 0);
+}
+
+// 27 – accept / decline / tentative RSVP on an event
+export async function rsvpEvent(creds, calendarId = 'primary', eventId, selfEmail, status) {
+  const VALID = ['accepted', 'declined', 'tentative'];
+  if (!VALID.includes(status)) throw new Error(`status must be one of: ${VALID.join(', ')}`);
+  const event = await getEvent(creds, calendarId, eventId);
+  const attendees = (event.attendees ?? []).map((a) =>
+    a.email.toLowerCase() === selfEmail.toLowerCase() ? { ...a, responseStatus: status } : a,
+  );
+  return patchEvent(creds, calendarId, eventId, { attendees });
+}
+
+// 28 – get events added / updated since a given timestamp (changelog)
+export async function getRecentlyModifiedEvents(
+  creds,
+  calendarId = 'primary',
+  updatedMinISO,
+  maxResults = 20,
+) {
+  if (!updatedMinISO) throw new Error('updatedMinISO is required');
+  const params = new URLSearchParams({
+    updatedMin: new Date(updatedMinISO).toISOString(),
+    maxResults: String(Math.min(maxResults, 100)),
+    singleEvents: 'true',
+    orderBy: 'updated',
+    showDeleted: 'false',
+  });
+  const data = await calFetch(
+    creds,
+    `${CALENDAR_BASE}/calendars/${encodeURIComponent(calendarId)}/events?${params}`,
+  );
+  return data.items ?? [];
+}
+
+// 29 – list all instances of a recurring event
+export async function getRecurringEventInstances(
+  creds,
+  calendarId = 'primary',
+  recurringEventId,
+  maxResults = 20,
+) {
+  if (!recurringEventId) throw new Error('recurringEventId is required');
+  const params = new URLSearchParams({ maxResults: String(Math.min(maxResults, 100)) });
+  const data = await calFetch(
+    creds,
+    `${CALENDAR_BASE}/calendars/${encodeURIComponent(calendarId)}/events/${recurringEventId}/instances?${params}`,
+  );
+  return data.items ?? [];
+}
+
+// 30 – summarise how many hours of meetings are scheduled in a range
+export async function getMeetingHours(creds, calendarId = 'primary', timeMin, timeMax) {
+  const events = await listEvents(creds, calendarId, {
+    timeMin: new Date(timeMin).toISOString(),
+    timeMax: new Date(timeMax).toISOString(),
+    maxResults: 100,
+    singleEvents: true,
+    orderBy: 'startTime',
+  });
+  const timedEvents = events.filter((e) => e.start?.dateTime && e.end?.dateTime);
+  const totalMs = timedEvents.reduce(
+    (sum, e) => sum + (new Date(e.end.dateTime) - new Date(e.start.dateTime)),
+    0,
+  );
+  const totalMinutes = Math.round(totalMs / 60_000);
+  return { count: timedEvents.length, totalMinutes, totalHours: +(totalMinutes / 60).toFixed(2) };
+}

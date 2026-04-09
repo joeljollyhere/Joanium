@@ -533,4 +533,215 @@ export const CALENDAR_TOOLS = [
       },
     },
   },
+
+  // 21
+  {
+    name: 'calendar_rename_event',
+    description: 'Rename (change the title of) an existing Google Calendar event.',
+    category: 'calendar',
+    parameters: {
+      event_id: { type: 'string', required: true, description: 'ID of the event to rename.' },
+      summary: { type: 'string', required: true, description: 'New title for the event.' },
+      calendar_id: {
+        type: 'string',
+        required: false,
+        description: 'Calendar ID (default: primary).',
+      },
+    },
+  },
+
+  // 22
+  {
+    name: 'calendar_set_event_color',
+    description:
+      'Set the display color of a Google Calendar event using a color ID (1–11: Lavender, Sage, Grape, Flamingo, Banana, Tangerine, Peacock, Graphite, Blueberry, Basil, Tomato).',
+    category: 'calendar',
+    parameters: {
+      event_id: { type: 'string', required: true, description: 'ID of the event to recolor.' },
+      color_id: {
+        type: 'number',
+        required: true,
+        description:
+          'Color ID 1–11. 1=Lavender 2=Sage 3=Grape 4=Flamingo 5=Banana 6=Tangerine 7=Peacock 8=Graphite 9=Blueberry 10=Basil 11=Tomato.',
+      },
+      calendar_id: {
+        type: 'string',
+        required: false,
+        description: 'Calendar ID (default: primary).',
+      },
+    },
+  },
+
+  // 23
+  {
+    name: 'calendar_get_this_weekend',
+    description:
+      "Get all of the user's Google Calendar events for this coming Saturday and Sunday.",
+    category: 'calendar',
+    parameters: {},
+  },
+
+  // 24
+  {
+    name: 'calendar_set_event_reminders',
+    description:
+      'Set popup reminders on an existing event, replacing any existing reminders. Pass an empty minutes list to restore calendar defaults.',
+    category: 'calendar',
+    parameters: {
+      event_id: { type: 'string', required: true, description: 'ID of the event to update.' },
+      minutes: {
+        type: 'string',
+        required: false,
+        description:
+          'Comma-separated list of reminder times in minutes before the event, e.g. "10,30,60". Omit to restore default reminders.',
+      },
+      calendar_id: {
+        type: 'string',
+        required: false,
+        description: 'Calendar ID (default: primary).',
+      },
+    },
+  },
+
+  // 25
+  {
+    name: 'calendar_bulk_create_events',
+    description:
+      'Create multiple Google Calendar events in one call by passing a JSON array of event objects.',
+    category: 'calendar',
+    parameters: {
+      events_json: {
+        type: 'string',
+        required: true,
+        description:
+          'JSON array of event objects. Each must have at minimum "summary" and "startDateTime". Optional fields: endDateTime, description, location, attendees (array), allDay (boolean).',
+      },
+      calendar_id: {
+        type: 'string',
+        required: false,
+        description: 'Calendar ID to create all events on (default: primary).',
+      },
+    },
+  },
+
+  // 26
+  {
+    name: 'calendar_get_video_conference_events',
+    description:
+      'Find upcoming Google Calendar events that have a Google Meet or other video conference link attached.',
+    category: 'calendar',
+    parameters: {
+      days: {
+        type: 'number',
+        required: false,
+        description: 'How many days ahead to scan (default: 30).',
+      },
+      max_results: {
+        type: 'number',
+        required: false,
+        description: 'Max events to check (default: 20).',
+      },
+    },
+  },
+
+  // 27
+  {
+    name: 'calendar_rsvp_event',
+    description:
+      "Update the user's RSVP / attendance response on a Google Calendar event (accepted, declined, or tentative).",
+    category: 'calendar',
+    parameters: {
+      event_id: { type: 'string', required: true, description: 'ID of the event to RSVP to.' },
+      email: {
+        type: 'string',
+        required: true,
+        description: "The user's email address as it appears on the invite.",
+      },
+      status: {
+        type: 'string',
+        required: true,
+        description: "Response status: 'accepted', 'declined', or 'tentative'.",
+      },
+      calendar_id: {
+        type: 'string',
+        required: false,
+        description: 'Calendar ID (default: primary).',
+      },
+    },
+  },
+
+  // 28
+  {
+    name: 'calendar_get_recently_modified',
+    description:
+      'Get a list of calendar events that were created or updated after a given timestamp — useful for spotting recent changes.',
+    category: 'calendar',
+    parameters: {
+      updated_min: {
+        type: 'string',
+        required: true,
+        description: 'ISO 8601 timestamp. Only events modified after this time are returned.',
+      },
+      calendar_id: {
+        type: 'string',
+        required: false,
+        description: 'Calendar ID (default: primary).',
+      },
+      max_results: {
+        type: 'number',
+        required: false,
+        description: 'Max results to return (default: 20).',
+      },
+    },
+  },
+
+  // 29
+  {
+    name: 'calendar_get_recurring_instances',
+    description:
+      'List individual occurrences (instances) of a recurring Google Calendar event by its recurring event ID.',
+    category: 'calendar',
+    parameters: {
+      event_id: {
+        type: 'string',
+        required: true,
+        description: 'The ID of the recurring (master) event.',
+      },
+      calendar_id: {
+        type: 'string',
+        required: false,
+        description: 'Calendar ID (default: primary).',
+      },
+      max_results: {
+        type: 'number',
+        required: false,
+        description: 'Max instances to return (default: 20).',
+      },
+    },
+  },
+
+  // 30
+  {
+    name: 'calendar_get_meeting_hours',
+    description:
+      'Calculate the total number of hours and count of timed meetings scheduled within a given date range.',
+    category: 'calendar',
+    parameters: {
+      time_min: {
+        type: 'string',
+        required: true,
+        description: 'Start of the range in ISO 8601 or YYYY-MM-DD format.',
+      },
+      time_max: {
+        type: 'string',
+        required: true,
+        description: 'End of the range in ISO 8601 or YYYY-MM-DD format.',
+      },
+      calendar_id: {
+        type: 'string',
+        required: false,
+        description: 'Calendar ID (default: primary).',
+      },
+    },
+  },
 ];
