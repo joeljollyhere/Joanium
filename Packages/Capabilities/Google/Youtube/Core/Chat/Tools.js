@@ -339,7 +339,7 @@ export const YOUTUBE_TOOLS = [
       reason_id: {
         type: 'string',
         required: true,
-        description: 'Abuse report reason ID (from YouTube API abuse report reasons).',
+        description: 'Abuse report reason ID (from youtube_get_video_abuse_report_reasons).',
       },
       secondary_reason_id: {
         type: 'string',
@@ -351,6 +351,261 @@ export const YOUTUBE_TOOLS = [
         required: false,
         description: 'Optional additional comments for the report.',
       },
+    },
+  },
+
+  {
+    name: 'youtube_get_disliked_videos',
+    description: 'Get videos the authenticated user has disliked.',
+    category: 'youtube',
+    parameters: {
+      max_results: {
+        type: 'number',
+        required: false,
+        description: 'Max disliked videos to return (default: 20).',
+      },
+    },
+  },
+
+  {
+    name: 'youtube_update_comment',
+    description: 'Edit / update the text of one of your own existing comments.',
+    category: 'youtube',
+    parameters: {
+      comment_id: { type: 'string', required: true, description: 'ID of the comment to edit.' },
+      text: { type: 'string', required: true, description: 'New text for the comment.' },
+    },
+  },
+
+  {
+    name: 'youtube_get_my_activities',
+    description:
+      "Get the authenticated user's own YouTube activity feed — uploads, likes, subscriptions, etc.",
+    category: 'youtube',
+    parameters: {
+      max_results: {
+        type: 'number',
+        required: false,
+        description: 'Max activities to return (default: 20).',
+      },
+    },
+  },
+
+  {
+    name: 'youtube_get_channel_activities',
+    description: "Get a specific channel's public activity feed.",
+    category: 'youtube',
+    parameters: {
+      channel_id: { type: 'string', required: true, description: 'YouTube channel ID.' },
+      max_results: {
+        type: 'number',
+        required: false,
+        description: 'Max activities to return (default: 20).',
+      },
+    },
+  },
+
+  {
+    name: 'youtube_get_channel_playlists',
+    description: 'List all public playlists belonging to any channel by its channel ID.',
+    category: 'youtube',
+    parameters: {
+      channel_id: { type: 'string', required: true, description: 'YouTube channel ID.' },
+      max_results: {
+        type: 'number',
+        required: false,
+        description: 'Max playlists to return (default: 20).',
+      },
+    },
+  },
+
+  {
+    name: 'youtube_get_video_captions',
+    description:
+      'List available caption/subtitle tracks for a YouTube video (language codes, auto-generated flag, etc.).',
+    category: 'youtube',
+    parameters: {
+      video_id: { type: 'string', required: true, description: 'YouTube video ID.' },
+    },
+  },
+
+  {
+    name: 'youtube_search_live_videos',
+    description: 'Search for videos that are currently live-streaming on YouTube.',
+    category: 'youtube',
+    parameters: {
+      query: { type: 'string', required: true, description: 'Search query for live streams.' },
+      max_results: {
+        type: 'number',
+        required: false,
+        description: 'Max results to return (default: 10).',
+      },
+    },
+  },
+
+  {
+    name: 'youtube_get_video_abuse_report_reasons',
+    description:
+      'Fetch all valid abuse-report reason IDs and their labels. Use these IDs when calling youtube_report_video.',
+    category: 'youtube',
+    parameters: {},
+  },
+
+  {
+    name: 'youtube_get_i18n_languages',
+    description: 'Get the list of all languages supported by the YouTube website.',
+    category: 'youtube',
+    parameters: {},
+  },
+
+  {
+    name: 'youtube_get_i18n_regions',
+    description: 'Get the list of all geographic regions/countries supported by YouTube.',
+    category: 'youtube',
+    parameters: {},
+  },
+
+  {
+    name: 'youtube_get_videos_batch',
+    description:
+      'Fetch full details (snippet, statistics, contentDetails) for multiple video IDs in one call. More efficient than calling youtube_get_video one at a time.',
+    category: 'youtube',
+    parameters: {
+      video_ids: {
+        type: 'array',
+        required: true,
+        description: 'Array of YouTube video IDs (up to 50 per call).',
+      },
+    },
+  },
+
+  {
+    name: 'youtube_get_channel_sections',
+    description:
+      "Get the featured sections on a YouTube channel's homepage (e.g. Featured, Popular Uploads, Playlists).",
+    category: 'youtube',
+    parameters: {
+      channel_id: { type: 'string', required: true, description: 'YouTube channel ID.' },
+    },
+  },
+
+  {
+    name: 'youtube_get_comment_by_id',
+    description: 'Fetch a single comment or reply by its comment ID.',
+    category: 'youtube',
+    parameters: {
+      comment_id: { type: 'string', required: true, description: 'Comment ID to look up.' },
+    },
+  },
+
+  {
+    name: 'youtube_get_channel_branding',
+    description:
+      "Get a channel's branding settings including banner image URL, profile color, keywords, and country.",
+    category: 'youtube',
+    parameters: {
+      channel_id: { type: 'string', required: true, description: 'YouTube channel ID.' },
+    },
+  },
+
+  {
+    name: 'youtube_get_playlist_by_id',
+    description:
+      'Get full details for a single playlist by its ID — title, description, item count, privacy status.',
+    category: 'youtube',
+    parameters: {
+      playlist_id: { type: 'string', required: true, description: 'YouTube playlist ID.' },
+    },
+  },
+
+  {
+    name: 'youtube_get_video_tags',
+    description: 'Get the full list of tags/keywords attached to a YouTube video.',
+    category: 'youtube',
+    parameters: {
+      video_id: { type: 'string', required: true, description: 'YouTube video ID.' },
+    },
+  },
+
+  {
+    name: 'youtube_get_comment_threads_by_channel',
+    description: "Get all recent comment threads across all of a channel's videos at once.",
+    category: 'youtube',
+    parameters: {
+      channel_id: { type: 'string', required: true, description: 'YouTube channel ID.' },
+      max_results: {
+        type: 'number',
+        required: false,
+        description: 'Max comment threads to return (default: 20, max: 100).',
+      },
+    },
+  },
+
+  {
+    name: 'youtube_search_videos_advanced',
+    description:
+      'Advanced video search with extra filters: duration (short/medium/long), definition (hd/sd), published date range, region, and language.',
+    category: 'youtube',
+    parameters: {
+      query: { type: 'string', required: true, description: 'Search query string.' },
+      max_results: { type: 'number', required: false, description: 'Max results (default: 10).' },
+      order: {
+        type: 'string',
+        required: false,
+        description: 'Sort: relevance (default), date, viewCount, rating.',
+      },
+      video_duration: {
+        type: 'string',
+        required: false,
+        description:
+          'Duration filter: any (default), short (<4 min), medium (4–20 min), long (>20 min).',
+      },
+      video_definition: {
+        type: 'string',
+        required: false,
+        description: 'Definition filter: any (default), hd, sd.',
+      },
+      published_after: {
+        type: 'string',
+        required: false,
+        description:
+          'ISO 8601 datetime — only return videos published after this date (e.g. 2024-01-01T00:00:00Z).',
+      },
+      published_before: {
+        type: 'string',
+        required: false,
+        description: 'ISO 8601 datetime — only return videos published before this date.',
+      },
+      region_code: {
+        type: 'string',
+        required: false,
+        description: 'ISO 3166-1 alpha-2 region code to bias results.',
+      },
+      relevance_language: {
+        type: 'string',
+        required: false,
+        description: 'ISO 639-1 language code to bias results (e.g. en, hi, ta).',
+      },
+    },
+  },
+
+  {
+    name: 'youtube_get_video_statistics',
+    description:
+      'Lightweight fetch of just the view count, like count, and comment count for a video — without fetching full snippet or content details.',
+    category: 'youtube',
+    parameters: {
+      video_id: { type: 'string', required: true, description: 'YouTube video ID.' },
+    },
+  },
+
+  {
+    name: 'youtube_get_channel_statistics',
+    description:
+      'Lightweight fetch of just the subscriber count, total view count, and video count for a channel.',
+    category: 'youtube',
+    parameters: {
+      channel_id: { type: 'string', required: true, description: 'YouTube channel ID.' },
     },
   },
 ];

@@ -398,6 +398,365 @@ export async function executeYouTubeChatTool(ctx, toolName, params = {}) {
       return `Video \`${video_id}\` reported with reason \`${reason_id}\`.`;
     }
 
+    case 'youtube_get_disliked_videos': {
+      const { max_results = 20 } = params;
+      const videos = await YouTubeAPI.getDislikedVideos(credentials, max_results);
+      if (!videos.length) return 'No disliked videos found.';
+      return `Your disliked videos (${videos.length}):\n\n${videos.map((v, i) => formatVideo(v, i + 1)).join('\n\n')}`;
+    }
+
+    case 'youtube_update_comment': {
+      const { comment_id, text } = params;
+      if (!comment_id?.trim()) throw new Error('Missing required param: comment_id');
+      if (!text?.trim()) throw new Error('Missing required param: text');
+      const updated = await YouTubeAPI.updateComment(credentials, comment_id.trim(), text.trim());
+      return `Comment \`${updated.id}\` updated successfully.\nNew text: "${text.slice(0, 100)}"`;
+    }
+
+    case 'youtube_get_my_activities': {
+      const { max_results = 20 } = params;
+      const items = await YouTubeAPI.getMyActivities(credentials, max_results);
+      if (!items.length) return 'No activity found on your account.';
+      const lines = items.map((item, i) => {
+        const sn = item.snippet ?? {};
+        const cd = item.contentDetails ?? {};
+        const typeKey = Object.keys(cd)[0] ?? 'unknown';
+        const resourceId =
+          cd[typeKey]?.videoId ?? cd[typeKey]?.playlistId ?? cd[typeKey]?.channelId ?? '';
+        return [
+          `${i + 1}. **${sn.title ?? typeKey}** (${sn.type ?? typeKey})`,
+          resourceId ? `   Resource ID: \`${resourceId}\`` : '',
+          sn.publishedAt
+            ? `   ${new Date(sn.publishedAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}`
+            : '',
+        ]
+          .filter(Boolean)
+          .join('\n');
+      });
+      return `Your recent activities (${items.length}):\n\n${lines.join('\n\n')}`;
+    }
+
+    case 'youtube_get_channel_activities': {
+      const { channel_id, max_results = 20 } = params;
+      if (!channel_id?.trim()) throw new Error('Missing required param: channel_id');
+      const items = await YouTubeAPI.getChannelActivities(
+        credentials,
+        channel_id.trim(),
+        max_results,
+      );
+      if (!items.length) return `No public activity found for channel \`${channel_id}\`.`;
+      const lines = items.map((item, i) => {
+        const sn = item.snippet ?? {};
+        const cd = item.contentDetails ?? {};
+        const typeKey = Object.keys(cd)[0] ?? 'unknown';
+        const resourceId = cd[typeKey]?.videoId ?? cd[typeKey]?.playlistId ?? '';
+        return [
+          `${i + 1}. **${sn.title ?? typeKey}** (${sn.type ?? typeKey})`,
+          resourceId ? `   Resource ID: \`${resourceId}\`` : '',
+          sn.publishedAt
+            ? `   ${new Date(sn.publishedAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}`
+            : '',
+        ]
+          .filter(Boolean)
+          .join('\n');
+      });
+      return `Channel \`${channel_id}\` activities (${items.length}):\n\n${lines.join('\n\n')}`;
+    }
+
+    case 'youtube_get_channel_playlists': {
+      const { channel_id, max_results = 20 } = params;
+      if (!channel_id?.trim()) throw new Error('Missing required param: channel_id');
+      const playlists = await YouTubeAPI.getChannelPlaylists(
+        credentials,
+        channel_id.trim(),
+        max_results,
+      );
+      if (!playlists.length) return `No public playlists found for channel \`${channel_id}\`.`;
+      const lines = playlists.map((pl, i) => {
+        const sn = pl.snippet ?? {};
+        const count = pl.contentDetails?.itemCount ?? 0;
+        return `${i + 1}. **${sn.title ?? '(Untitled)'}** — ${count} video${count !== 1 ? 's' : ''}\n   ID: \`${pl.id}\`${sn.description ? `\n   ${sn.description.slice(0, 80)}` : ''}`;
+      });
+      return `Playlists for \`${channel_id}\` (${playlists.length}):\n\n${lines.join('\n\n')}`;
+    }
+
+    case 'youtube_get_video_captions': {
+      const { video_id } = params;
+      if (!video_id?.trim()) throw new Error('Missing required param: video_id');
+      const captions = await YouTubeAPI.getVideoCaptions(credentials, video_id.trim());
+      if (!captions.length) return `No caption tracks found for video \`${video_id}\`.`;
+      const lines = captions.map((c, i) => {
+        const sn = c.snippet ?? {};
+        const flags = [
+          sn.isAutoSynced ? 'auto-synced' : null,
+          sn.isCC ? 'CC' : null,
+          sn.isDraft ? 'draft' : null,
+          sn.isEasyReader ? 'easy-reader' : null,
+          sn.isLarge ? 'large-text' : null,
+        ].filter(Boolean);
+        return `${i + 1}. **${sn.name || sn.language || '(unnamed)'}**\n   Language: \`${sn.language ?? 'unknown'}\`\n   Track kind: ${sn.trackKind ?? 'unknown'}${flags.length ? `\n   Flags: ${flags.join(', ')}` : ''}\n   Caption ID: \`${c.id}\``;
+      });
+      return `Caption tracks for \`${video_id}\` (${captions.length}):\n\n${lines.join('\n\n')}`;
+    }
+
+    case 'youtube_search_live_videos': {
+      const { query, max_results = 10 } = params;
+      if (!query?.trim()) throw new Error('Missing required param: query');
+      const items = await YouTubeAPI.searchLiveVideos(credentials, query.trim(), max_results);
+      if (!items.length) return `No live streams found for "${query}".`;
+      const lines = items.map((item, i) => {
+        const sn = item.snippet ?? {};
+        const videoId = item.id?.videoId ?? '';
+        return [
+          `${i + 1}. **${sn.title ?? '(No title)'}** 🔴 LIVE`,
+          `   Channel: ${sn.channelTitle ?? 'unknown'}`,
+          videoId ? `   ID: \`${videoId}\`` : '',
+          sn.description ? `   ${sn.description.slice(0, 100)}...` : '',
+        ]
+          .filter(Boolean)
+          .join('\n');
+      });
+      return `Live streams for "${query}" (${items.length}):\n\n${lines.join('\n\n')}`;
+    }
+
+    case 'youtube_get_video_abuse_report_reasons': {
+      const reasons = await YouTubeAPI.getVideoAbuseReportReasons(credentials);
+      if (!reasons.length) return 'No abuse report reasons found.';
+      const lines = reasons.map((r) => {
+        const sn = r.snippet ?? {};
+        const secondary = sn.secondaryReasons?.length
+          ? `\n   Secondary reasons:\n${sn.secondaryReasons.map((s) => `     · \`${s.id}\` — ${s.label}`).join('\n')}`
+          : '';
+        return `**\`${r.id}\`** — ${sn.label ?? '(unknown)'}${secondary}`;
+      });
+      return `YouTube abuse report reasons:\n\n${lines.join('\n\n')}`;
+    }
+
+    case 'youtube_get_i18n_languages': {
+      const langs = await YouTubeAPI.getI18nLanguages(credentials);
+      if (!langs.length) return 'No languages found.';
+      const lines = langs.map(
+        (l) => `\`${l.snippet?.hl ?? l.id}\` — ${l.snippet?.name ?? '(unknown)'}`,
+      );
+      return `YouTube supported languages (${langs.length}):\n\n${lines.join('\n')}`;
+    }
+
+    case 'youtube_get_i18n_regions': {
+      const regions = await YouTubeAPI.getI18nRegions(credentials);
+      if (!regions.length) return 'No regions found.';
+      const lines = regions.map(
+        (r) => `\`${r.snippet?.gl ?? r.id}\` — ${r.snippet?.name ?? '(unknown)'}`,
+      );
+      return `YouTube supported regions (${regions.length}):\n\n${lines.join('\n')}`;
+    }
+
+    case 'youtube_get_videos_batch': {
+      const { video_ids } = params;
+      if (!Array.isArray(video_ids) || !video_ids.length)
+        throw new Error('Missing required param: video_ids (array)');
+      const videos = await YouTubeAPI.getVideosBatch(credentials, video_ids);
+      if (!videos.length) return 'No videos found for the provided IDs.';
+      return `Batch video details (${videos.length}):\n\n${videos.map((v, i) => formatVideo(v, i + 1)).join('\n\n')}`;
+    }
+
+    case 'youtube_get_channel_sections': {
+      const { channel_id } = params;
+      if (!channel_id?.trim()) throw new Error('Missing required param: channel_id');
+      const sections = await YouTubeAPI.getChannelSections(credentials, channel_id.trim());
+      if (!sections.length) return `No channel sections found for \`${channel_id}\`.`;
+      const lines = sections.map((s, i) => {
+        const sn = s.snippet ?? {};
+        const cd = s.contentDetails ?? {};
+        const playlists = cd.playlists ?? [];
+        const channels = cd.channels ?? [];
+        return [
+          `${i + 1}. **${sn.title || sn.type || '(unnamed)'}**`,
+          `   Style: ${sn.style ?? 'unknown'} · Type: ${sn.type ?? 'unknown'}`,
+          `   Position: ${sn.position ?? 'unknown'}`,
+          playlists.length ? `   Playlists: ${playlists.map((p) => `\`${p}\``).join(', ')}` : '',
+          channels.length ? `   Channels: ${channels.map((c) => `\`${c}\``).join(', ')}` : '',
+        ]
+          .filter(Boolean)
+          .join('\n');
+      });
+      return `Channel sections for \`${channel_id}\` (${sections.length}):\n\n${lines.join('\n\n')}`;
+    }
+
+    case 'youtube_get_comment_by_id': {
+      const { comment_id } = params;
+      if (!comment_id?.trim()) throw new Error('Missing required param: comment_id');
+      const comment = await YouTubeAPI.getCommentById(credentials, comment_id.trim());
+      if (!comment) return `No comment found with ID \`${comment_id}\`.`;
+      const sn = comment.snippet ?? {};
+      return [
+        `**${sn.authorDisplayName ?? 'Anonymous'}**`,
+        `Comment ID: \`${comment.id}\``,
+        `Text: ${sn.textDisplay?.replace(/<[^>]*>/g, '') ?? '(empty)'}`,
+        `👍 Likes: ${YouTubeAPI.formatCount(sn.likeCount)}`,
+        sn.publishedAt
+          ? `Posted: ${new Date(sn.publishedAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}`
+          : '',
+        sn.updatedAt && sn.updatedAt !== sn.publishedAt
+          ? `Edited: ${new Date(sn.updatedAt).toLocaleDateString()}`
+          : '',
+        sn.videoId ? `Video ID: \`${sn.videoId}\`` : '',
+        sn.parentId ? `Reply to: \`${sn.parentId}\`` : '',
+      ]
+        .filter(Boolean)
+        .join('\n');
+    }
+
+    case 'youtube_get_channel_branding': {
+      const { channel_id } = params;
+      if (!channel_id?.trim()) throw new Error('Missing required param: channel_id');
+      const channel = await YouTubeAPI.getChannelBranding(credentials, channel_id.trim());
+      if (!channel) return `No channel found with ID \`${channel_id}\`.`;
+      const sn = channel.snippet ?? {};
+      const branding = channel.brandingSettings ?? {};
+      const ch = branding.channel ?? {};
+      const img = branding.image ?? {};
+      return [
+        `**${sn.title ?? 'Unknown Channel'}** — Branding`,
+        '',
+        ch.keywords ? `Keywords: ${ch.keywords}` : '',
+        ch.description ? `Description: ${ch.description.slice(0, 200)}` : '',
+        ch.country ? `Country: ${ch.country}` : '',
+        ch.defaultLanguage ? `Default language: ${ch.defaultLanguage}` : '',
+        ch.profileColor ? `Profile color: ${ch.profileColor}` : '',
+        ch.unsubscribedTrailer ? `Trailer video ID: \`${ch.unsubscribedTrailer}\`` : '',
+        img.bannerExternalUrl ? `Banner URL: ${img.bannerExternalUrl}` : '',
+      ]
+        .filter(Boolean)
+        .join('\n');
+    }
+
+    case 'youtube_get_playlist_by_id': {
+      const { playlist_id } = params;
+      if (!playlist_id?.trim()) throw new Error('Missing required param: playlist_id');
+      const pl = await YouTubeAPI.getPlaylistById(credentials, playlist_id.trim());
+      if (!pl) return `No playlist found with ID \`${playlist_id}\`.`;
+      const sn = pl.snippet ?? {};
+      const count = pl.contentDetails?.itemCount ?? 0;
+      return [
+        `**${sn.title ?? '(Untitled)'}**`,
+        sn.description ? sn.description.slice(0, 200) : '',
+        '',
+        `Playlist ID: \`${pl.id}\``,
+        `Channel: ${sn.channelTitle ?? 'unknown'}`,
+        `Videos: ${count}`,
+        `Privacy: ${pl.status?.privacyStatus ?? 'unknown'}`,
+        sn.publishedAt
+          ? `Created: ${new Date(sn.publishedAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}`
+          : '',
+      ]
+        .filter(Boolean)
+        .join('\n');
+    }
+
+    case 'youtube_get_video_tags': {
+      const { video_id } = params;
+      if (!video_id?.trim()) throw new Error('Missing required param: video_id');
+      const tags = await YouTubeAPI.getVideoTags(credentials, video_id.trim());
+      if (!tags.length) return `No tags found for video \`${video_id}\`.`;
+      return `Tags for \`${video_id}\` (${tags.length}):\n\n${tags.map((t, i) => `${i + 1}. ${t}`).join('\n')}`;
+    }
+
+    case 'youtube_get_comment_threads_by_channel': {
+      const { channel_id, max_results = 20 } = params;
+      if (!channel_id?.trim()) throw new Error('Missing required param: channel_id');
+      const threads = await YouTubeAPI.getCommentThreadsByChannel(
+        credentials,
+        channel_id.trim(),
+        max_results,
+      );
+      if (!threads.length) return `No comment threads found for channel \`${channel_id}\`.`;
+      const lines = threads.map((thread, i) => {
+        const top = thread.snippet?.topLevelComment?.snippet ?? {};
+        const replyCount = thread.snippet?.totalReplyCount ?? 0;
+        const videoId = thread.snippet?.videoId ?? '';
+        return [
+          `${i + 1}. **${top.authorDisplayName ?? 'Anonymous'}**${videoId ? ` on \`${videoId}\`` : ''}`,
+          `   ${top.textDisplay?.replace(/<[^>]*>/g, '').slice(0, 200) ?? ''}`,
+          `   👍 ${YouTubeAPI.formatCount(top.likeCount)}${replyCount ? ` · ${replyCount} repl${replyCount !== 1 ? 'ies' : 'y'}` : ''}`,
+        ].join('\n');
+      });
+      return `Recent comment threads on channel \`${channel_id}\` (${threads.length}):\n\n${lines.join('\n\n')}`;
+    }
+
+    case 'youtube_search_videos_advanced': {
+      const {
+        query,
+        max_results = 10,
+        order = 'relevance',
+        video_duration = 'any',
+        video_definition = 'any',
+        published_after = null,
+        published_before = null,
+        region_code = null,
+        relevance_language = null,
+      } = params;
+      if (!query?.trim()) throw new Error('Missing required param: query');
+      const items = await YouTubeAPI.searchVideosAdvanced(credentials, query.trim(), {
+        maxResults: max_results,
+        order,
+        videoDuration: video_duration,
+        videoDefinition: video_definition,
+        publishedAfter: published_after,
+        publishedBefore: published_before,
+        regionCode: region_code,
+        relevanceLanguage: relevance_language,
+      });
+      if (!items.length) return `No videos found for "${query}" with the applied filters.`;
+      const activeFilters = [
+        video_duration !== 'any' ? `duration: ${video_duration}` : null,
+        video_definition !== 'any' ? `definition: ${video_definition}` : null,
+        published_after ? `after: ${published_after}` : null,
+        published_before ? `before: ${published_before}` : null,
+        region_code ? `region: ${region_code}` : null,
+        relevance_language ? `language: ${relevance_language}` : null,
+      ].filter(Boolean);
+      const filterNote = activeFilters.length ? ` [${activeFilters.join(' · ')}]` : '';
+      const videoIds = items.map((item) => item.id?.videoId).filter(Boolean);
+      const detailed = videoIds.length
+        ? await YouTubeAPI.getVideosBatch(credentials, videoIds)
+        : items;
+      const map = Object.fromEntries(detailed.map((v) => [v.id, v]));
+      const lines = items.map((item, i) => {
+        const full = map[item.id?.videoId] ?? item;
+        return formatVideo(full.id ? full : { ...full, id: { videoId: item.id?.videoId } }, i + 1);
+      });
+      return `Advanced search "${query}"${filterNote} — ${items.length} result${items.length !== 1 ? 's' : ''}:\n\n${lines.join('\n\n')}`;
+    }
+
+    case 'youtube_get_video_statistics': {
+      const { video_id } = params;
+      if (!video_id?.trim()) throw new Error('Missing required param: video_id');
+      const stats = await YouTubeAPI.getVideoStatistics(credentials, video_id.trim());
+      if (!stats) return `No statistics found for video \`${video_id}\`.`;
+      return [
+        `Statistics for \`${video_id}\`:`,
+        `👁  Views:    ${YouTubeAPI.formatCount(stats.viewCount)}`,
+        `👍 Likes:    ${YouTubeAPI.formatCount(stats.likeCount)}`,
+        `💬 Comments: ${stats.commentCount ? YouTubeAPI.formatCount(stats.commentCount) : 'disabled'}`,
+        stats.favoriteCount ? `⭐ Favorites: ${YouTubeAPI.formatCount(stats.favoriteCount)}` : '',
+      ]
+        .filter(Boolean)
+        .join('\n');
+    }
+
+    case 'youtube_get_channel_statistics': {
+      const { channel_id } = params;
+      if (!channel_id?.trim()) throw new Error('Missing required param: channel_id');
+      const stats = await YouTubeAPI.getChannelStatistics(credentials, channel_id.trim());
+      if (!stats) return `No statistics found for channel \`${channel_id}\`.`;
+      return [
+        `Statistics for \`${channel_id}\`:`,
+        `👥 Subscribers: ${stats.hiddenSubscriberCount ? 'Hidden' : YouTubeAPI.formatCount(stats.subscriberCount)}`,
+        `👁  Total Views: ${YouTubeAPI.formatCount(stats.viewCount)}`,
+        `🎬 Videos:      ${YouTubeAPI.formatCount(stats.videoCount)}`,
+      ].join('\n');
+    }
+
     default:
       throw new Error(`Unknown YouTube tool: ${toolName}`);
   }

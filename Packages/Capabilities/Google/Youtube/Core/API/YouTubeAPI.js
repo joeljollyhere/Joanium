@@ -341,3 +341,193 @@ export async function reportVideo(creds, videoId, reasonId, secondaryReasonId = 
   });
   return true;
 }
+
+export async function getDislikedVideos(creds, maxResults = 20) {
+  const params = new URLSearchParams({
+    part: 'snippet,statistics,contentDetails',
+    myRating: 'dislike',
+    maxResults: String(Math.min(maxResults, 50)),
+  });
+  const data = await ytFetch(creds, `${YT_BASE}/videos?${params}`);
+  return data.items ?? [];
+}
+
+export async function updateComment(creds, commentId, newText) {
+  return ytFetch(creds, `${YT_BASE}/comments?part=snippet`, {
+    method: 'PUT',
+    body: JSON.stringify({
+      id: commentId,
+      snippet: { textOriginal: newText },
+    }),
+  });
+}
+
+export async function getMyActivities(creds, maxResults = 20) {
+  const params = new URLSearchParams({
+    part: 'snippet,contentDetails',
+    mine: 'true',
+    maxResults: String(Math.min(maxResults, 50)),
+  });
+  const data = await ytFetch(creds, `${YT_BASE}/activities?${params}`);
+  return data.items ?? [];
+}
+
+export async function getChannelActivities(creds, channelId, maxResults = 20) {
+  const params = new URLSearchParams({
+    part: 'snippet,contentDetails',
+    channelId,
+    maxResults: String(Math.min(maxResults, 50)),
+  });
+  const data = await ytFetch(creds, `${YT_BASE}/activities?${params}`);
+  return data.items ?? [];
+}
+
+export async function getChannelPlaylists(creds, channelId, maxResults = 20) {
+  const params = new URLSearchParams({
+    part: 'snippet,contentDetails',
+    channelId,
+    maxResults: String(Math.min(maxResults, 50)),
+  });
+  const data = await ytFetch(creds, `${YT_BASE}/playlists?${params}`);
+  return data.items ?? [];
+}
+
+export async function getVideoCaptions(creds, videoId) {
+  const params = new URLSearchParams({ part: 'snippet', videoId });
+  const data = await ytFetch(creds, `${YT_BASE}/captions?${params}`);
+  return data.items ?? [];
+}
+
+export async function searchLiveVideos(creds, query, maxResults = 10) {
+  const params = new URLSearchParams({
+    part: 'snippet',
+    q: query,
+    type: 'video',
+    eventType: 'live',
+    maxResults: String(Math.min(maxResults, 50)),
+  });
+  const data = await ytFetch(creds, `${YT_BASE}/search?${params}`);
+  return data.items ?? [];
+}
+
+export async function getVideoAbuseReportReasons(creds) {
+  const params = new URLSearchParams({ part: 'snippet', hl: 'en' });
+  const data = await ytFetch(creds, `${YT_BASE}/videoAbuseReportReasons?${params}`);
+  return data.items ?? [];
+}
+
+export async function getI18nLanguages(creds) {
+  const params = new URLSearchParams({ part: 'snippet', hl: 'en' });
+  const data = await ytFetch(creds, `${YT_BASE}/i18nLanguages?${params}`);
+  return data.items ?? [];
+}
+
+export async function getI18nRegions(creds) {
+  const params = new URLSearchParams({ part: 'snippet', hl: 'en' });
+  const data = await ytFetch(creds, `${YT_BASE}/i18nRegions?${params}`);
+  return data.items ?? [];
+}
+
+export async function getVideosBatch(
+  creds,
+  videoIds = [],
+  parts = 'snippet,statistics,contentDetails',
+) {
+  if (!videoIds.length) return [];
+  const chunks = [];
+  for (let i = 0; i < videoIds.length; i += 50) chunks.push(videoIds.slice(i, i + 50));
+  const results = await Promise.all(
+    chunks.map(async (chunk) => {
+      const data = await ytFetch(creds, `${YT_BASE}/videos?part=${parts}&id=${chunk.join(',')}`);
+      return data.items ?? [];
+    }),
+  );
+  return results.flat();
+}
+
+export async function getChannelSections(creds, channelId) {
+  const params = new URLSearchParams({ part: 'snippet,contentDetails', channelId });
+  const data = await ytFetch(creds, `${YT_BASE}/channelSections?${params}`);
+  return data.items ?? [];
+}
+
+export async function getCommentById(creds, commentId) {
+  const params = new URLSearchParams({ part: 'snippet', id: commentId });
+  const data = await ytFetch(creds, `${YT_BASE}/comments?${params}`);
+  return data.items?.[0] ?? null;
+}
+
+export async function getChannelBranding(creds, channelId) {
+  const data = await ytFetch(
+    creds,
+    `${YT_BASE}/channels?part=snippet,brandingSettings,statistics&id=${channelId}`,
+  );
+  return data.items?.[0] ?? null;
+}
+
+export async function getPlaylistById(creds, playlistId) {
+  const params = new URLSearchParams({
+    part: 'snippet,status,contentDetails',
+    id: playlistId,
+  });
+  const data = await ytFetch(creds, `${YT_BASE}/playlists?${params}`);
+  return data.items?.[0] ?? null;
+}
+
+export async function getVideoTags(creds, videoId) {
+  const data = await ytFetch(creds, `${YT_BASE}/videos?part=snippet&id=${videoId}`);
+  const item = data.items?.[0] ?? null;
+  return item?.snippet?.tags ?? [];
+}
+
+export async function getCommentThreadsByChannel(creds, channelId, maxResults = 20) {
+  const params = new URLSearchParams({
+    part: 'snippet',
+    allThreadsRelatedToChannelId: channelId,
+    maxResults: String(Math.min(maxResults, 100)),
+    order: 'time',
+  });
+  const data = await ytFetch(creds, `${YT_BASE}/commentThreads?${params}`);
+  return data.items ?? [];
+}
+
+export async function searchVideosAdvanced(
+  creds,
+  query,
+  {
+    maxResults = 10,
+    order = 'relevance',
+    videoDuration = 'any',
+    videoDefinition = 'any',
+    publishedAfter = null,
+    publishedBefore = null,
+    regionCode = null,
+    relevanceLanguage = null,
+  } = {},
+) {
+  const p = {
+    part: 'snippet',
+    q: query,
+    type: 'video',
+    maxResults: String(Math.min(maxResults, 50)),
+    order,
+    videoDuration,
+    videoDefinition,
+  };
+  if (publishedAfter) p.publishedAfter = publishedAfter;
+  if (publishedBefore) p.publishedBefore = publishedBefore;
+  if (regionCode) p.regionCode = regionCode;
+  if (relevanceLanguage) p.relevanceLanguage = relevanceLanguage;
+  const data = await ytFetch(creds, `${YT_BASE}/search?${new URLSearchParams(p)}`);
+  return data.items ?? [];
+}
+
+export async function getVideoStatistics(creds, videoId) {
+  const data = await ytFetch(creds, `${YT_BASE}/videos?part=statistics&id=${videoId}`);
+  return data.items?.[0]?.statistics ?? null;
+}
+
+export async function getChannelStatistics(creds, channelId) {
+  const data = await ytFetch(creds, `${YT_BASE}/channels?part=statistics&id=${channelId}`);
+  return data.items?.[0]?.statistics ?? null;
+}
