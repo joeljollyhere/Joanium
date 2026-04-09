@@ -32,13 +32,6 @@ export async function getDocument(creds, documentId) {
   return docsFetch(creds, `${DOCS_BASE}/${documentId}`);
 }
 
-export async function createDocument(creds, title) {
-  return docsFetch(creds, DOCS_BASE, {
-    method: 'POST',
-    body: JSON.stringify({ title }),
-  });
-}
-
 export function extractText(doc) {
   const chunks = [];
 
@@ -66,6 +59,43 @@ export function extractText(doc) {
   return { text: full.slice(0, MAX_CONTENT_CHARS), truncated: full.length > MAX_CONTENT_CHARS };
 }
 
+export function extractOutline(doc) {
+  const headings = [];
+  for (const element of doc.body?.content ?? []) {
+    if (!element.paragraph) continue;
+    const style = element.paragraph.paragraphStyle?.namedStyleType ?? '';
+    if (!style.startsWith('HEADING_')) continue;
+    const text = (element.paragraph.elements ?? [])
+      .map((el) => el.textRun?.content ?? '')
+      .join('')
+      .replace(/\n$/, '');
+    if (text) {
+      headings.push({
+        level: parseInt(style.replace('HEADING_', ''), 10),
+        text,
+        startIndex: element.startIndex,
+        endIndex: element.endIndex,
+      });
+    }
+  }
+  return headings;
+}
+
+export function extractNamedRanges(doc) {
+  return Object.entries(doc.namedRanges ?? {}).map(([name, nr]) => ({
+    name,
+    namedRangeId: nr.namedRanges?.[0]?.namedRangeId,
+    ranges: nr.namedRanges?.flatMap((r) => r.ranges ?? []),
+  }));
+}
+
+export async function createDocument(creds, title) {
+  return docsFetch(creds, DOCS_BASE, {
+    method: 'POST',
+    body: JSON.stringify({ title }),
+  });
+}
+
 export async function insertText(creds, documentId, text, index = 1) {
   return docsFetch(creds, `${DOCS_BASE}/${documentId}:batchUpdate`, {
     method: 'POST',
@@ -79,10 +109,21 @@ export async function appendText(creds, documentId, text) {
   const doc = await getDocument(creds, documentId);
   const bodyContent = doc.body?.content ?? [];
   const lastEl = bodyContent.at(-1);
-  // endIndex of last element is the end-of-body sentinel; insert just before it
   const endIndex = lastEl?.endIndex ?? 1;
   const insertIndex = Math.max(1, endIndex - 1);
   return insertText(creds, documentId, '\n' + text, insertIndex);
+}
+
+export async function batchInsertText(creds, documentId, insertions) {
+  const sorted = [...insertions].sort((a, b) => b.index - a.index);
+  return docsFetch(creds, `${DOCS_BASE}/${documentId}:batchUpdate`, {
+    method: 'POST',
+    body: JSON.stringify({
+      requests: sorted.map(({ index, text }) => ({
+        insertText: { location: { index }, text },
+      })),
+    }),
+  });
 }
 
 export async function replaceAllText(creds, documentId, searchText, replacement) {
@@ -105,13 +146,132 @@ export async function deleteContentRange(creds, documentId, startIndex, endIndex
   return docsFetch(creds, `${DOCS_BASE}/${documentId}:batchUpdate`, {
     method: 'POST',
     body: JSON.stringify({
+      requests: [{ deleteContentRange: { range: { startIndex, endIndex } } }],
+    }),
+  });
+}
+
+export async function applyTextStyle(creds, documentId, startIndex, endIndex, textStyle) {
+  const fields = Object.keys(textStyle).join(',');
+  return docsFetch(creds, `${DOCS_BASE}/${documentId}:batchUpdate`, {
+    method: 'POST',
+    body: JSON.stringify({
       requests: [
         {
-          deleteContentRange: {
+          updateTextStyle: {
             range: { startIndex, endIndex },
+            textStyle,
+            fields,
           },
         },
       ],
+    }),
+  });
+}
+
+export async function applyParagraphStyle(creds, documentId, startIndex, endIndex, paragraphStyle) {
+  const fields = Object.keys(paragraphStyle).join(',');
+  return docsFetch(creds, `${DOCS_BASE}/${documentId}:batchUpdate`, {
+    method: 'POST',
+    body: JSON.stringify({
+      requests: [
+        {
+          updateParagraphStyle: {
+            range: { startIndex, endIndex },
+            paragraphStyle,
+            fields,
+          },
+        },
+      ],
+    }),
+  });
+}
+
+export async function createBulletList(
+  creds,
+  documentId,
+  startIndex,
+  endIndex,
+  bulletPreset = 'BULLET_DISC_CIRCLE_SQUARE',
+) {
+  return docsFetch(creds, `${DOCS_BASE}/${documentId}:batchUpdate`, {
+    method: 'POST',
+    body: JSON.stringify({
+      requests: [{ createParagraphBullets: { range: { startIndex, endIndex }, bulletPreset } }],
+    }),
+  });
+}
+
+export async function removeBulletList(creds, documentId, startIndex, endIndex) {
+  return docsFetch(creds, `${DOCS_BASE}/${documentId}:batchUpdate`, {
+    method: 'POST',
+    body: JSON.stringify({
+      requests: [{ deleteParagraphBullets: { range: { startIndex, endIndex } } }],
+    }),
+  });
+}
+
+export async function insertTable(creds, documentId, rows, columns, index) {
+  return docsFetch(creds, `${DOCS_BASE}/${documentId}:batchUpdate`, {
+    method: 'POST',
+    body: JSON.stringify({
+      requests: [{ insertTable: { rows, columns, location: { index } } }],
+    }),
+  });
+}
+
+export async function insertPageBreak(creds, documentId, index) {
+  return docsFetch(creds, `${DOCS_BASE}/${documentId}:batchUpdate`, {
+    method: 'POST',
+    body: JSON.stringify({
+      requests: [{ insertPageBreak: { location: { index } } }],
+    }),
+  });
+}
+
+export async function insertInlineImage(creds, documentId, imageUri, index, widthPt, heightPt) {
+  const objectSize = {};
+  if (widthPt != null) objectSize.width = { magnitude: widthPt, unit: 'PT' };
+  if (heightPt != null) objectSize.height = { magnitude: heightPt, unit: 'PT' };
+  return docsFetch(creds, `${DOCS_BASE}/${documentId}:batchUpdate`, {
+    method: 'POST',
+    body: JSON.stringify({
+      requests: [
+        {
+          insertInlineImage: {
+            uri: imageUri,
+            location: { index },
+            ...(Object.keys(objectSize).length ? { objectSize } : {}),
+          },
+        },
+      ],
+    }),
+  });
+}
+
+export async function createNamedRange(creds, documentId, name, startIndex, endIndex) {
+  return docsFetch(creds, `${DOCS_BASE}/${documentId}:batchUpdate`, {
+    method: 'POST',
+    body: JSON.stringify({
+      requests: [{ createNamedRange: { name, range: { startIndex, endIndex } } }],
+    }),
+  });
+}
+
+export async function deleteNamedRange(creds, documentId, name) {
+  return docsFetch(creds, `${DOCS_BASE}/${documentId}:batchUpdate`, {
+    method: 'POST',
+    body: JSON.stringify({
+      requests: [{ deleteNamedRange: { name } }],
+    }),
+  });
+}
+
+export async function updateDocumentStyle(creds, documentId, documentStyle, fields) {
+  return docsFetch(creds, `${DOCS_BASE}/${documentId}:batchUpdate`, {
+    method: 'POST',
+    body: JSON.stringify({
+      requests: [{ updateDocumentStyle: { documentStyle, fields } }],
     }),
   });
 }
