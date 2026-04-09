@@ -1,6 +1,5 @@
 import { createExecutor } from '../Shared/createExecutor.js';
 import { state } from '../../../../../System/State.js';
-
 import { toolsList } from './ToolsList.js';
 
 function resolveWorkingDirectory(explicitPath) {

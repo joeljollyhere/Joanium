@@ -1,6 +1,5 @@
 import { createExecutor } from '../Shared/createExecutor.js';
 import { fmt, safeJson } from '../Shared/Utils.js';
-
 import { toolsList } from './ToolsList.js';
 
 export const { handles, execute } = createExecutor({

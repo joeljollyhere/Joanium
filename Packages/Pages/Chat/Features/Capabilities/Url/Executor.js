@@ -1,41 +1,6 @@
 import { createExecutor } from '../Shared/createExecutor.js';
 import { toolsList } from './ToolsList.js';
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function parseOrThrow(url) {
-  try {
-    return new URL(url);
-  } catch {
-    throw new Error(`"${url}" is not a valid URL. Include https:// or http://`);
-  }
-}
-
-const TRACKING_PARAMS = new Set([
-  'utm_source',
-  'utm_medium',
-  'utm_campaign',
-  'utm_term',
-  'utm_content',
-  'utm_id',
-  'fbclid',
-  'gclid',
-  'gclsrc',
-  'dclid',
-  'msclkid',
-  'twclid',
-  'igshid',
-  'mc_eid',
-  '_ga',
-  '_gl',
-  'ref',
-  'source',
-  'affiliate_id',
-  'partner_id',
-  'click_id',
-]);
-
-// ─── Executor ─────────────────────────────────────────────────────────────────
+import { parseOrThrow, TRACKING_PARAMS } from './Utils.js';
 
 export const { handles, execute } = createExecutor({
   name: 'UrlExecutor',
