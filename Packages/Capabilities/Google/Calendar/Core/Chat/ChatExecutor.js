@@ -876,6 +876,164 @@ export async function executeCalendarChatTool(ctx, toolName, params = {}) {
       return `**${updated.summary}** extended by ${mins} minutes. New end: ${formatEventTime(updated.end)}.`;
     }
 
+    // 41
+    case 'calendar_shorten_event': {
+      const { event_id, calendar_id, minutes } = params;
+      if (!event_id?.trim()) throw new Error('Missing required param: event_id');
+      const mins = Number(minutes ?? 15);
+      const updated = await CalendarAPI.shortenEvent(
+        credentials,
+        calendar_id?.trim() || 'primary',
+        event_id.trim(),
+        mins,
+      );
+      return `**${updated.summary}** shortened by ${mins} minutes. New end: ${formatEventTime(updated.end)}.`;
+    }
+
+    // 42
+    case 'calendar_get_daily_breakdown': {
+      const { time_min, time_max, calendar_id } = params;
+      if (!time_min?.trim()) throw new Error('Missing required param: time_min');
+      if (!time_max?.trim()) throw new Error('Missing required param: time_max');
+      const breakdown = await CalendarAPI.getDailyBreakdown(
+        credentials,
+        calendar_id?.trim() || 'primary',
+        time_min.trim(),
+        time_max.trim(),
+      );
+      const entries = Object.entries(breakdown).sort(([a], [b]) => a.localeCompare(b));
+      if (!entries.length) return `No events found between ${time_min} and ${time_max}.`;
+      const lines = entries.map(([date, { count, totalMinutes }]) => {
+        const hrs = Math.floor(totalMinutes / 60);
+        const mins = totalMinutes % 60;
+        const duration = totalMinutes > 0 ? ` — ${hrs > 0 ? `${hrs}h ` : ''}${mins}m` : '';
+        return `• **${date}**: ${count} event${count !== 1 ? 's' : ''}${duration}`;
+      });
+      const totalEvents = entries.reduce((s, [, v]) => s + v.count, 0);
+      return `Daily breakdown (${time_min} → ${time_max}) — ${totalEvents} events across ${entries.length} day${entries.length !== 1 ? 's' : ''}:\n\n${lines.join('\n')}`;
+    }
+
+    // 43
+    case 'calendar_get_longest_free_block': {
+      const { date, work_start, work_end } = params;
+      if (!date?.trim()) throw new Error('Missing required param: date');
+      const slot = await CalendarAPI.getLongestFreeBlock(
+        credentials,
+        date.trim(),
+        work_start ?? 9,
+        work_end ?? 18,
+      );
+      if (!slot) return `No free blocks found on ${date} during working hours.`;
+      const fmt = (d) => d.toLocaleString('en-US', { hour: 'numeric', minute: '2-digit' });
+      const mins = Math.round((slot.end - slot.start) / 60_000);
+      const hrs = Math.floor(mins / 60);
+      const rem = mins % 60;
+      const duration = hrs > 0 ? `${hrs}h ${rem}m` : `${rem}m`;
+      return `Longest free block on ${date}: **${fmt(slot.start)} – ${fmt(slot.end)}** (${duration}).`;
+    }
+
+    // 44
+    case 'calendar_copy_day_events': {
+      const { source_date, target_date, calendar_id } = params;
+      if (!source_date?.trim()) throw new Error('Missing required param: source_date');
+      if (!target_date?.trim()) throw new Error('Missing required param: target_date');
+      const created = await CalendarAPI.copyDayEvents(
+        credentials,
+        calendar_id?.trim() || 'primary',
+        source_date.trim(),
+        target_date.trim(),
+      );
+      if (!created.length) return `No events found on ${source_date} to copy.`;
+      const lines = created
+        .map((e, i) => `${i + 1}. **${e.summary || '(No title)'}** — ${formatEventTime(e.start)}`)
+        .join('\n');
+      return `Copied ${created.length} event${created.length !== 1 ? 's' : ''} from ${source_date} to ${target_date}:\n\n${lines}`;
+    }
+
+    // 45
+    case 'calendar_set_event_visibility': {
+      const { event_id, calendar_id, visibility } = params;
+      if (!event_id?.trim()) throw new Error('Missing required param: event_id');
+      if (!visibility?.trim())
+        throw new Error(
+          'Missing required param: visibility (default / public / private / confidential)',
+        );
+      const updated = await CalendarAPI.setEventVisibility(
+        credentials,
+        calendar_id?.trim() || 'primary',
+        event_id.trim(),
+        visibility.trim(),
+      );
+      return `Visibility of **${updated.summary}** set to \`${updated.visibility}\`.`;
+    }
+
+    // 46
+    case 'calendar_set_event_status': {
+      const { event_id, calendar_id, status } = params;
+      if (!event_id?.trim()) throw new Error('Missing required param: event_id');
+      if (!status?.trim())
+        throw new Error('Missing required param: status (confirmed / tentative / cancelled)');
+      const updated = await CalendarAPI.setEventStatus(
+        credentials,
+        calendar_id?.trim() || 'primary',
+        event_id.trim(),
+        status.trim(),
+      );
+      return `Status of **${updated.summary}** set to \`${updated.status}\`.`;
+    }
+
+    // 47
+    case 'calendar_get_solo_events': {
+      const days = params.days ?? 14;
+      const events = await CalendarAPI.getSoloEvents(credentials, days, params.max_results ?? 20);
+      if (!events.length) return `No solo (no-attendee) events found in the next ${days} days.`;
+      return `Solo events (next ${days} days) — ${events.length} found:\n\n${events.map((e, i) => formatEvent(e, i + 1)).join('\n\n')}`;
+    }
+
+    // 48
+    case 'calendar_get_large_meetings': {
+      const min = params.min_attendees ?? 5;
+      const days = params.days ?? 14;
+      const events = await CalendarAPI.getLargeMeetings(
+        credentials,
+        min,
+        days,
+        params.max_results ?? 20,
+      );
+      if (!events.length)
+        return `No meetings with ${min}+ attendees found in the next ${days} days.`;
+      return `Large meetings (${min}+ attendees, next ${days} days) — ${events.length} found:\n\n${events.map((e, i) => formatEvent(e, i + 1)).join('\n\n')}`;
+    }
+
+    // 49
+    case 'calendar_reschedule_event': {
+      const { event_id, calendar_id, new_start_datetime } = params;
+      if (!event_id?.trim()) throw new Error('Missing required param: event_id');
+      if (!new_start_datetime?.trim())
+        throw new Error('Missing required param: new_start_datetime');
+      const updated = await CalendarAPI.rescheduleEvent(
+        credentials,
+        calendar_id?.trim() || 'primary',
+        event_id.trim(),
+        new_start_datetime.trim(),
+      );
+      return `**${updated.summary}** rescheduled.\nNew time: ${formatEventTime(updated.start)} → ${formatEventTime(updated.end)}.`;
+    }
+
+    // 50
+    case 'calendar_get_agenda_summary': {
+      const { time_min, time_max, max_results } = params;
+      if (!time_min?.trim()) throw new Error('Missing required param: time_min');
+      if (!time_max?.trim()) throw new Error('Missing required param: time_max');
+      const agenda = await CalendarAPI.getAgendaSummary(
+        credentials,
+        time_min.trim(),
+        time_max.trim(),
+        max_results ?? 50,
+      );
+      return `Agenda (${time_min} → ${time_max}):\n\n${agenda}`;
+    }
+
     default:
       throw new Error(`Unknown Calendar tool: ${toolName}`);
   }

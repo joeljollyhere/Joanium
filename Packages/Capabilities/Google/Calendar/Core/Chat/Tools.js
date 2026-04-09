@@ -933,4 +933,214 @@ export const CALENDAR_TOOLS = [
       },
     },
   },
+
+  // 41
+  {
+    name: 'calendar_shorten_event',
+    description:
+      "Shorten an event's end time by a given number of minutes without changing its start time.",
+    category: 'calendar',
+    parameters: {
+      event_id: { type: 'string', required: true, description: 'ID of the event to shorten.' },
+      minutes: {
+        type: 'number',
+        required: false,
+        description: 'Minutes to cut from the end (default: 15).',
+      },
+      calendar_id: {
+        type: 'string',
+        required: false,
+        description: 'Calendar ID (default: primary).',
+      },
+    },
+  },
+
+  // 42
+  {
+    name: 'calendar_get_daily_breakdown',
+    description:
+      'Get a day-by-day summary of event counts and total meeting time within a date range.',
+    category: 'calendar',
+    parameters: {
+      time_min: {
+        type: 'string',
+        required: true,
+        description: 'Start of range in ISO 8601 or YYYY-MM-DD format.',
+      },
+      time_max: {
+        type: 'string',
+        required: true,
+        description: 'End of range in ISO 8601 or YYYY-MM-DD format.',
+      },
+      calendar_id: {
+        type: 'string',
+        required: false,
+        description: 'Calendar ID (default: primary).',
+      },
+    },
+  },
+
+  // 43
+  {
+    name: 'calendar_get_longest_free_block',
+    description:
+      'Find the single longest continuous free block of time on a given day within working hours.',
+    category: 'calendar',
+    parameters: {
+      date: {
+        type: 'string',
+        required: true,
+        description: 'Date to analyse in YYYY-MM-DD format.',
+      },
+      work_start: {
+        type: 'number',
+        required: false,
+        description: 'Start of working hours as 24h integer (default: 9).',
+      },
+      work_end: {
+        type: 'number',
+        required: false,
+        description: 'End of working hours as 24h integer (default: 18).',
+      },
+    },
+  },
+
+  // 44
+  {
+    name: 'calendar_copy_day_events',
+    description:
+      'Copy all events from one day to another day, preserving times relative to the new date.',
+    category: 'calendar',
+    parameters: {
+      source_date: {
+        type: 'string',
+        required: true,
+        description: 'The date to copy events from in YYYY-MM-DD format.',
+      },
+      target_date: {
+        type: 'string',
+        required: true,
+        description: 'The date to copy events to in YYYY-MM-DD format.',
+      },
+      calendar_id: {
+        type: 'string',
+        required: false,
+        description: 'Calendar ID (default: primary).',
+      },
+    },
+  },
+
+  // 45
+  {
+    name: 'calendar_set_event_visibility',
+    description:
+      'Set the visibility of a Google Calendar event (default, public, private, or confidential).',
+    category: 'calendar',
+    parameters: {
+      event_id: { type: 'string', required: true, description: 'ID of the event to update.' },
+      visibility: {
+        type: 'string',
+        required: true,
+        description: "Visibility value: 'default', 'public', 'private', or 'confidential'.",
+      },
+      calendar_id: {
+        type: 'string',
+        required: false,
+        description: 'Calendar ID (default: primary).',
+      },
+    },
+  },
+
+  // 46
+  {
+    name: 'calendar_set_event_status',
+    description: 'Set the status of a Google Calendar event (confirmed, tentative, or cancelled).',
+    category: 'calendar',
+    parameters: {
+      event_id: { type: 'string', required: true, description: 'ID of the event to update.' },
+      status: {
+        type: 'string',
+        required: true,
+        description: "Event status: 'confirmed', 'tentative', or 'cancelled'.",
+      },
+      calendar_id: {
+        type: 'string',
+        required: false,
+        description: 'Calendar ID (default: primary).',
+      },
+    },
+  },
+
+  // 47
+  {
+    name: 'calendar_get_solo_events',
+    description: 'Get upcoming events that have no attendees — personal or private blocks.',
+    category: 'calendar',
+    parameters: {
+      days: { type: 'number', required: false, description: 'Days ahead to scan (default: 14).' },
+      max_results: { type: 'number', required: false, description: 'Max results (default: 20).' },
+    },
+  },
+
+  // 48
+  {
+    name: 'calendar_get_large_meetings',
+    description: 'Get upcoming meetings that have at least a minimum number of attendees.',
+    category: 'calendar',
+    parameters: {
+      min_attendees: {
+        type: 'number',
+        required: false,
+        description: 'Minimum attendee count to include (default: 5).',
+      },
+      days: { type: 'number', required: false, description: 'Days ahead to scan (default: 14).' },
+      max_results: { type: 'number', required: false, description: 'Max results (default: 20).' },
+    },
+  },
+
+  // 49
+  {
+    name: 'calendar_reschedule_event',
+    description:
+      'Move an event to a new start time, automatically preserving its original duration.',
+    category: 'calendar',
+    parameters: {
+      event_id: { type: 'string', required: true, description: 'ID of the event to reschedule.' },
+      new_start_datetime: {
+        type: 'string',
+        required: true,
+        description: 'New start date/time in ISO 8601 format.',
+      },
+      calendar_id: {
+        type: 'string',
+        required: false,
+        description: 'Calendar ID (default: primary).',
+      },
+    },
+  },
+
+  // 50
+  {
+    name: 'calendar_get_agenda_summary',
+    description:
+      'Get a clean, plain-text agenda summary of events in a date range — suitable for copying into an email or message.',
+    category: 'calendar',
+    parameters: {
+      time_min: {
+        type: 'string',
+        required: true,
+        description: 'Start of range in ISO 8601 or YYYY-MM-DD format.',
+      },
+      time_max: {
+        type: 'string',
+        required: true,
+        description: 'End of range in ISO 8601 or YYYY-MM-DD format.',
+      },
+      max_results: {
+        type: 'number',
+        required: false,
+        description: 'Max events to include (default: 50).',
+      },
+    },
+  },
 ];
