@@ -1,11 +1,13 @@
 import { BrowserView } from 'electron';
 import { EventEmitter } from 'events';
 
-export const BUILTIN_BROWSER_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36';
+export const BUILTIN_BROWSER_USER_AGENT =
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36';
 
 const BUILTIN_BROWSER_LANGUAGE = 'en-IN,en-US;q=0.9,en;q=0.8';
 const CHROME_CLIENT_HINTS = '"Not(A:Brand";v="99", "Google Chrome";v="134", "Chromium";v="134"';
-const NAVIGATION_ACCEPT = 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8';
+const NAVIGATION_ACCEPT =
+  'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8';
 
 function getAcceptHeader(resourceType = '') {
   switch (resourceType) {
@@ -67,11 +69,10 @@ function getRegistrableDomain(hostname = '') {
   const tld = parts[parts.length - 1];
   const sld = parts[parts.length - 2];
   const thirdLevel = parts[parts.length - 3];
-  const usesCompoundSuffix = tld.length === 2 && ['co', 'com', 'net', 'org', 'gov', 'edu', 'ac'].includes(sld);
+  const usesCompoundSuffix =
+    tld.length === 2 && ['co', 'com', 'net', 'org', 'gov', 'edu', 'ac'].includes(sld);
 
-  return usesCompoundSuffix
-    ? `${thirdLevel}.${sld}.${tld}`
-    : `${sld}.${tld}`;
+  return usesCompoundSuffix ? `${thirdLevel}.${sld}.${tld}` : `${sld}.${tld}`;
 }
 
 function getFetchSite(url = '', initiator = '') {
@@ -82,7 +83,8 @@ function getFetchSite(url = '', initiator = '') {
     const source = new URL(initiator);
 
     if (target.origin === source.origin) return 'same-origin';
-    if (getRegistrableDomain(target.hostname) === getRegistrableDomain(source.hostname)) return 'same-site';
+    if (getRegistrableDomain(target.hostname) === getRegistrableDomain(source.hostname))
+      return 'same-site';
     return 'cross-site';
   } catch {
     return initiator ? 'cross-site' : 'none';
@@ -113,9 +115,11 @@ function buildRequestHeaders(details) {
   const headers = { ...(details.requestHeaders ?? {}) };
   const resourceType = details.resourceType ?? '';
   const isNavigationRequest = resourceType === 'mainFrame' || resourceType === 'subFrame';
-  const referrer = headers.Referer || headers.referer || details.referrer || details.initiator || '';
+  const referrer =
+    headers.Referer || headers.referer || details.referrer || details.initiator || '';
   const acceptHeader = headers.Accept || headers.accept || getAcceptHeader(resourceType);
-  const languageHeader = headers['Accept-Language'] || headers['accept-language'] || BUILTIN_BROWSER_LANGUAGE;
+  const languageHeader =
+    headers['Accept-Language'] || headers['accept-language'] || BUILTIN_BROWSER_LANGUAGE;
 
   headers['User-Agent'] = BUILTIN_BROWSER_USER_AGENT;
   headers['Accept-Language'] = languageHeader;
@@ -226,15 +230,32 @@ export class BrowserPreviewService extends EventEmitter {
       loadOptions.httpReferrer = referrer;
     }
 
-    try {
-      await webContents.loadURL(url, loadOptions);
-    } catch (error) {
-      if (!isHttp2ProtocolError(error)) throw error;
+    await new Promise((resolve) => {
+      const TIMEOUT_MS = 30_000;
+      let settled = false;
 
-      this.setStatus('Retrying with browser compatibility mode...');
-      await webContents.session.clearCache().catch(() => { });
-      await webContents.loadURL(url, loadOptions);
-    }
+      const settle = () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        webContents.removeListener('did-stop-loading', settle);
+        webContents.removeListener('destroyed', settle);
+        resolve();
+      };
+
+      const timer = setTimeout(settle, TIMEOUT_MS);
+      webContents.once('did-stop-loading', settle);
+      webContents.once('destroyed', settle);
+
+      webContents.loadURL(url, loadOptions).catch((err) => {
+        if (!isHttp2ProtocolError(err)) {
+          settle();
+          return;
+        }
+        webContents.session.clearCache().catch(() => {});
+        webContents.loadURL(url, loadOptions).catch(() => settle());
+      });
+    });
 
     return webContents;
   }
@@ -304,7 +325,7 @@ export class BrowserPreviewService extends EventEmitter {
     webContents.setWindowOpenHandler(({ url }) => {
       if (url) {
         this.setStatus(`Opening ${url}`);
-        void this.loadURL(url, { referrer: webContents.getURL() || '' }).catch(() => { });
+        void this.loadURL(url, { referrer: webContents.getURL() || '' }).catch(() => {});
       }
       return { action: 'deny' };
     });
@@ -336,13 +357,16 @@ export class BrowserPreviewService extends EventEmitter {
       this._emitState();
     });
 
-    webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL, isMainFrame) => {
-      if (!isMainFrame) return;
-      this._loading = false;
-      this._url = validatedURL || this._url;
-      this._status = `Load failed (${errorCode}): ${errorDescription}`;
-      this._emitState();
-    });
+    webContents.on(
+      'did-fail-load',
+      (_event, errorCode, errorDescription, validatedURL, isMainFrame) => {
+        if (!isMainFrame) return;
+        this._loading = false;
+        this._url = validatedURL || this._url;
+        this._status = `Load failed (${errorCode}): ${errorDescription}`;
+        this._emitState();
+      },
+    );
 
     const syncLocation = () => {
       this._url = webContents.getURL() || this._url;
@@ -363,6 +387,7 @@ export class BrowserPreviewService extends EventEmitter {
       this._view = null;
       this._viewAttached = false;
       this._loading = false;
+      this._sessionConfigured = false;
       this._emitState();
     });
   }
