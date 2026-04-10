@@ -1,6 +1,4 @@
 export const TASKS_TOOLS = [
-  // ─── ORIGINAL 10 TOOLS ───────────────────────────────────────────────────
-
   {
     name: 'tasks_list_task_lists',
     description: "List all of the user's Google Task lists.",
@@ -124,8 +122,6 @@ export const TASKS_TOOLS = [
       task_list_id: { type: 'string', required: true, description: 'Task list ID to delete.' },
     },
   },
-
-  // ─── NEW TOOL 1 ──────────────────────────────────────────────────────────
   {
     name: 'tasks_get_task',
     description: 'Fetch full details of a single task by its ID.',
@@ -139,8 +135,6 @@ export const TASKS_TOOLS = [
       task_id: { type: 'string', required: true, description: 'Task ID to retrieve.' },
     },
   },
-
-  // ─── NEW TOOL 2 ──────────────────────────────────────────────────────────
   {
     name: 'tasks_get_task_list',
     description: 'Fetch details (title, ID, updated timestamp) of a specific task list.',
@@ -149,8 +143,6 @@ export const TASKS_TOOLS = [
       task_list_id: { type: 'string', required: true, description: 'Task list ID to retrieve.' },
     },
   },
-
-  // ─── NEW TOOL 3 ──────────────────────────────────────────────────────────
   {
     name: 'tasks_search_tasks',
     description: 'Search tasks by keyword within a task list (matches title and notes).',
@@ -169,8 +161,6 @@ export const TASKS_TOOLS = [
       },
     },
   },
-
-  // ─── NEW TOOL 4 ──────────────────────────────────────────────────────────
   {
     name: 'tasks_list_all_tasks',
     description: 'List tasks from every task list in one consolidated view.',
@@ -183,8 +173,6 @@ export const TASKS_TOOLS = [
       },
     },
   },
-
-  // ─── NEW TOOL 5 ──────────────────────────────────────────────────────────
   {
     name: 'tasks_list_overdue_tasks',
     description: 'List all pending tasks whose due date is in the past.',
@@ -197,8 +185,6 @@ export const TASKS_TOOLS = [
       },
     },
   },
-
-  // ─── NEW TOOL 6 ──────────────────────────────────────────────────────────
   {
     name: 'tasks_list_due_today',
     description: 'List all pending tasks due today.',
@@ -211,8 +197,6 @@ export const TASKS_TOOLS = [
       },
     },
   },
-
-  // ─── NEW TOOL 7 ──────────────────────────────────────────────────────────
   {
     name: 'tasks_list_due_this_week',
     description: 'List all pending tasks due within the next 7 days.',
@@ -225,8 +209,6 @@ export const TASKS_TOOLS = [
       },
     },
   },
-
-  // ─── NEW TOOL 8 ──────────────────────────────────────────────────────────
   {
     name: 'tasks_bulk_complete_tasks',
     description: 'Mark multiple tasks as completed in a single call.',
@@ -244,8 +226,6 @@ export const TASKS_TOOLS = [
       },
     },
   },
-
-  // ─── NEW TOOL 9 ──────────────────────────────────────────────────────────
   {
     name: 'tasks_bulk_delete_tasks',
     description: 'Permanently delete multiple tasks in a single call.',
@@ -263,8 +243,6 @@ export const TASKS_TOOLS = [
       },
     },
   },
-
-  // ─── NEW TOOL 10 ─────────────────────────────────────────────────────────
   {
     name: 'tasks_bulk_create_tasks',
     description: 'Create multiple tasks at once in a single call.',
@@ -283,8 +261,6 @@ export const TASKS_TOOLS = [
       },
     },
   },
-
-  // ─── NEW TOOL 11 ─────────────────────────────────────────────────────────
   {
     name: 'tasks_move_task',
     description:
@@ -304,8 +280,6 @@ export const TASKS_TOOLS = [
       },
     },
   },
-
-  // ─── NEW TOOL 12 ─────────────────────────────────────────────────────────
   {
     name: 'tasks_add_subtask',
     description: 'Create a subtask (child task) nested under an existing parent task.',
@@ -330,8 +304,6 @@ export const TASKS_TOOLS = [
       },
     },
   },
-
-  // ─── NEW TOOL 13 ─────────────────────────────────────────────────────────
   {
     name: 'tasks_list_subtasks',
     description: 'List all subtasks (child tasks) of a given parent task.',
@@ -349,8 +321,6 @@ export const TASKS_TOOLS = [
       },
     },
   },
-
-  // ─── NEW TOOL 14 ─────────────────────────────────────────────────────────
   {
     name: 'tasks_rename_task_list',
     description: 'Rename an existing task list.',
@@ -360,8 +330,6 @@ export const TASKS_TOOLS = [
       new_title: { type: 'string', required: true, description: 'New name for the task list.' },
     },
   },
-
-  // ─── NEW TOOL 15 ─────────────────────────────────────────────────────────
   {
     name: 'tasks_duplicate_task',
     description: 'Duplicate an existing task. Optionally copy it into a different task list.',
@@ -380,8 +348,6 @@ export const TASKS_TOOLS = [
       },
     },
   },
-
-  // ─── NEW TOOL 16 ─────────────────────────────────────────────────────────
   {
     name: 'tasks_set_due_today',
     description: "Quickly set a task's due date to today.",
@@ -391,8 +357,6 @@ export const TASKS_TOOLS = [
       task_id: { type: 'string', required: true, description: 'Task ID to update.' },
     },
   },
-
-  // ─── NEW TOOL 17 ─────────────────────────────────────────────────────────
   {
     name: 'tasks_set_due_tomorrow',
     description: "Quickly set a task's due date to tomorrow.",
@@ -402,8 +366,6 @@ export const TASKS_TOOLS = [
       task_id: { type: 'string', required: true, description: 'Task ID to update.' },
     },
   },
-
-  // ─── NEW TOOL 18 ─────────────────────────────────────────────────────────
   {
     name: 'tasks_count_tasks',
     description:
@@ -417,8 +379,6 @@ export const TASKS_TOOLS = [
       },
     },
   },
-
-  // ─── NEW TOOL 19 ─────────────────────────────────────────────────────────
   {
     name: 'tasks_reorder_task',
     description:
@@ -440,7 +400,6 @@ export const TASKS_TOOLS = [
       },
     },
   },
-
   {
     name: 'tasks_export_tasks_markdown',
     description:

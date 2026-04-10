@@ -144,13 +144,13 @@ export async function buildSystemPrompt({
   }
 
   blank();
-  push('## User');
-  push(`- **Name:** ${userName || 'User'}`);
-  push(`- **Local time:** ${timeStr}`);
-  push(`- **Date:** ${getCurrentDate()}`);
-  if (country) push(`- **Country:** ${country}`);
-  push(`- **OS:** ${osName} ${release}`);
-  push(`- **Hardware:** ${cpuCores}-core CPU (${cpuModel}), ${totalMemGB} GB RAM`);
+  push('# User');
+  push(`- Name: ${userName || 'User'}`);
+  push(`- Local time: ${timeStr}`);
+  push(`- Date: ${getCurrentDate()}`);
+  if (country) push(`- Country: ${country}`);
+  push(`- OS: ${osName} ${release}`);
+  push(`- Hardware: ${cpuCores}-core CPU (${cpuModel}), ${totalMemGB} GB RAM`);
 
   const mergedConnectedServices = [...connectedServices];
   if (
@@ -162,14 +162,14 @@ export async function buildSystemPrompt({
     mergedConnectedServices.push(`Gmail (${gmailEmail})`);
   }
   if (mergedConnectedServices.length) {
-    push(`- **Connected services:** ${[...new Set(mergedConnectedServices)].join(', ')}`);
+    push(`- Connected services: ${[...new Set(mergedConnectedServices)].join(', ')}`);
   }
 
   pushExtraSections(lines, extraContextSections);
 
   if (customInstructions?.trim()) {
     blank();
-    push('## Custom Instructions');
+    push('# Custom Instructions');
     push(customInstructions.trim());
   }
 

@@ -3,7 +3,7 @@ const APP_NAME = 'Joanium';
 export const Properties = {
   name: APP_NAME,
   version: '0.1.0',
-  description: 'An Electron app that connects and controls your world',
+  description: 'Your smart, reliable, and friendly personal AI assistant.',
   author: 'Joel Jolly',
   authorUrl: 'https://joeljolly.vercel.app',
   sponsorUrl: 'https://github.com/sponsors/withinJoel',

@@ -353,7 +353,6 @@ export const YOUTUBE_TOOLS = [
       },
     },
   },
-
   {
     name: 'youtube_get_disliked_videos',
     description: 'Get videos the authenticated user has disliked.',
@@ -366,7 +365,6 @@ export const YOUTUBE_TOOLS = [
       },
     },
   },
-
   {
     name: 'youtube_update_comment',
     description: 'Edit / update the text of one of your own existing comments.',
@@ -376,7 +374,6 @@ export const YOUTUBE_TOOLS = [
       text: { type: 'string', required: true, description: 'New text for the comment.' },
     },
   },
-
   {
     name: 'youtube_get_my_activities',
     description:
@@ -390,7 +387,6 @@ export const YOUTUBE_TOOLS = [
       },
     },
   },
-
   {
     name: 'youtube_get_channel_activities',
     description: "Get a specific channel's public activity feed.",
@@ -404,7 +400,6 @@ export const YOUTUBE_TOOLS = [
       },
     },
   },
-
   {
     name: 'youtube_get_channel_playlists',
     description: 'List all public playlists belonging to any channel by its channel ID.',
@@ -418,7 +413,6 @@ export const YOUTUBE_TOOLS = [
       },
     },
   },
-
   {
     name: 'youtube_get_video_captions',
     description:
@@ -428,7 +422,6 @@ export const YOUTUBE_TOOLS = [
       video_id: { type: 'string', required: true, description: 'YouTube video ID.' },
     },
   },
-
   {
     name: 'youtube_search_live_videos',
     description: 'Search for videos that are currently live-streaming on YouTube.',
@@ -442,7 +435,6 @@ export const YOUTUBE_TOOLS = [
       },
     },
   },
-
   {
     name: 'youtube_get_video_abuse_report_reasons',
     description:
@@ -450,21 +442,18 @@ export const YOUTUBE_TOOLS = [
     category: 'youtube',
     parameters: {},
   },
-
   {
     name: 'youtube_get_i18n_languages',
     description: 'Get the list of all languages supported by the YouTube website.',
     category: 'youtube',
     parameters: {},
   },
-
   {
     name: 'youtube_get_i18n_regions',
     description: 'Get the list of all geographic regions/countries supported by YouTube.',
     category: 'youtube',
     parameters: {},
   },
-
   {
     name: 'youtube_get_videos_batch',
     description:
@@ -478,7 +467,6 @@ export const YOUTUBE_TOOLS = [
       },
     },
   },
-
   {
     name: 'youtube_get_channel_sections',
     description:
@@ -488,7 +476,6 @@ export const YOUTUBE_TOOLS = [
       channel_id: { type: 'string', required: true, description: 'YouTube channel ID.' },
     },
   },
-
   {
     name: 'youtube_get_comment_by_id',
     description: 'Fetch a single comment or reply by its comment ID.',
@@ -497,7 +484,6 @@ export const YOUTUBE_TOOLS = [
       comment_id: { type: 'string', required: true, description: 'Comment ID to look up.' },
     },
   },
-
   {
     name: 'youtube_get_channel_branding',
     description:
@@ -507,7 +493,6 @@ export const YOUTUBE_TOOLS = [
       channel_id: { type: 'string', required: true, description: 'YouTube channel ID.' },
     },
   },
-
   {
     name: 'youtube_get_playlist_by_id',
     description:
@@ -517,7 +502,6 @@ export const YOUTUBE_TOOLS = [
       playlist_id: { type: 'string', required: true, description: 'YouTube playlist ID.' },
     },
   },
-
   {
     name: 'youtube_get_video_tags',
     description: 'Get the full list of tags/keywords attached to a YouTube video.',
@@ -526,7 +510,6 @@ export const YOUTUBE_TOOLS = [
       video_id: { type: 'string', required: true, description: 'YouTube video ID.' },
     },
   },
-
   {
     name: 'youtube_get_comment_threads_by_channel',
     description: "Get all recent comment threads across all of a channel's videos at once.",
@@ -540,7 +523,6 @@ export const YOUTUBE_TOOLS = [
       },
     },
   },
-
   {
     name: 'youtube_search_videos_advanced',
     description:
@@ -588,7 +570,6 @@ export const YOUTUBE_TOOLS = [
       },
     },
   },
-
   {
     name: 'youtube_get_video_statistics',
     description:
@@ -598,7 +579,6 @@ export const YOUTUBE_TOOLS = [
       video_id: { type: 'string', required: true, description: 'YouTube video ID.' },
     },
   },
-
   {
     name: 'youtube_get_channel_statistics',
     description:
