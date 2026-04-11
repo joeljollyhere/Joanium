@@ -1,4 +1,4 @@
-import { BrowserView, WebContentsView } from 'electron';
+import { WebContentsView } from 'electron';
 import { EventEmitter } from 'events';
 
 export const BUILTIN_BROWSER_USER_AGENT =
@@ -200,10 +200,6 @@ function getViewWebContents(view) {
   return view?.webContents ?? null;
 }
 
-function isWebContentsViewInstance(view) {
-  return typeof WebContentsView === 'function' && view instanceof WebContentsView;
-}
-
 export class BrowserPreviewService extends EventEmitter {
   constructor() {
     super();
@@ -257,12 +253,9 @@ export class BrowserPreviewService extends EventEmitter {
         backgroundThrottling: false,
       };
 
-      if (typeof WebContentsView === 'function') {
-        this._view = new WebContentsView({ webPreferences });
-        this._view.setVisible(false);
-      } else {
-        this._view = new BrowserView({ webPreferences });
-      }
+      this._view = new WebContentsView({ webPreferences });
+      this._view.setBackgroundColor('#ffffff');
+      this._view.setVisible(false);
 
       const webContents = getViewWebContents(this._view);
       if (!webContents) {
@@ -322,7 +315,9 @@ export class BrowserPreviewService extends EventEmitter {
   show() {
     this._visible = true;
     this._attachIfNeeded();
-    this._emitState();
+    // Force-emit so the renderer always re-syncs bounds when we become visible,
+    // even if the rest of the state hasn't changed.
+    this._emitState(true);
   }
 
   hide() {
@@ -337,12 +332,16 @@ export class BrowserPreviewService extends EventEmitter {
   }
 
   setHostBounds(bounds) {
+    console.log('[BrowserPreviewService] setHostBounds() received:', bounds);
     const normalizedBounds = normalizeHostBounds(bounds);
+    console.log('[BrowserPreviewService] normalizedBounds:', normalizedBounds);
 
     if (areBoundsEqual(this._hostBounds, normalizedBounds)) {
       if (!normalizedBounds) {
         this._detachIfNeeded();
       } else {
+        // Even if bounds are equal, ensure we're attached (handles race where
+        // show() was called before the first bounds message arrived).
         this._attachIfNeeded();
         this._updateBounds();
       }
@@ -470,25 +469,17 @@ export class BrowserPreviewService extends EventEmitter {
   }
 
   _attachIfNeeded() {
-    if (
-      !this._window ||
-      this._window.isDestroyed() ||
-      !this._view ||
-      !this._visible ||
-      !this._hostBounds
-    )
-      return;
+    if (!this._window || this._window.isDestroyed() || !this._view) return;
+
     if (this._viewAttached) {
+      console.log('[BrowserPreviewService] _attachIfNeeded - already attached');
       this._updateBounds();
       return;
     }
 
-    if (isWebContentsViewInstance(this._view)) {
-      this._window.contentView.addChildView(this._view);
-      this._view.setVisible(true);
-    } else {
-      this._window.addBrowserView(this._view);
-    }
+    console.log('[BrowserPreviewService] _attachIfNeeded - attaching view as child');
+    this._window.contentView.addChildView(this._view);
+    this._view.setVisible(true);
 
     this._viewAttached = true;
     this._updateBounds();
@@ -501,25 +492,24 @@ export class BrowserPreviewService extends EventEmitter {
       return;
     }
 
-    if (isWebContentsViewInstance(this._view)) {
-      this._window.contentView.removeChildView(this._view);
-      this._view.setVisible(false);
-    } else {
-      this._window.removeBrowserView(this._view);
-    }
+    this._window.contentView.removeChildView(this._view);
+    this._view.setVisible(false);
 
     this._viewAttached = false;
   }
 
   _updateBounds() {
-    if (!this._view || !this._viewAttached || !this._hostBounds) return;
-    this._view.setBounds(this._hostBounds);
-    if (isWebContentsViewInstance(this._view)) {
-      this._view.setVisible(true);
+    if (!this._view || !this._viewAttached) {
+      console.log(
+        '[BrowserPreviewService] _updateBounds skipped. _viewAttached:',
+        this._viewAttached,
+      );
       return;
     }
-
-    this._view.setAutoResize({ width: false, height: false, horizontal: false, vertical: false });
+    const testBounds = { x: 200, y: 200, width: 600, height: 600 };
+    console.log('[BrowserPreviewService] _updateBounds calling FORCED setBounds:', testBounds);
+    this._view.setBounds(testBounds);
+    this._view.setVisible(true);
   }
 
   _emitState(force = false) {

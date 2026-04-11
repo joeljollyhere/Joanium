@@ -1362,13 +1362,12 @@ export class BrowserMCPServer {
     if (this._consoleListenerAttached) return;
     try {
       const webContents = await this._getWebContents();
-      webContents.on('console-message', (_event, level, message, line, sourceId) => {
-        const levelNames = ['verbose', 'info', 'warning', 'error'];
+      webContents.on('console-message', (_event, details) => {
         this._consoleLogs.push({
-          level: levelNames[level] ?? 'log',
-          message: String(message ?? ''),
-          line: Number(line ?? 0),
-          sourceId: String(sourceId ?? ''),
+          level: String(details.level ?? 'log'),
+          message: String(details.message ?? ''),
+          line: Number(details.lineNumber ?? 0),
+          sourceId: String(details.sourceId ?? ''),
           timestamp: Date.now(),
         });
         // Keep buffer capped at 500 entries

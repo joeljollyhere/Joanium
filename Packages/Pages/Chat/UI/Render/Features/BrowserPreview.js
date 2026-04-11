@@ -164,16 +164,35 @@ export function createBrowserPreviewFeature() {
     });
   }
 
+  // After a CSS show-transition (~220ms), the viewport rect may have been
+  // zero-sized during the initial rAF. This retry fires after the transition
+  // settles so we always send valid bounds to the main process.
+  let delayedBoundsSyncTimer = 0;
+  function scheduleBoundsSyncDelayed(ms = 350) {
+    clearTimeout(delayedBoundsSyncTimer);
+    delayedBoundsSyncTimer = setTimeout(() => {
+      lastBoundsKey = 'uninitialized'; // force re-send even if bounds look same
+      void syncBounds();
+    }, ms);
+  }
+
   function applyState(nextState) {
     const normalizedState = normalizePreviewState(nextState);
     if (hasRenderedState && arePreviewStatesEqual(currentState, normalizedState)) {
       return;
     }
 
+    const wasVisible = currentState.visible;
     currentState = normalizedState;
     hasRenderedState = true;
     syncPreviewUI();
     scheduleBoundsSync();
+
+    // If the preview just became visible, schedule a delayed retry so that
+    // any zero-size rects measured during the CSS open-transition are corrected.
+    if (!wasVisible && normalizedState.visible) {
+      scheduleBoundsSyncDelayed(350);
+    }
   }
 
   async function refreshInitialState() {
@@ -216,6 +235,7 @@ export function createBrowserPreviewFeature() {
     cleanup() {
       disposed = true;
       cancelAnimationFrame(animationFrameId);
+      clearTimeout(delayedBoundsSyncTimer);
       resizeObserver?.disconnect();
       modalObserver?.disconnect();
       window.removeEventListener('resize', scheduleBoundsSync);
