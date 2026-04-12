@@ -1,12 +1,7 @@
 name: Upload Release Asset
-
 on:
   workflow_dispatch:
-
 jobs:
-  # ────────────────────────────────────────────────────────────────────────────
-  # Job 1 — Set version, commit, tag and create the GitHub release
-  # ────────────────────────────────────────────────────────────────────────────
   prepare-release:
     runs-on: ubuntu-latest
     permissions:
@@ -14,18 +9,15 @@ jobs:
     outputs:
       tag_name: ${{ steps.prepare.outputs.tag_name }}
       version: ${{ steps.prepare.outputs.version }}
-
     steps:
       - name: Checkout codebase
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
-
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
           node-version: 'latest'
-
       - name: Set version, commit, tag and create release
         id: prepare
         env:
@@ -37,6 +29,8 @@ jobs:
           BASE_VERSION="$(node ./Scripts/SetVersionByDate.mjs)"
           git fetch --tags
 
+          # Build a valid 3-part semver: YEAR.MONTHDAY.BUILD
+          # e.g. first release on Apr 6 → 2026.406.0, second → 2026.406.1
           COUNTER=0
           VERSION="${BASE_VERSION}.${COUNTER}"
           TAG_NAME="v${VERSION}"
@@ -46,9 +40,10 @@ jobs:
             TAG_NAME="v${VERSION}"
           done
 
-          echo "version=${VERSION}"   >> "$GITHUB_OUTPUT"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "tag_name=${TAG_NAME}" >> "$GITHUB_OUTPUT"
 
+          # Update package.json to the final version (may differ from what SetVersionByDate wrote)
           node -e "
             const fs = require('fs');
             const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
@@ -56,7 +51,7 @@ jobs:
             fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
           "
 
-          git config user.name  "github-actions[bot]"
+          git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
           if ! git diff --quiet package.json; then
@@ -74,9 +69,6 @@ jobs:
             --title "Release ${VERSION}" \
             --notes "v${VERSION} — Yes, I've released another version. Do try to contain your excitement. This one includes refined internals, improved performance, and the quiet elimination of several bugs that clearly stood no chance against me. Commits have been... corrected, stability has been enforced, and the overall experience is now far less embarrassing. You may pull, build, or deploy at your convenience—just don't break it again."
 
-  # ────────────────────────────────────────────────────────────────────────────
-  # Job 2 — Build on each platform and upload artifacts to the release
-  # ────────────────────────────────────────────────────────────────────────────
   build-and-upload:
     needs: prepare-release
     strategy:
@@ -91,22 +83,18 @@ jobs:
     runs-on: ${{ matrix.os }}
     permissions:
       contents: write
-
     steps:
       - name: Checkout tagged release
         uses: actions/checkout@v6
         with:
           ref: ${{ needs.prepare-release.outputs.tag_name }}
-
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
           node-version: 'latest'
-
       - name: Install dependencies
         run: npm install
-
       - name: Build and publish
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: node ./Scripts/Build.mjs ${{ matrix.target }} --publish always --skip-version
+        run: npx electron-builder ${{ matrix.target }} --publish always
