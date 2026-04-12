@@ -8,7 +8,9 @@ import {
   parseRequestedCategories,
   getToolsForCategories,
   buildCategoryLoadResult,
+  buildToolCatalog,
 } from '../Capabilities/Registry/Tools.js';
+const REQUEST_ALL_TOOLS_TOOL_NAME = 'request_all_tools';
 function dedupeTools(tools = []) {
   const byName = new Map();
   for (const tool of tools) tool?.name && (byName.has(tool.name) || byName.set(tool.name, tool));
@@ -216,6 +218,8 @@ async function loadWorkspaceSummary(workspacePath = state.workspacePath) {
           rootPath: workspacePath,
         }),
         value = res?.ok ? res.summary : null;
+      // Cap cache at 5 entries — evict oldest when full
+      if (workspaceSummaryCache.size >= 5) { const [oldKey] = workspaceSummaryCache.keys(); workspaceSummaryCache.delete(oldKey); }
       return (
         workspaceSummaryCache.set(key, {
           value: value,
@@ -236,6 +240,7 @@ async function loadWorkspaceSummary(workspacePath = state.workspacePath) {
         });
     }
   })();
+  if (workspaceSummaryCache.size >= 5) { const [oldKey] = workspaceSummaryCache.keys(); workspaceSummaryCache.delete(oldKey); }
   return (
     workspaceSummaryCache.set(key, {
       value: cached?.value ?? null,
@@ -257,6 +262,8 @@ async function loadAvailableToolsCached(options = {}) {
   const promise = (async () => {
     try {
       const value = await getAvailableTools({ workspacePath: workspacePath });
+      // Cap cache at 10 entries — evict oldest when full
+      if (toolsCache.size >= 10) { const [oldKey] = toolsCache.keys(); toolsCache.delete(oldKey); }
       return (
         toolsCache.set(key, { value: value, expiresAt: Date.now() + 1e4, promise: null }),
         value
@@ -273,6 +280,7 @@ async function loadAvailableToolsCached(options = {}) {
         });
     }
   })();
+  if (toolsCache.size >= 10) { const [oldKey] = toolsCache.keys(); toolsCache.delete(oldKey); }
   return (
     toolsCache.set(key, {
       value: cached?.value ?? [],

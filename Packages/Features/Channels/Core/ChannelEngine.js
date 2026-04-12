@@ -77,13 +77,14 @@ function splitIntoChunks(text, maxLen) {
 }
 export class ChannelEngine {
   constructor(storage) {
-    ((this.storage = storage),
-      (this._data = null),
-      (this._ticker = null),
-      (this._processing = !1),
-      (this._pollFailureState = new Map()),
-      (this._mainWindow = null),
-      (this._pending = new Map()));
+    this.storage = storage;
+    this._data = null;
+    this._ticker = null;
+    this._running = false;
+    this._processing = false;
+    this._pollFailureState = new Map();
+    this._mainWindow = null;
+    this._pending = new Map();
   }
   setWindow(win) {
     this._mainWindow = win;
@@ -96,24 +97,28 @@ export class ChannelEngine {
     return new Promise((resolve, reject) => {
       if (!this._mainWindow || this._mainWindow.isDestroyed())
         return reject(new Error('App window not available'));
+      // Evict oldest pending entry if map is getting large
+      if (this._pending.size >= 50) {
+        const [oldestId] = this._pending.keys();
+        const oldest = this._pending.get(oldestId);
+        this._pending.delete(oldestId);
+        oldest?.reject(new Error('Channel gateway overflow — request dropped'));
+      }
       const id = randomUUID(),
         timer = setTimeout(() => {
-          (this._pending.delete(id), reject(new Error('Channel gateway timeout (240s)')));
-        }, 24e4);
-      (this._pending.set(id, {
-        resolve: (reply) => {
-          (clearTimeout(timer), resolve(reply));
-        },
-        reject: (err) => {
-          (clearTimeout(timer), reject(err));
-        },
-      }),
-        this._mainWindow.webContents.send('channel-incoming', {
-          id: id,
-          channelName: channelName,
-          from: from,
-          text: text,
-        }));
+          this._pending.delete(id);
+          reject(new Error('Channel gateway timeout (120s)'));
+        }, 12e4);
+      this._pending.set(id, {
+        resolve: (reply) => { clearTimeout(timer); resolve(reply); },
+        reject: (err)  => { clearTimeout(timer); reject(err); },
+      });
+      this._mainWindow.webContents.send('channel-incoming', {
+        id,
+        channelName,
+        from,
+        text,
+      });
     });
   }
   _load() {
@@ -259,42 +264,60 @@ export class ChannelEngine {
     return { channelName: data.channel?.name ?? channelId, isMember: isMember };
   }
   start() {
-    (this._load(), (this._ticker = setInterval(() => this._poll(), 5e3)));
+    this._load();
+    this._running = true;
+    this._scheduleNextPoll();
+  }
+  _scheduleNextPoll() {
+    if (!this._running) return;
+    // Self-scheduling: next poll only fires AFTER the current one fully completes
+    this._ticker = setTimeout(async () => {
+      await this._poll();
+      this._scheduleNextPoll();
+    }, 3e3);
   }
   stop() {
-    this._ticker && (clearInterval(this._ticker), (this._ticker = null));
+    this._running = false;
+    if (this._ticker) { clearTimeout(this._ticker); this._ticker = null; }
     for (const [, p] of this._pending) p.reject(new Error('App shutting down'));
     this._pending.clear();
   }
   async _poll() {
-    if (!this._processing) {
-      this._processing = !0;
-      try {
-        (await this._pollTelegram(),
-          await this._pollWhatsApp(),
-          await this._pollDiscord(),
-          await this._pollSlack());
-      } catch (err) {
-        console.error('[ChannelEngine] Poll error:', err.message);
-      } finally {
-        this._processing = !1;
-      }
+    if (this._processing) return;
+    this._processing = true;
+    try {
+      // Single disk read for the whole poll cycle
+      this._load();
+      const ch = this._data.channels;
+      await this._pollTelegram(ch.telegram);
+      await this._pollWhatsApp(ch.whatsapp);
+      await this._pollDiscord(ch.discord);
+      await this._pollSlack(ch.slack);
+    } catch (err) {
+      console.error('[ChannelEngine] Poll error:', err.message);
+    } finally {
+      this._processing = false;
     }
   }
-  async _pollTelegram() {
-    this._load();
-    const cfg = this._data.channels.telegram;
+  async _pollTelegram(cfg) {
     if (!cfg?.enabled || !cfg.botToken) return;
     let messages;
     try {
-      messages = await (async function (cfg) {
+      // AbortController: 15-second hard cap on the HTTP request
+      const ac = new AbortController();
+      const fetchTimer = setTimeout(() => ac.abort(), 15e3);
+      try {
         const base = `https://api.telegram.org/bot${cfg.botToken}`,
           offset = (cfg.lastUpdateId ?? 0) + 1,
-          res = await channelFetch(`${base}/getUpdates?offset=${offset}&timeout=5&limit=10`);
+          // timeout=2 gives headroom below the 3s poll interval — prevents overlap
+          res = await channelFetch(
+            `${base}/getUpdates?offset=${offset}&timeout=2&limit=10`,
+            { signal: ac.signal },
+          );
         if (!res.ok) throw new Error(`Telegram getUpdates HTTP ${res.status}`);
         const data = await res.json();
         if (!data.ok) throw new Error(data.description ?? 'Telegram API error');
-        return (data.result ?? [])
+        messages = (data.result ?? [])
           .filter((u) => u.message?.text)
           .map((u) => ({
             updateId: u.update_id,
@@ -302,13 +325,15 @@ export class ChannelEngine {
             text: u.message.text,
             from: u.message.from?.first_name ?? 'User',
           }));
-      })(cfg);
+      } finally {
+        clearTimeout(fetchTimer);
+      }
     } catch (err) {
       return void this._logPollFailure('Telegram', err);
     }
     if ((this._clearPollFailure('Telegram'), messages.length)) {
       const maxId = Math.max(...messages.map((m) => m.updateId));
-      (maxId >= (cfg.lastUpdateId ?? 0) && (cfg.lastUpdateId = maxId), this._persist());
+      if (maxId >= (cfg.lastUpdateId ?? 0)) { cfg.lastUpdateId = maxId; this._persist(); }
     }
     for (const msg of messages)
       (async () => {
@@ -320,21 +345,18 @@ export class ChannelEngine {
               headers: { 'content-type': 'application/json' },
               body: JSON.stringify({ chat_id: msg.chatId, action: 'typing' }),
             }).catch(() => {});
-          (sendTyping(), (typingInterval = setInterval(sendTyping, 4500)));
+          sendTyping();
+          typingInterval = setInterval(sendTyping, 4500);
           const reply = await this._dispatchToRenderer('telegram', msg.from, msg.text);
-          (clearInterval(typingInterval), await sendTelegram(cfg.botToken, msg.chatId, reply));
+          clearInterval(typingInterval);
+          await sendTelegram(cfg.botToken, msg.chatId, reply);
         } catch (err) {
-          (typingInterval && clearInterval(typingInterval),
-            console.error(
-              `[ChannelEngine] Telegram reply failed (chat ${msg.chatId}):`,
-              err.message,
-            ));
+          if (typingInterval) clearInterval(typingInterval);
+          console.error(`[ChannelEngine] Telegram reply failed (chat ${msg.chatId}):`, err.message);
         }
       })();
   }
-  async _pollWhatsApp() {
-    this._load();
-    const cfg = this._data.channels.whatsapp;
+  async _pollWhatsApp(cfg) {
     if (!(cfg?.enabled && cfg.accountSid && cfg.authToken && cfg.fromNumber)) return;
     let messages;
     try {
@@ -353,12 +375,11 @@ export class ChannelEngine {
               Date.now() - new Date(msg.date_created).getTime() > 2e4 ||
               (messages.push({ sid: msg.sid, from: msg.from, to: msg.to, text: msg.body }),
               seenSids.add(msg.sid)));
-        return (
-          seenSids.size > 500
-            ? (cfg._seenSids = new Set(Array.from(seenSids).slice(-500)))
-            : (cfg._seenSids = seenSids),
-          messages
-        );
+        // Cap at 200 (down from 500) — WhatsApp sandbox rates are low
+        cfg._seenSids = seenSids.size > 200
+          ? new Set(Array.from(seenSids).slice(-200))
+          : seenSids;
+        return messages;
       })(cfg);
     } catch (err) {
       return void this._logPollFailure('WhatsApp', err);
@@ -374,9 +395,7 @@ export class ChannelEngine {
         }
       })();
   }
-  async _pollDiscord() {
-    this._load();
-    const cfg = this._data.channels.discord;
+  async _pollDiscord(cfg) {
     if (!cfg?.enabled || !cfg.botToken || !cfg.channelId) return;
     let messages;
     try {
@@ -437,9 +456,7 @@ export class ChannelEngine {
         }
       })();
   }
-  async _pollSlack() {
-    this._load();
-    const cfg = this._data.channels.slack;
+  async _pollSlack(cfg) {
     if (!cfg?.enabled || !cfg.botToken || !cfg.channelId) return;
     let messages;
     try {

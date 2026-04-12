@@ -4,6 +4,9 @@ import { buildChatPayload } from '../Data/ChatPersistence.js';
 
 let _memorySyncChain = Promise.resolve();
 const _queuedSignatures = new Set();
+// Abort controller for the active memory-sync LLM call — cancelled when a new one starts
+let _activeMemoryAbort = null;
+const _MAX_QUEUED_SIGNATURES = 100;
 
 function buildSnapshotScope(projectId = null) {
   return projectId ? { projectId: projectId } : {};
@@ -166,6 +169,9 @@ function enqueueSnapshotMemorySync(snapshot, label = 'Updating memory...') {
 
   if (_queuedSignatures.has(signature)) return _memorySyncChain;
 
+  // Hard cap — prevent unbounded growth if many chats queue at once
+  if (_queuedSignatures.size >= _MAX_QUEUED_SIGNATURES) _queuedSignatures.clear();
+
   _queuedSignatures.add(signature);
   _memorySyncChain = _memorySyncChain
     .catch(() => {})
@@ -185,6 +191,7 @@ function enqueueSnapshotMemorySync(snapshot, label = 'Updating memory...') {
 
         if (!transcript.trim()) {
           await markSnapshotSynced(snapshot);
+          _queuedSignatures.delete(signature);
           return true;
         }
 
@@ -213,7 +220,14 @@ function enqueueSnapshotMemorySync(snapshot, label = 'Updating memory...') {
           transcript,
         ].join('\n');
 
-        await waitForUserIdle();
+        // Event-loop yield — lets channel events and other microtasks run
+        // before we start a potentially long LLM call
+        await new Promise((r) => setTimeout(r, 0));
+
+        // Abort any in-flight memory sync and start a new one
+        _activeMemoryAbort?.abort();
+        _activeMemoryAbort = new AbortController();
+        const signal = _activeMemoryAbort.signal;
 
         const result = await fetchWithTools(
           provider,
@@ -221,6 +235,7 @@ function enqueueSnapshotMemorySync(snapshot, label = 'Updating memory...') {
           [{ role: 'user', content: prompt, attachments: [] }],
           'You update a personal memory library. Return only valid JSON.',
           [],
+          signal,
         );
 
         if (result.type !== 'text') throw new Error('Memory sync did not return text.');
@@ -241,6 +256,8 @@ function enqueueSnapshotMemorySync(snapshot, label = 'Updating memory...') {
         }
 
         await markSnapshotSynced(snapshot);
+        // Prune on success (was previously only pruned on failure)
+        _queuedSignatures.delete(signature);
         return true;
       } finally {
         hideIndicator();

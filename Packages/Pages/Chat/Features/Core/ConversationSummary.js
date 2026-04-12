@@ -3,6 +3,8 @@ import { fetchWithTools } from '../../../../Features/AI/index.js';
 import { buildChatPayload, currentChatScope } from '../Data/ChatPersistence.js';
 let summaryChain = Promise.resolve();
 const queuedSignatures = new Set();
+// Abort controller for the active compaction LLM call
+let _activeCompactionAbort = null;
 function getSummaryTargetCount(messages = []) {
   return (messages?.length ?? 0) < 14 ? 0 : Math.max(0, messages.length - 8);
 }
@@ -129,14 +131,24 @@ export function queueConversationCompaction() {
                   '',
                   'New older chat turns to merge:',
                   transcript,
-                ].join('\n'),
-                result = await fetchWithTools(
-                  provider,
-                  modelId,
-                  [{ role: 'user', content: prompt, attachments: [] }],
-                  'You compress chat history into a compact, high-retention markdown summary.',
-                  [],
-                );
+                ].join('\n');
+
+              // Event-loop yield — lets channel events dispatch before LLM call
+              await new Promise((r) => setTimeout(r, 0));
+
+              // Abort any previous in-flight compaction
+              _activeCompactionAbort?.abort();
+              _activeCompactionAbort = new AbortController();
+              const compactionSignal = _activeCompactionAbort.signal;
+
+              const result = await fetchWithTools(
+                provider,
+                modelId,
+                [{ role: 'user', content: prompt, attachments: [] }],
+                'You compress chat history into a compact, high-retention markdown summary.',
+                [],
+                compactionSignal,
+              );
               if ('text' !== result.type)
                 throw new Error('Conversation compaction did not return text.');
               const nextSummary = normalizeSummaryText(result.text);
