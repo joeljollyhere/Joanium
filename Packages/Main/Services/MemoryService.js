@@ -7,73 +7,213 @@ const MARKDOWN_FILE_REGEX = /\.md$/i,
   DEFAULT_MEMORY_FILES = [
     {
       filename: 'Memory.md',
-      title: 'Pinned Memory',
-      description: 'Pinned notes.',
-      content: '# Pinned Memory\n',
+      title: 'Memory',
+      description:
+        'Important facts, reminders, and notes the user has explicitly asked to remember long-term. Acts as a persistent sticky note across all conversations.',
+      content: '# Memory\n',
     },
     {
       filename: 'User.md',
       title: 'User Profile',
-      description: 'Profile.',
+      description:
+        'Core identity details about the user — name, age, gender, location, nationality, languages spoken, and any other foundational biographical info.',
       content: '# User Profile\n',
     },
-    { filename: 'Likes.md', title: 'Likes', description: 'Likes.', content: '# Likes\n' },
+    {
+      filename: 'Likes.md',
+      title: 'Likes',
+      description:
+        'Things the user enjoys, prefers, or feels positively about — hobbies, foods, music, media, activities, topics, and general interests.',
+      content: '# Likes\n',
+    },
     {
       filename: 'Dislikes.md',
       title: 'Dislikes',
-      description: 'Dislikes.',
+      description:
+        "Things the user dislikes, finds annoying, or wants to avoid — topics, behaviors, foods, habits, or anything they've expressed negativity toward.",
       content: '# Dislikes\n',
     },
-    { filename: 'Family.md', title: 'Family', description: 'Family.', content: '# Family\n' },
-    { filename: 'Friends.md', title: 'Friends', description: 'Friends.', content: '# Friends\n' },
+    {
+      filename: 'Family.md',
+      title: 'Family',
+      description:
+        "Details about the user's family members — parents, siblings, children, extended family — including names, relationships, and relevant context.",
+      content: '# Family\n',
+    },
+    {
+      filename: 'Friends.md',
+      title: 'Friends',
+      description:
+        "Information about the user's close friends and social circle — names, how they're connected, and any relevant details about those relationships.",
+      content: '# Friends\n',
+    },
     {
       filename: 'Relationships.md',
       title: 'Relationships',
-      description: 'Relationships.',
+      description:
+        'Romantic or significant personal relationships — partner details, relationship status, history, and any context needed to give thoughtful advice.',
       content: '# Relationships\n',
     },
     {
       filename: 'Education.md',
       title: 'Education',
-      description: 'Education.',
+      description:
+        "The user's educational background — schools attended, degrees, fields of study, current courses, academic strengths, and learning style.",
       content: '# Education\n',
     },
-    { filename: 'Career.md', title: 'Career', description: 'Career.', content: '# Career\n' },
-    { filename: 'Goals.md', title: 'Goals', description: 'Goals.', content: '# Goals\n' },
-    { filename: 'Health.md', title: 'Health', description: 'Health.', content: '# Health\n' },
+    {
+      filename: 'Career.md',
+      title: 'Career',
+      description:
+        "The user's professional life — current job, role, company, industry, work history, skills, colleagues, and any ongoing career situations.",
+      content: '# Career\n',
+    },
+    {
+      filename: 'Goals.md',
+      title: 'Goals',
+      description:
+        'Short-term and long-term goals the user is working toward — personal, professional, creative, financial, or health-related ambitions and milestones.',
+      content: '# Goals\n',
+    },
+    {
+      filename: 'Health.md',
+      title: 'Health',
+      description:
+        "The user's physical health information — medical conditions, medications, allergies, diet restrictions, fitness level, and health-related concerns.",
+      content: '# Health\n',
+    },
     {
       filename: 'Wellbeing.md',
       title: 'Wellbeing',
-      description: 'Wellbeing.',
+      description:
+        "The user's mental and emotional state — stress levels, mood patterns, mental health history, therapy, coping strategies, and overall life satisfaction.",
       content: '# Wellbeing\n',
     },
-    { filename: 'Support.md', title: 'Support', description: 'Support.', content: '# Support\n' },
+    {
+      filename: 'Support.md',
+      title: 'Support',
+      description:
+        'How the user prefers to be supported during hard times — whether they want advice, validation, distraction, or just to vent without judgment.',
+      content: '# Support\n',
+    },
     {
       filename: 'Communication.md',
       title: 'Communication',
-      description: 'Style.',
+      description:
+        "The user's preferred communication style — tone (casual/formal), response length, use of humor, directness, and how they like information presented.",
       content: '# Communication\n',
     },
-    { filename: 'Values.md', title: 'Values', description: 'Values.', content: '# Values\n' },
-    { filename: 'Habits.md', title: 'Habits', description: 'Habits.', content: '# Habits\n' },
+    {
+      filename: 'Values.md',
+      title: 'Values',
+      description:
+        "The user's core beliefs, ethics, and principles — what matters most to them in life, morally and personally, including cultural or religious values.",
+      content: '# Values\n',
+    },
+    {
+      filename: 'Habits.md',
+      title: 'Habits',
+      description:
+        "The user's daily routines and recurring behaviors — sleep schedule, morning/evening rituals, productive habits, and habits they're trying to build or break.",
+      content: '# Habits\n',
+    },
     {
       filename: 'ImportantDates.md',
       title: 'Important Dates',
-      description: 'Dates.',
+      description:
+        "Key dates in the user's life — birthdays, anniversaries, deadlines, holidays they celebrate, and other recurring or one-time dates that matter.",
       content: '# Important Dates\n',
     },
-    { filename: 'Finance.md', title: 'Finance', description: 'Finance.', content: '# Finance\n' },
+    {
+      filename: 'Finance.md',
+      title: 'Finance',
+      description:
+        "The user's financial situation — income range, savings, expenses, debts, financial goals, spending habits, and any money-related concerns or context.",
+      content: '# Finance\n',
+    },
     {
       filename: 'Astrology.md',
       title: 'Astrology',
-      description: 'Astrology.',
+      description:
+        "The user's astrological details — sun, moon, and rising signs, birth chart info, and how much they engage with or believe in astrology.",
       content: '# Astrology\n',
     },
     {
       filename: 'Workspace.md',
       title: 'Workspace',
-      description: 'Workspace.',
+      description:
+        "The user's physical and digital work setup — devices, tools, apps, home office or workplace environment, and any setup preferences.",
       content: '# Workspace\n',
+    },
+    {
+      filename: 'Personality.md',
+      title: 'Personality',
+      description:
+        "The user's personality traits and self-perception — introvert/extrovert, MBTI or Enneagram type, how they describe themselves, and how others see them.",
+      content: '# Personality\n',
+    },
+    {
+      filename: 'Pets.md',
+      title: 'Pets',
+      description:
+        "Details about the user's pets — species, names, ages, and any relevant context about their role in the user's life.",
+      content: '# Pets\n',
+    },
+    {
+      filename: 'Travel.md',
+      title: 'Travel',
+      description:
+        "The user's travel history, upcoming trips, dream destinations, travel style (budget vs luxury, solo vs group), and how often they travel.",
+      content: '# Travel\n',
+    },
+    {
+      filename: 'Entertainment.md',
+      title: 'Entertainment',
+      description:
+        'Media the user consumes and enjoys — favorite movies, shows, books, podcasts, games, music genres, and artists they follow.',
+      content: '# Entertainment\n',
+    },
+    {
+      filename: 'Skills.md',
+      title: 'Skills',
+      description:
+        "Practical and creative skills the user has — professional expertise, hobbies they're good at, languages spoken, instruments played, or things they're currently learning.",
+      content: '# Skills\n',
+    },
+    {
+      filename: 'Projects.md',
+      title: 'Projects',
+      description:
+        'Active or ongoing personal and professional projects the user is working on — context, progress, goals, blockers, and collaborators involved.',
+      content: '# Projects\n',
+    },
+    {
+      filename: 'Context.md',
+      title: 'Current Context',
+      description:
+        "What's going on in the user's life right now — recent events, current mood, active stressors, life phase, or anything that gives the AI situational awareness.",
+      content: '# Current Context\n',
+    },
+    {
+      filename: 'Humor.md',
+      title: 'Humor',
+      description:
+        "The user's sense of humor — what makes them laugh, their comedic style (dry, sarcastic, absurd, dark), and humor they dislike or find offensive.",
+      content: '# Humor\n',
+    },
+    {
+      filename: 'Food.md',
+      title: 'Food & Diet',
+      description:
+        "The user's food preferences, dietary restrictions, cuisine favorites, cooking habits, and any foods they love or absolutely avoid.",
+      content: '# Food & Diet\n',
+    },
+    {
+      filename: 'Secrets.md',
+      title: 'Secrets & Confessions',
+      description:
+        'Private thoughts, confessions, or sensitive information the user has shared in confidence — to be handled with care and never brought up unsolicited.',
+      content: '# Secrets & Confessions\n',
     },
   ],
   DEFAULT_FILE_ORDER = new Map(
