@@ -3,6 +3,9 @@
   "version": "2026.412.0",
   "description": "Your AI assistant.",
   "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
   "workspaces": [
     "Core/Electron",
     "Packages/*",
