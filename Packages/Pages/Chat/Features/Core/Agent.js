@@ -1,6 +1,12 @@
 import { state } from '../../../../System/State.js';
 import { fetchWithTools, fetchStreamingWithTools } from '../../../../Features/AI/index.js';
-import { buildToolsPrompt, getAvailableTools } from '../Capabilities/Registry/Tools.js';
+import {
+  buildToolsPrompt,
+  getAvailableTools,
+  filterToolsByUserText,
+  buildToolCatalog,
+  REQUEST_ALL_TOOLS_TOOL_NAME,
+} from '../Capabilities/Registry/Tools.js';
 import { executeTool } from '../Capabilities/Registry/Executors.js';
 
 // Only treat as a leak when the model is *only* meta (or echoes our hidden user blocks).
@@ -694,7 +700,9 @@ function buildBrowserPlanningHint(browserTools = []) {
 
   return [
     'Browser-control MCP tools are connected right now.',
-    'If the user needs live website work such as browsing, navigation, ticket lookup, reservations, form filling, or account actions, plan those browser tools before guessing from static knowledge.',
+    'IMPORTANT: BEFORE planning browser tools, ALWAYS check your tool catalog to see if a specialized tool (e.g. weather, stocks, crypto, flight info) can retrieve the data directly.',
+    'ONLY use browser automation as a fallback if no specialized tool is available, or if the user explicitly asks you to browse a website.',
+    'If the user needs live website work such as browsing, navigation, ticket lookup, reservations, form filling, or account actions (and no API tool is available), plan those browser tools before guessing from static knowledge.',
     'Do not plan a final purchase, booking confirmation, reservation submit, or payment action unless the user has explicitly confirmed that exact irreversible step in the current conversation.',
   ].join('\n');
 }
@@ -710,7 +718,8 @@ function buildBrowserAutomationBlock(browserTools = []) {
   return [
     '## Browser Automation',
     'Connected MCP browser tools are available for live website work.',
-    'Use them when the user needs real-time browsing, ticket availability checks, reservations, form filling, or other website navigation.',
+    'CRITICAL: ALWAYS prefer specialized tools (e.g. weather, finance, wiki, custom tools) over browser automation for fetching data. ONLY use browser automation if no other specific tool can fulfill the request or if the user explicitly asks you to browse a website.',
+    'Use browser tools when the user needs real-time browsing, ticket availability checks, reservations, form filling, or other website navigation.',
     'Prefer the official site or a site the user explicitly names.',
     'If the user only mentions Google or another search engine as a way to reach a clearly known destination site, prefer going directly to the destination site unless they explicitly need search-engine results.',
     'Verify live details such as dates, prices, availability, passenger details, and policies from the page before answering.',
@@ -1019,11 +1028,15 @@ export async function planRequest(messages, options = {}) {
     })
     .join('\n\n');
 
-  const [skills, availableTools, workspaceSummary] = await Promise.all([
+  const _plannerLastUserMsg = [...messages].reverse().find((m) => m?.role === 'user');
+  const _plannerUserText = String(_plannerLastUserMsg?.content ?? '').trim();
+
+  const [skills, rawPlannerTools, workspaceSummary] = await Promise.all([
     loadEnabledSkills(),
     loadAvailableToolsCached({ workspacePath }),
     loadWorkspaceSummary(workspacePath),
   ]);
+  const availableTools = filterToolsByUserText(rawPlannerTools, _plannerUserText);
   const browserTools = getBrowserAutomationTools(availableTools);
   const browserPlanningHint = buildBrowserPlanningHint(browserTools);
   const subAgentPlanningHint = buildSubAgentPlanningHint(availableTools);
@@ -1124,12 +1137,18 @@ export async function agentLoop(
   let rewriteAttempts = 0;
   const totalUsage = { inputTokens: 0, outputTokens: 0 };
 
+  const _lastUserMsg = [...messages].reverse().find((m) => m?.role === 'user');
+  const _userTextForTriggers = String(_lastUserMsg?.content ?? '').trim();
+
   const [rawAvailableTools, allSkills, workspaceSummary] = await Promise.all([
     loadAvailableToolsCached({ workspacePath }),
     loadEnabledSkills(),
     loadWorkspaceSummary(workspacePath),
   ]);
-  const availableTools = filterToolsForRun(rawAvailableTools, options);
+  let availableTools = filterToolsForRun(
+    filterToolsByUserText(rawAvailableTools, _userTextForTriggers),
+    options,
+  );
 
   const toolPrivacyBlock = buildToolPrivacyBlock();
   const personalMemoryPolicyBlock = buildPersonalMemoryPolicyBlock(availableTools);
@@ -1145,6 +1164,14 @@ export async function agentLoop(
     conversationSummary,
     conversationSummaryMessageCount,
   );
+  const toolDiscoveryBlock = [
+    '## Tool Discovery',
+    'Your current toolset is filtered to the most relevant tools for this conversation.',
+    "If the user's request requires specialized capabilities (GitHub, GitLab, Weather, Finance, Google services, etc.) " +
+      'that you do not see in your available tools, call `request_all_tools` to expand your toolset BEFORE responding.',
+    'NEVER tell the user you cannot do something because you lack tools — always try `request_all_tools` first.',
+  ].join('\n');
+
   const basePrompt = [
     systemPrompt,
     toolPrivacyBlock,
@@ -1152,6 +1179,7 @@ export async function agentLoop(
     personalMemoryPolicyBlock,
     subAgentCapabilityBlock,
     browserAutomationBlock,
+    toolDiscoveryBlock,
     selectedSkillBlock,
     conversationSummaryBlock,
     projectHint,
@@ -1160,7 +1188,7 @@ export async function agentLoop(
   ]
     .filter(Boolean)
     .join('\n\n');
-  const toolMetaByName = new Map(availableTools.map((tool) => [tool.name, tool]));
+  let toolMetaByName = new Map(availableTools.map((tool) => [tool.name, tool]));
   let browserApprovalAvailable = hasPendingBrowserApproval(loopMessages);
 
   const candidates = [
@@ -1354,26 +1382,33 @@ export async function agentLoop(
       let success = true;
 
       try {
-        if (isPotentiallyIrreversibleBrowserAction(toolMeta, params)) {
-          if (browserApprovalAvailable) {
-            browserApprovalAvailable = false;
-          } else {
-            const confirmationPrompt = buildBrowserConfirmationPrompt();
-            live.finalize(confirmationPrompt, result.usage, usedProvider, usedModel);
-            return { text: confirmationPrompt, usage: totalUsage, usedProvider, usedModel };
+        if (name === REQUEST_ALL_TOOLS_TOOL_NAME) {
+          // Expand to the full toolset — the AI determined it needs more capabilities
+          availableTools = filterToolsForRun(rawAvailableTools, options);
+          toolMetaByName = new Map(availableTools.map((tool) => [tool.name, tool]));
+          toolResult = buildToolCatalog(availableTools);
+        } else {
+          if (isPotentiallyIrreversibleBrowserAction(toolMeta, params)) {
+            if (browserApprovalAvailable) {
+              browserApprovalAvailable = false;
+            } else {
+              const confirmationPrompt = buildBrowserConfirmationPrompt();
+              live.finalize(confirmationPrompt, result.usage, usedProvider, usedModel);
+              return { text: confirmationPrompt, usage: totalUsage, usedProvider, usedModel };
+            }
           }
-        }
 
-        const executionHooks = live.getToolExecutionHooks?.(name);
-        toolResult = await executeTool(name, params, {
-          ...(typeof executionHooks === 'function'
-            ? { onStage: executionHooks }
-            : executionHooks && typeof executionHooks === 'object'
-              ? executionHooks
-              : {}),
-          workspacePath,
-          signal,
-        });
+          const executionHooks = live.getToolExecutionHooks?.(name);
+          toolResult = await executeTool(name, params, {
+            ...(typeof executionHooks === 'function'
+              ? { onStage: executionHooks }
+              : executionHooks && typeof executionHooks === 'object'
+                ? executionHooks
+                : {}),
+            workspacePath,
+            signal,
+          });
+        }
       } catch (err) {
         success = false;
         toolResult = `Error: ${err.message}`;
