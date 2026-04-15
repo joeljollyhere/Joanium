@@ -47,32 +47,48 @@ function getItemIcon(type) {
     : '\n    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">\n      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" stroke-linecap="round" stroke-linejoin="round" />\n    </svg>\n  ';
 }
 function updateListSurface() {
-  (!(function () {
-    if (!countEl) return;
+  // Count
+  if (countEl) {
     const label = getTypeLabel(_activeType).toLowerCase();
     countEl.textContent = `${_items.length} ${label}`;
-  })(),
-    (function () {
-      if (sourceEl) {
-        if (!_activeOrigin) return ((sourceEl.hidden = !0), void (sourceEl.textContent = ''));
-        try {
-          sourceEl.textContent = new URL(_activeOrigin).host;
-        } catch {
-          sourceEl.textContent = _activeOrigin;
-        }
-        sourceEl.hidden = !1;
+  }
+
+  // Source
+  if (sourceEl) {
+    if (!_activeOrigin) {
+      sourceEl.hidden = true;
+      sourceEl.textContent = '';
+    } else {
+      try {
+        sourceEl.textContent = new URL(_activeOrigin).host;
+      } catch {
+        sourceEl.textContent = _activeOrigin;
       }
-    })());
+      sourceEl.hidden = false;
+    }
+  }
+
   const hasItems = _items.length > 0;
-  (gridEl && (gridEl.hidden = !hasItems),
-    sentinelEl && (sentinelEl.hidden = !_hasMore),
-    hasItems || _loading || !1 === errorEl?.hidden
-      ? (emptyEl.hidden = !0)
-      : ((emptyTitleEl.textContent = `No ${getTypeLabel(_activeType).toLowerCase()} found`),
-        (emptyCopyEl.textContent = searchInput?.value.trim()
-          ? `Nothing matched "${searchInput.value.trim()}". Try a different search or publisher filter.`
-          : `The marketplace did not return any ${getTypeLabel(_activeType).toLowerCase()} for this view yet.`),
-        (emptyEl.hidden = !1)));
+  const hasSearch = !!searchInput?.value.trim();
+  const label = getTypeLabel(_activeType).toLowerCase();
+
+  // Grid + pagination
+  if (gridEl) gridEl.hidden = !hasItems;
+  if (sentinelEl) sentinelEl.hidden = !_hasMore;
+
+  // ✅ Error only when search returns no results
+  if (errorEl) {
+    if (hasSearch && !hasItems && !_loading) {
+      const query = searchInput.value.trim();
+      errorEl.textContent = `No ${label} match "${query}".`;
+      errorEl.hidden = false;
+    } else {
+      errorEl.hidden = true;
+    }
+  }
+
+  // ❌ Disable empty state
+  if (emptyEl) emptyEl.hidden = true;
 }
 function setLoading(visible, copy = 'Loading marketplace...') {
   loadingEl && loadingCopyEl && ((loadingEl.hidden = !visible), (loadingCopyEl.textContent = copy));
