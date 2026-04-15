@@ -432,3 +432,428 @@ export async function searchIssues(creds, orgSlug, query, limit = 25) {
 export async function listFatalIssues(creds, orgSlug, limit = 25) {
   return searchIssues(creds, orgSlug, 'is:unresolved level:fatal', limit);
 }
+
+// ─── Issue Comments ───────────────────────────────────────────────────────────
+
+/** GET /issues/{issue_id}/comments/ */
+export async function listIssueComments(creds, issueId) {
+  const comments = await sFetch(`/issues/${issueId}/comments/`, creds);
+  return (comments ?? []).map((c) => ({
+    id: c.id,
+    text: c.data?.text ?? '',
+    dateCreated: c.dateCreated,
+    user: c.user ? { id: c.user.id, name: c.user.name, email: c.user.email } : null,
+  }));
+}
+
+/** POST /issues/{issue_id}/comments/ */
+export async function createIssueComment(creds, issueId, text) {
+  return sMutate(`/issues/${issueId}/comments/`, creds, 'POST', { text });
+}
+
+/** DELETE /issues/{issue_id}/comments/{comment_id}/ */
+export async function deleteIssueComment(creds, issueId, commentId) {
+  const res = await fetch(`${BASE}/issues/${issueId}/comments/${commentId}/`, {
+    method: 'DELETE',
+    headers: headers(creds),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.detail ?? `Sentry API error: ${res.status}`);
+  }
+  return { deleted: true };
+}
+
+// ─── Similar Issues ───────────────────────────────────────────────────────────
+
+/** GET /issues/{issue_id}/similar-issues/ */
+export async function listSimilarIssues(creds, issueId, limit = 10) {
+  const results = await sFetch(`/issues/${issueId}/similar-issues/?limit=${limit}`, creds);
+  return (results ?? []).map((item) => {
+    const i = Array.isArray(item) ? item[0] : item;
+    return {
+      id: i.id,
+      title: i.title,
+      level: i.level,
+      count: i.count,
+      firstSeen: i.firstSeen,
+      lastSeen: i.lastSeen,
+      permalink: i.permalink,
+    };
+  });
+}
+
+// ─── Issue Attachments ────────────────────────────────────────────────────────
+
+/** GET /issues/{issue_id}/attachments/ */
+export async function listIssueAttachments(creds, issueId) {
+  const attachments = await sFetch(`/issues/${issueId}/attachments/`, creds);
+  return (attachments ?? []).map((a) => ({
+    id: a.id,
+    name: a.name,
+    mimetype: a.mimetype,
+    size: a.size,
+    type: a.type,
+    dateCreated: a.dateCreated,
+    event: a.event ? { id: a.event.id, eventID: a.event.eventID } : null,
+  }));
+}
+
+// ─── Issue Tag Values ─────────────────────────────────────────────────────────
+
+/** GET /issues/{issue_id}/tags/{key}/values/ */
+export async function listIssueTagValues(creds, issueId, key, limit = 25) {
+  const values = await sFetch(
+    `/issues/${issueId}/tags/${encodeURIComponent(key)}/values/?limit=${limit}`,
+    creds,
+  );
+  return (values ?? []).map((v) => ({
+    value: v.value,
+    count: v.count,
+    firstSeen: v.firstSeen,
+    lastSeen: v.lastSeen,
+  }));
+}
+
+// ─── Issue Mutations ──────────────────────────────────────────────────────────
+
+/** PUT /organizations/{org_slug}/issues/{issue_id}/ — reopen */
+export async function reopenIssue(creds, orgSlug, issueId) {
+  return sMutate(`/organizations/${orgSlug}/issues/${issueId}/`, creds, 'PUT', {
+    status: 'unresolved',
+  });
+}
+
+/** PUT /organizations/{org_slug}/issues/{issue_id}/ — bookmark / unbookmark */
+export async function bookmarkIssue(creds, orgSlug, issueId, bookmark = true) {
+  return sMutate(`/organizations/${orgSlug}/issues/${issueId}/`, creds, 'PUT', {
+    isBookmarked: bookmark,
+  });
+}
+
+/** DELETE /organizations/{org_slug}/issues/{issue_id}/ */
+export async function deleteIssue(creds, orgSlug, issueId) {
+  const res = await fetch(`${BASE}/organizations/${orgSlug}/issues/${issueId}/`, {
+    method: 'DELETE',
+    headers: headers(creds),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.detail ?? `Sentry API error: ${res.status}`);
+  }
+  return { deleted: true };
+}
+
+// ─── Project Tags, Keys & Ownership ──────────────────────────────────────────
+
+/** GET /projects/{org_slug}/{project_slug}/tags/ */
+export async function listProjectTags(creds, orgSlug, projectSlug) {
+  const tags = await sFetch(`/projects/${orgSlug}/${projectSlug}/tags/`, creds);
+  return (tags ?? []).map((t) => ({
+    key: t.key,
+    name: t.name,
+    totalValues: t.totalValues,
+  }));
+}
+
+/** GET /projects/{org_slug}/{project_slug}/keys/ */
+export async function listProjectKeys(creds, orgSlug, projectSlug) {
+  const keys = await sFetch(`/projects/${orgSlug}/${projectSlug}/keys/`, creds);
+  return (keys ?? []).map((k) => ({
+    id: k.id,
+    name: k.name,
+    isActive: k.isActive,
+    dsn: k.dsn ? { public: k.dsn.public, csp: k.dsn.csp, security: k.dsn.security } : null,
+    dateCreated: k.dateCreated,
+  }));
+}
+
+/** GET /projects/{org_slug}/{project_slug}/ownership/ */
+export async function getProjectOwnership(creds, orgSlug, projectSlug) {
+  const o = await sFetch(`/projects/${orgSlug}/${projectSlug}/ownership/`, creds);
+  return {
+    raw: o.raw ?? '',
+    fallthrough: o.fallthrough ?? false,
+    dateCreated: o.dateCreated,
+    lastUpdated: o.lastUpdated,
+  };
+}
+
+/** GET /projects/{org_slug}/{project_slug}/events/{event_id}/ */
+export async function getProjectEvent(creds, orgSlug, projectSlug, eventId) {
+  const e = await sFetch(`/projects/${orgSlug}/${projectSlug}/events/${eventId}/`, creds);
+  return {
+    id: e.id,
+    eventID: e.eventID,
+    title: e.title,
+    platform: e.platform,
+    dateCreated: e.dateCreated,
+    message: e.message,
+    groupID: e.groupID,
+    user: e.user ? { id: e.user.id, email: e.user.email } : null,
+    tags: (e.tags ?? []).map((t) => ({ key: t.key, value: t.value })),
+    entries: e.entries ?? [],
+  };
+}
+
+/** GET /projects/{org_slug}/{project_slug}/hooks/ */
+export async function listProjectServiceHooks(creds, orgSlug, projectSlug) {
+  const hooks = await sFetch(`/projects/${orgSlug}/${projectSlug}/hooks/`, creds);
+  return (hooks ?? []).map((h) => ({
+    id: h.id,
+    url: h.url,
+    status: h.status,
+    events: h.events ?? [],
+    dateCreated: h.dateCreated,
+  }));
+}
+
+/** GET /projects/{org_slug}/{project_slug}/releases/{version}/files/ */
+export async function listReleaseFiles(creds, orgSlug, projectSlug, version) {
+  const files = await sFetch(
+    `/projects/${orgSlug}/${projectSlug}/releases/${encodeURIComponent(version)}/files/`,
+    creds,
+  );
+  return (files ?? []).map((f) => ({
+    id: f.id,
+    name: f.name,
+    dist: f.dist,
+    size: f.size,
+    dateCreated: f.dateCreated,
+  }));
+}
+
+// ─── Monitors (Cron Jobs) ─────────────────────────────────────────────────────
+
+/** GET /organizations/{org_slug}/monitors/ */
+export async function listMonitors(creds, orgSlug) {
+  const monitors = await sFetch(`/organizations/${orgSlug}/monitors/`, creds);
+  return (monitors ?? []).map((m) => ({
+    id: m.id,
+    slug: m.slug,
+    name: m.name,
+    status: m.status,
+    type: m.type,
+    project: m.project?.slug ?? null,
+    nextCheckIn: m.nextCheckIn,
+    lastCheckIn: m.lastCheckIn,
+    dateCreated: m.dateCreated,
+  }));
+}
+
+/** GET /organizations/{org_slug}/monitors/{monitor_slug}/ */
+export async function getMonitor(creds, orgSlug, monitorSlug) {
+  const m = await sFetch(`/organizations/${orgSlug}/monitors/${monitorSlug}/`, creds);
+  return {
+    id: m.id,
+    slug: m.slug,
+    name: m.name,
+    status: m.status,
+    type: m.type,
+    config: m.config ?? {},
+    project: m.project ? { id: m.project.id, slug: m.project.slug } : null,
+    nextCheckIn: m.nextCheckIn,
+    lastCheckIn: m.lastCheckIn,
+    dateCreated: m.dateCreated,
+    environments: (m.environments ?? []).map((e) => ({
+      name: e.name,
+      status: e.status,
+      lastCheckIn: e.lastCheckIn,
+    })),
+  };
+}
+
+/** GET /organizations/{org_slug}/monitors/{monitor_slug}/checkins/ */
+export async function listMonitorCheckins(creds, orgSlug, monitorSlug, limit = 25) {
+  const checkins = await sFetch(
+    `/organizations/${orgSlug}/monitors/${monitorSlug}/checkins/?limit=${limit}`,
+    creds,
+  );
+  return (checkins ?? []).map((c) => ({
+    id: c.id,
+    status: c.status,
+    duration: c.duration,
+    dateCreated: c.dateCreated,
+    environment: c.environment,
+  }));
+}
+
+// ─── Dashboards ───────────────────────────────────────────────────────────────
+
+/** GET /organizations/{org_slug}/dashboards/ */
+export async function listDashboards(creds, orgSlug) {
+  const dashboards = await sFetch(`/organizations/${orgSlug}/dashboards/`, creds);
+  return (dashboards ?? []).map((d) => ({
+    id: d.id,
+    title: d.title,
+    dateCreated: d.dateCreated,
+    createdBy: d.createdBy ? { id: d.createdBy.id, name: d.createdBy.name } : null,
+    widgetCount: Array.isArray(d.widgets) ? d.widgets.length : 0,
+  }));
+}
+
+/** GET /organizations/{org_slug}/dashboards/{dashboard_id}/ */
+export async function getDashboard(creds, orgSlug, dashboardId) {
+  const d = await sFetch(`/organizations/${orgSlug}/dashboards/${dashboardId}/`, creds);
+  return {
+    id: d.id,
+    title: d.title,
+    dateCreated: d.dateCreated,
+    createdBy: d.createdBy ? { id: d.createdBy.id, name: d.createdBy.name } : null,
+    widgets: (d.widgets ?? []).map((w) => ({
+      id: w.id,
+      title: w.title,
+      displayType: w.displayType,
+      queries: (w.queries ?? []).map((q) => ({
+        name: q.name,
+        conditions: q.conditions,
+        fields: q.fields,
+      })),
+    })),
+  };
+}
+
+// ─── Saved Searches ───────────────────────────────────────────────────────────
+
+/** GET /organizations/{org_slug}/searches/ */
+export async function listSavedSearches(creds, orgSlug) {
+  const searches = await sFetch(`/organizations/${orgSlug}/searches/`, creds);
+  return (searches ?? []).map((s) => ({
+    id: s.id,
+    name: s.name,
+    query: s.query,
+    type: s.type,
+    isDefault: s.isDefault,
+    dateCreated: s.dateCreated,
+  }));
+}
+
+// ─── Integrations ─────────────────────────────────────────────────────────────
+
+/** GET /organizations/{org_slug}/integrations/ */
+export async function listIntegrations(creds, orgSlug) {
+  const integrations = await sFetch(`/organizations/${orgSlug}/integrations/`, creds);
+  return (integrations ?? []).map((i) => ({
+    id: i.id,
+    name: i.name,
+    provider: i.provider ? { key: i.provider.key, name: i.provider.name } : null,
+    status: i.status,
+    domainName: i.domainName,
+    dateCreated: i.dateCreated,
+  }));
+}
+
+// ─── Release Commits ──────────────────────────────────────────────────────────
+
+/** GET /organizations/{org_slug}/releases/{version}/commits/ */
+export async function listReleaseCommits(creds, orgSlug, version) {
+  const commits = await sFetch(
+    `/organizations/${orgSlug}/releases/${encodeURIComponent(version)}/commits/`,
+    creds,
+  );
+  return (commits ?? []).map((c) => ({
+    id: c.id,
+    message: c.message,
+    dateCreated: c.dateCreated,
+    author: c.author ? { name: c.author.name, email: c.author.email } : null,
+    repository: c.repository?.name ?? null,
+  }));
+}
+
+// ─── Team Members & Member Details ───────────────────────────────────────────
+
+/** GET /teams/{org_slug}/{team_slug}/members/ */
+export async function listTeamMembers(creds, orgSlug, teamSlug) {
+  const members = await sFetch(`/teams/${orgSlug}/${teamSlug}/members/`, creds);
+  return (members ?? []).map((m) => ({
+    id: m.id,
+    name: m.name,
+    email: m.email,
+    role: m.role,
+    dateCreated: m.dateCreated,
+  }));
+}
+
+/** GET /organizations/{org_slug}/members/{member_id}/ */
+export async function getMember(creds, orgSlug, memberId) {
+  const m = await sFetch(`/organizations/${orgSlug}/members/${memberId}/`, creds);
+  return {
+    id: m.id,
+    email: m.email,
+    name: m.name,
+    role: m.role,
+    roleName: m.roleName,
+    dateCreated: m.dateCreated,
+    pending: m.pending ?? false,
+    teams: m.teams ?? [],
+    teamRoles: m.teamRoles ?? [],
+  };
+}
+
+// ─── Replays ──────────────────────────────────────────────────────────────────
+
+/** GET /organizations/{org_slug}/replays/ */
+export async function listReplays(creds, orgSlug, limit = 25) {
+  const params = new URLSearchParams({ per_page: limit });
+  const data = await sFetch(`/organizations/${orgSlug}/replays/?${params}`, creds);
+  const replays = data?.data ?? data ?? [];
+  return (replays ?? []).map((r) => ({
+    id: r.id,
+    projectId: r.project_id,
+    startedAt: r.started_at,
+    finishedAt: r.finished_at,
+    duration: r.duration,
+    countErrors: r.count_errors,
+    platform: r.platform,
+    user: r.user ? { id: r.user.id, email: r.user.email, ip: r.user.ip_address } : null,
+    sdk: r.sdk ? { name: r.sdk.name, version: r.sdk.version } : null,
+    errorIds: r.error_ids ?? [],
+  }));
+}
+
+// ─── Org Activity ─────────────────────────────────────────────────────────────
+
+/** GET /organizations/{org_slug}/activity/ */
+export async function listOrgActivity(creds, orgSlug, limit = 25) {
+  const activity = await sFetch(`/organizations/${orgSlug}/activity/?limit=${limit}`, creds);
+  return (activity ?? []).map((a) => ({
+    id: a.id,
+    type: a.type,
+    dateCreated: a.dateCreated,
+    user: a.user ? { id: a.user.id, name: a.user.name, email: a.user.email } : null,
+    issue: a.issue ? { id: a.issue.id, title: a.issue.title } : null,
+    project: a.project?.slug ?? null,
+    data: a.data ?? {},
+  }));
+}
+
+// ─── Event Stats ──────────────────────────────────────────────────────────────
+
+/** GET /organizations/{org_slug}/events-stats/ */
+export async function getEventStats(
+  creds,
+  orgSlug,
+  query = '',
+  statsPeriod = '14d',
+  interval = '1d',
+) {
+  const params = new URLSearchParams({ query, statsPeriod, interval, yAxis: 'count()' });
+  return sFetch(`/organizations/${orgSlug}/events-stats/?${params}`, creds);
+}
+
+// ─── Sentry Apps ──────────────────────────────────────────────────────────────
+
+/** GET /organizations/{org_slug}/sentry-apps/ */
+export async function listSentryApps(creds, orgSlug) {
+  const apps = await sFetch(`/organizations/${orgSlug}/sentry-apps/`, creds);
+  return (apps ?? []).map((a) => ({
+    uuid: a.uuid,
+    slug: a.slug,
+    name: a.name,
+    status: a.status,
+    author: a.author,
+    isInternal: a.isInternal ?? false,
+    scopes: a.scopes ?? [],
+    datePublished: a.datePublished,
+  }));
+}
