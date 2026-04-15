@@ -237,8 +237,6 @@ export async function getBlock(creds, blockId) {
 
 /**
  * Update the text content of an existing text-based block.
- * Supported types: paragraph, heading_1/2/3, bulleted_list_item, numbered_list_item,
- * to_do, toggle, quote, callout.
  */
 export async function updateBlockText(creds, blockId, text) {
   const block = await nFetch(`/blocks/${blockId}`, creds);
@@ -269,7 +267,6 @@ export async function updateBlockText(creds, blockId, text) {
 
 /**
  * Fetch all block children recursively up to a given depth.
- * Returns a nested tree structure.
  */
 export async function getFullPageContent(creds, pageId, depth = 2) {
   async function fetchBlocks(blockId, currentDepth) {
@@ -288,7 +285,6 @@ export async function getFullPageContent(creds, pageId, depth = 2) {
 
 /**
  * Export a page as plain text by concatenating all top-level block contents.
- * Useful for summarising or searching page content.
  */
 export async function exportPageAsText(creds, pageId) {
   const page = await getPage(creds, pageId);
@@ -299,7 +295,6 @@ export async function exportPageAsText(creds, pageId) {
 
 /**
  * Delete all top-level blocks from a page, effectively clearing its content.
- * Returns the number of blocks deleted.
  */
 export async function clearPageContent(creds, pageId) {
   const data = await nFetch(`/blocks/${pageId}/children?page_size=100`, creds);
@@ -389,7 +384,6 @@ export async function appendToggleBlock(creds, blockId, text) {
 
 /**
  * Append a callout block with an emoji icon.
- * emoji defaults to 💡.
  */
 export async function appendCalloutBlock(creds, blockId, text, emoji = '💡') {
   return appendBlocks(creds, blockId, [
@@ -465,8 +459,6 @@ export async function appendTableOfContents(creds, blockId) {
 
 /**
  * Append a simple table with a header row.
- * headers: string[] — column headers
- * rows: string[][] — each inner array is a row of cells
  */
 export async function appendTableBlock(creds, blockId, { headers, rows = [] }) {
   const makeRow = (cells) => ({
@@ -562,7 +554,6 @@ export async function queryDatabase(creds, databaseId, limit = 20) {
 
 /**
  * Filter a database with a Notion filter object.
- * filterObj: Notion filter (e.g. { property: 'Status', select: { equals: 'Done' } })
  */
 export async function filterDatabase(creds, databaseId, filterObj, limit = 20) {
   const data = await nFetch(`/databases/${databaseId}/query`, creds, {
@@ -579,7 +570,6 @@ export async function filterDatabase(creds, databaseId, filterObj, limit = 20) {
 
 /**
  * Query a database with sorting applied.
- * sorts: array of Notion sort objects, e.g. [{ property: 'Created', direction: 'descending' }]
  */
 export async function sortDatabase(creds, databaseId, sorts, limit = 20) {
   const data = await nFetch(`/databases/${databaseId}/query`, creds, {
@@ -596,8 +586,6 @@ export async function sortDatabase(creds, databaseId, sorts, limit = 20) {
 
 /**
  * Query a database with both a filter and sorting applied.
- * filterObj: Notion filter object
- * sorts: array of Notion sort objects
  */
 export async function filterAndSortDatabase(creds, databaseId, filterObj, sorts, limit = 20) {
   const data = await nFetch(`/databases/${databaseId}/query`, creds, {
@@ -613,8 +601,7 @@ export async function filterAndSortDatabase(creds, databaseId, filterObj, sorts,
 }
 
 /**
- * Search entries in a database by title text (uses the Name/title property).
- * titleQuery: substring to match
+ * Search entries in a database by title text.
  */
 export async function searchDatabaseByTitle(creds, databaseId, titleQuery, limit = 20) {
   const data = await nFetch(`/databases/${databaseId}/query`, creds, {
@@ -634,7 +621,6 @@ export async function searchDatabaseByTitle(creds, databaseId, titleQuery, limit
 
 /**
  * Count total entries in a database, optionally filtered.
- * Paginates through all results to return an accurate count.
  */
 export async function countDatabaseEntries(creds, databaseId, filterObj) {
   const body = { page_size: 100 };
@@ -668,7 +654,6 @@ export async function updateDatabase(creds, databaseId, { title, description } =
 
 /**
  * Create a new inline database as a child of a page.
- * title: string, properties: Notion property schema object
  */
 export async function createDatabase(creds, { parentPageId, title, properties = {} }) {
   const defaultProps = {
@@ -688,8 +673,6 @@ export async function createDatabase(creds, { parentPageId, title, properties = 
 
 /**
  * Create a new entry (page) in a database.
- * properties: object where keys are property names and values follow Notion property value shape.
- * title: convenience shortcut — sets the Name/title property.
  */
 export async function createDatabaseEntry(creds, databaseId, { title, properties = {} }) {
   const titleProp = title ? { Name: { title: [{ type: 'text', text: { content: title } }] } } : {};
@@ -705,7 +688,6 @@ export async function createDatabaseEntry(creds, databaseId, { title, properties
 
 /**
  * Create multiple entries in a database in a single call.
- * entries: array of { title, properties } objects.
  */
 export async function bulkCreateDatabaseEntries(creds, databaseId, entries) {
   const results = [];
@@ -718,7 +700,6 @@ export async function bulkCreateDatabaseEntries(creds, databaseId, entries) {
 
 /**
  * Update properties on an existing database entry (page).
- * properties: Notion property value map.
  */
 export async function updateDatabaseEntry(creds, pageId, properties) {
   const p = await nFetch(`/pages/${pageId}`, creds, {
@@ -750,7 +731,6 @@ export async function restoreDatabaseEntry(creds, pageId) {
 
 /**
  * Search all Notion content (both pages and databases) by query string.
- * Returns a unified list with type field indicating 'page' or 'database'.
  */
 export async function searchAll(creds, query = '', limit = 20) {
   const data = await nFetch('/search', creds, {
@@ -822,5 +802,602 @@ export async function getUser(creds, userId) {
     type: u.type,
     email: u.person?.email ?? null,
     avatarUrl: u.avatar_url ?? null,
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ─── NEW TOOLS (30) ────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ─── Pages (new) ─────────────────────────────────────────────────────────────
+
+/**
+ * Paginate through ALL accessible pages (no limit cap).
+ * Uses cursor-based pagination to retrieve every page the integration can see.
+ */
+export async function getAllPages(creds, query = '') {
+  const results = [];
+  let cursor;
+  do {
+    const body = {
+      query,
+      filter: { value: 'page', property: 'object' },
+      sort: { direction: 'descending', timestamp: 'last_edited_time' },
+      page_size: 100,
+    };
+    if (cursor) body.start_cursor = cursor;
+    const data = await nFetch('/search', creds, { method: 'POST', body: JSON.stringify(body) });
+    for (const p of data.results ?? []) {
+      results.push({
+        id: p.id,
+        title:
+          p.properties?.title?.title?.[0]?.plain_text ??
+          p.properties?.Name?.title?.[0]?.plain_text ??
+          'Untitled',
+        url: p.url,
+        lastEdited: p.last_edited_time,
+        createdTime: p.created_time,
+      });
+    }
+    cursor = data.has_more ? data.next_cursor : undefined;
+  } while (cursor);
+  return { total: results.length, pages: results };
+}
+
+/**
+ * Paginate through ALL accessible databases (no limit cap).
+ */
+export async function getAllDatabases(creds) {
+  const results = [];
+  let cursor;
+  do {
+    const body = {
+      filter: { value: 'database', property: 'object' },
+      sort: { direction: 'descending', timestamp: 'last_edited_time' },
+      page_size: 100,
+    };
+    if (cursor) body.start_cursor = cursor;
+    const data = await nFetch('/search', creds, { method: 'POST', body: JSON.stringify(body) });
+    for (const db of data.results ?? []) {
+      results.push({
+        id: db.id,
+        title: db.title?.[0]?.plain_text ?? 'Untitled',
+        url: db.url,
+        lastEdited: db.last_edited_time,
+      });
+    }
+    cursor = data.has_more ? data.next_cursor : undefined;
+  } while (cursor);
+  return { total: results.length, databases: results };
+}
+
+/**
+ * Retrieve ALL entries in a database using cursor pagination.
+ * Optionally accepts a filter object.
+ */
+export async function getAllDatabaseEntries(creds, databaseId, filterObj) {
+  const results = [];
+  let cursor;
+  do {
+    const body = { page_size: 100 };
+    if (filterObj) body.filter = filterObj;
+    if (cursor) body.start_cursor = cursor;
+    const data = await nFetch(`/databases/${databaseId}/query`, creds, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+    for (const p of data.results ?? []) {
+      results.push({
+        id: p.id,
+        url: p.url,
+        lastEdited: p.last_edited_time,
+        properties: p.properties,
+      });
+    }
+    cursor = data.has_more ? data.next_cursor : undefined;
+  } while (cursor);
+  return { total: results.length, entries: results };
+}
+
+/**
+ * Get recently created pages, sorted by creation time descending.
+ */
+export async function getRecentlyCreatedPages(creds, limit = 20) {
+  const data = await nFetch('/search', creds, {
+    method: 'POST',
+    body: JSON.stringify({
+      filter: { value: 'page', property: 'object' },
+      sort: { direction: 'descending', timestamp: 'created_time' },
+      page_size: limit,
+    }),
+  });
+  return (data.results ?? []).map((p) => ({
+    id: p.id,
+    title:
+      p.properties?.title?.title?.[0]?.plain_text ??
+      p.properties?.Name?.title?.[0]?.plain_text ??
+      'Untitled',
+    url: p.url,
+    createdTime: p.created_time,
+    lastEdited: p.last_edited_time,
+  }));
+}
+
+/**
+ * Duplicate a page: copies its title (prefixed with "Copy of") and top-level
+ * text blocks into a new page under the same parent.
+ */
+export async function duplicatePage(creds, pageId) {
+  const page = await nFetch(`/pages/${pageId}`, creds);
+  const title =
+    page.properties?.title?.title?.[0]?.plain_text ??
+    page.properties?.Name?.title?.[0]?.plain_text ??
+    'Untitled';
+  const parentType = page.parent?.type; // 'page_id' | 'database_id'
+  const parentId = page.parent?.[parentType];
+
+  const blocksData = await nFetch(`/blocks/${pageId}/children?page_size=100`, creds);
+  const children = (blocksData.results ?? [])
+    .map((b) => {
+      const rt = b[b.type]?.rich_text ?? b[b.type]?.text ?? [];
+      if (!rt.length) return null;
+      return { object: 'block', type: b.type, [b.type]: { rich_text: rt } };
+    })
+    .filter(Boolean);
+
+  const newPage = await nFetch('/pages', creds, {
+    method: 'POST',
+    body: JSON.stringify({
+      parent: { [parentType]: parentId },
+      properties: {
+        title: [{ type: 'text', text: { content: `Copy of ${title}` } }],
+      },
+      ...(children.length ? { children } : {}),
+    }),
+  });
+  return { id: newPage.id, url: newPage.url };
+}
+
+/**
+ * Remove the icon from a page (sets it to null).
+ */
+export async function removePageIcon(creds, pageId) {
+  const p = await nFetch(`/pages/${pageId}`, creds, {
+    method: 'PATCH',
+    body: JSON.stringify({ icon: null }),
+  });
+  return { id: p.id, url: p.url };
+}
+
+/**
+ * Remove the cover image from a page (sets it to null).
+ */
+export async function removePageCover(creds, pageId) {
+  const p = await nFetch(`/pages/${pageId}`, creds, {
+    method: 'PATCH',
+    body: JSON.stringify({ cover: null }),
+  });
+  return { id: p.id, url: p.url };
+}
+
+/**
+ * Recursively build a tree of all sub-pages nested under a page.
+ * Returns nested { id, title, children } objects up to `depth` levels deep.
+ */
+export async function getSubpageTree(creds, pageId, depth = 2) {
+  async function fetchChildren(pid, currentDepth) {
+    const data = await nFetch(`/blocks/${pid}/children?page_size=100`, creds);
+    const childPages = (data.results ?? []).filter((b) => b.type === 'child_page');
+    const nodes = childPages.map((b) => ({
+      id: b.id,
+      title: b.child_page?.title ?? 'Untitled',
+      children: [],
+    }));
+    if (currentDepth > 0) {
+      for (const node of nodes) {
+        node.children = await fetchChildren(node.id, currentDepth - 1);
+      }
+    }
+    return nodes;
+  }
+  const tree = await fetchChildren(pageId, depth);
+  return { pageId, tree };
+}
+
+// ─── Blocks (new) ────────────────────────────────────────────────────────────
+
+/**
+ * Append a rich text paragraph with per-segment annotations.
+ * segments: [{ text, bold?, italic?, code?, strikethrough?, underline?, color?, link? }]
+ * color values: 'default' | 'gray' | 'brown' | 'orange' | 'yellow' | 'green' | 'blue' |
+ *               'purple' | 'pink' | 'red' | '<color>_background'
+ */
+export async function appendRichTextBlock(creds, blockId, segments) {
+  const rich_text = segments.map((s) => ({
+    type: 'text',
+    text: {
+      content: s.text,
+      ...(s.link ? { link: { url: s.link } } : {}),
+    },
+    annotations: {
+      bold: s.bold ?? false,
+      italic: s.italic ?? false,
+      code: s.code ?? false,
+      strikethrough: s.strikethrough ?? false,
+      underline: s.underline ?? false,
+      color: s.color ?? 'default',
+    },
+  }));
+  return appendBlocks(creds, blockId, [
+    { object: 'block', type: 'paragraph', paragraph: { rich_text } },
+  ]);
+}
+
+/**
+ * Append a LaTeX equation block.
+ * expression: valid KaTeX/LaTeX expression string (e.g. "E = mc^2")
+ */
+export async function appendEquationBlock(creds, blockId, expression) {
+  return appendBlocks(creds, blockId, [
+    { object: 'block', type: 'equation', equation: { expression } },
+  ]);
+}
+
+/**
+ * Append an external file attachment block.
+ */
+export async function appendFileBlock(creds, blockId, fileUrl, caption = '') {
+  return appendBlocks(creds, blockId, [
+    {
+      object: 'block',
+      type: 'file',
+      file: {
+        type: 'external',
+        external: { url: fileUrl },
+        caption: caption ? [{ type: 'text', text: { content: caption } }] : [],
+      },
+    },
+  ]);
+}
+
+/**
+ * Append an external PDF embed block.
+ */
+export async function appendPdfBlock(creds, blockId, pdfUrl, caption = '') {
+  return appendBlocks(creds, blockId, [
+    {
+      object: 'block',
+      type: 'pdf',
+      pdf: {
+        type: 'external',
+        external: { url: pdfUrl },
+        caption: caption ? [{ type: 'text', text: { content: caption } }] : [],
+      },
+    },
+  ]);
+}
+
+/**
+ * Check or uncheck a to_do block by its block ID.
+ */
+export async function setTodoChecked(creds, blockId, checked) {
+  const updated = await nFetch(`/blocks/${blockId}`, creds, {
+    method: 'PATCH',
+    body: JSON.stringify({ to_do: { checked } }),
+  });
+  return { id: updated.id, type: updated.type, checked };
+}
+
+/**
+ * Find all blocks of a specific type on a page (e.g. 'to_do', 'heading_1').
+ */
+export async function findBlocksByType(creds, pageId, blockType) {
+  const data = await nFetch(`/blocks/${pageId}/children?page_size=100`, creds);
+  return (data.results ?? [])
+    .filter((b) => b.type === blockType)
+    .map((b) => ({
+      id: b.id,
+      type: b.type,
+      content: extractBlockText(b),
+      hasChildren: b.has_children,
+    }));
+}
+
+/**
+ * Search a page's top-level blocks for a substring of text.
+ * Returns only blocks whose content contains the search string (case-insensitive).
+ */
+export async function searchPageContent(creds, pageId, searchText) {
+  const data = await nFetch(`/blocks/${pageId}/children?page_size=100`, creds);
+  const lower = searchText.toLowerCase();
+  return (data.results ?? [])
+    .map((b) => ({
+      id: b.id,
+      type: b.type,
+      content: extractBlockText(b),
+      hasChildren: b.has_children,
+    }))
+    .filter((b) => b.content?.toLowerCase().includes(lower));
+}
+
+/**
+ * Return a summary of block types present on a page (counts per type and total).
+ */
+export async function getBlockTypeSummary(creds, pageId) {
+  const data = await nFetch(`/blocks/${pageId}/children?page_size=100`, creds);
+  const counts = {};
+  for (const b of data.results ?? []) {
+    counts[b.type] = (counts[b.type] ?? 0) + 1;
+  }
+  return { total: (data.results ?? []).length, types: counts };
+}
+
+// ─── Databases (new) ─────────────────────────────────────────────────────────
+
+/**
+ * Retrieve a single database entry (page) with all property values
+ * parsed into plain human-readable strings.
+ */
+export async function getDatabaseEntry(creds, pageId) {
+  const p = await nFetch(`/pages/${pageId}`, creds);
+  const parsed = {};
+  for (const [key, val] of Object.entries(p.properties ?? {})) {
+    parsed[key] = extractPropertyText(val);
+  }
+  return {
+    id: p.id,
+    url: p.url,
+    archived: p.archived,
+    createdTime: p.created_time,
+    lastEdited: p.last_edited_time,
+    properties: parsed,
+  };
+}
+
+/** Internal helper — extracts a human-readable string from any property value. */
+function extractPropertyText(prop) {
+  if (!prop) return '';
+  switch (prop.type) {
+    case 'title':
+      return prop.title?.map((t) => t.plain_text).join('') ?? '';
+    case 'rich_text':
+      return prop.rich_text?.map((t) => t.plain_text).join('') ?? '';
+    case 'number':
+      return prop.number?.toString() ?? '';
+    case 'select':
+      return prop.select?.name ?? '';
+    case 'multi_select':
+      return prop.multi_select?.map((s) => s.name).join(', ') ?? '';
+    case 'checkbox':
+      return prop.checkbox ? 'Yes' : 'No';
+    case 'date':
+      return prop.date?.start ?? '';
+    case 'url':
+      return prop.url ?? '';
+    case 'email':
+      return prop.email ?? '';
+    case 'phone_number':
+      return prop.phone_number ?? '';
+    case 'status':
+      return prop.status?.name ?? '';
+    case 'people':
+      return prop.people?.map((u) => u.name).join(', ') ?? '';
+    case 'relation':
+      return prop.relation?.map((r) => r.id).join(', ') ?? '';
+    case 'formula':
+      return String(prop.formula?.string ?? prop.formula?.number ?? prop.formula?.boolean ?? '');
+    case 'rollup':
+      return String(prop.rollup?.number ?? '');
+    default:
+      return '';
+  }
+}
+
+/**
+ * Export all entries in a database as a plain-text document.
+ * Useful for summarising, searching, or passing DB content to AI.
+ */
+export async function exportDatabaseAsText(creds, databaseId, limit = 50) {
+  const db = await getDatabase(creds, databaseId);
+  const entries = await queryDatabase(creds, databaseId, limit);
+  const lines = entries.map((e, i) => {
+    const title =
+      e.properties?.Name?.title?.[0]?.plain_text ??
+      e.properties?.title?.title?.[0]?.plain_text ??
+      `Entry ${i + 1}`;
+    const propLines = Object.entries(e.properties ?? {})
+      .filter(([k]) => k !== 'Name' && k !== 'title')
+      .map(([k, v]) => `  ${k}: ${extractPropertyText(v)}`)
+      .join('\n');
+    return `${i + 1}. ${title}${propLines ? '\n' + propLines : ''}`;
+  });
+  return { title: db.title, entryCount: entries.length, text: lines.join('\n\n') };
+}
+
+/**
+ * Update multiple database entries in a single call.
+ * updates: [{ pageId: string, properties: NotionPropertyMap }]
+ */
+export async function batchUpdateDatabaseEntries(creds, updates) {
+  const results = [];
+  for (const { pageId, properties } of updates) {
+    const r = await updateDatabaseEntry(creds, pageId, properties);
+    results.push(r);
+  }
+  return results;
+}
+
+/**
+ * Archive multiple database entries in a single call.
+ * pageIds: string[]
+ */
+export async function batchArchiveDatabaseEntries(creds, pageIds) {
+  const results = [];
+  for (const pageId of pageIds) {
+    const r = await archiveDatabaseEntry(creds, pageId);
+    results.push(r);
+  }
+  return results;
+}
+
+/**
+ * Add a new property (column) to a database.
+ * propertyConfig: Notion property schema object, e.g. { select: { options: [] } }
+ */
+export async function addDatabaseProperty(creds, databaseId, propertyName, propertyConfig) {
+  const db = await nFetch(`/databases/${databaseId}`, creds, {
+    method: 'PATCH',
+    body: JSON.stringify({ properties: { [propertyName]: propertyConfig } }),
+  });
+  return { id: db.id, url: db.url };
+}
+
+/**
+ * Remove a property (column) from a database by setting it to null.
+ */
+export async function removeDatabaseProperty(creds, databaseId, propertyName) {
+  const db = await nFetch(`/databases/${databaseId}`, creds, {
+    method: 'PATCH',
+    body: JSON.stringify({ properties: { [propertyName]: null } }),
+  });
+  return { id: db.id, url: db.url };
+}
+
+/**
+ * Rename an existing database property.
+ */
+export async function renameDatabaseProperty(creds, databaseId, currentName, newName) {
+  const db = await nFetch(`/databases/${databaseId}`, creds, {
+    method: 'PATCH',
+    body: JSON.stringify({ properties: { [currentName]: { name: newName } } }),
+  });
+  return { id: db.id, url: db.url };
+}
+
+/**
+ * Update a database property's configuration (e.g. add select options, change number format).
+ * propertyConfig: partial Notion property schema object merged onto the existing property.
+ */
+export async function updateDatabaseProperty(creds, databaseId, propertyName, propertyConfig) {
+  const db = await nFetch(`/databases/${databaseId}`, creds, {
+    method: 'PATCH',
+    body: JSON.stringify({ properties: { [propertyName]: propertyConfig } }),
+  });
+  return { id: db.id, url: db.url };
+}
+
+/**
+ * Get all available options for a select, multi-select, or status property.
+ */
+export async function getDatabasePropertyOptions(creds, databaseId, propertyName) {
+  const db = await nFetch(`/databases/${databaseId}`, creds);
+  const prop = db.properties?.[propertyName];
+  if (!prop) throw new Error(`Property "${propertyName}" not found in database.`);
+  const options = prop.select?.options ?? prop.multi_select?.options ?? prop.status?.options ?? [];
+  return {
+    name: propertyName,
+    type: prop.type,
+    options: options.map((o) => ({ id: o.id, name: o.name, color: o.color })),
+  };
+}
+
+/**
+ * Filter a database by a date property with optional range bounds.
+ * All date strings must be ISO 8601 (e.g. "2024-01-15" or "2024-01-15T09:00:00Z").
+ */
+export async function filterDatabaseByDate(
+  creds,
+  databaseId,
+  propertyName,
+  { after, before, onOrAfter, onOrBefore } = {},
+  limit = 20,
+) {
+  const dateFilter = {};
+  if (after) dateFilter.after = after;
+  if (before) dateFilter.before = before;
+  if (onOrAfter) dateFilter.on_or_after = onOrAfter;
+  if (onOrBefore) dateFilter.on_or_before = onOrBefore;
+  return filterDatabase(creds, databaseId, { property: propertyName, date: dateFilter }, limit);
+}
+
+/**
+ * Filter a database by a checkbox property value (true or false).
+ */
+export async function filterDatabaseByCheckbox(
+  creds,
+  databaseId,
+  propertyName,
+  checked = true,
+  limit = 20,
+) {
+  return filterDatabase(
+    creds,
+    databaseId,
+    { property: propertyName, checkbox: { equals: checked } },
+    limit,
+  );
+}
+
+// ─── Comments (new) ──────────────────────────────────────────────────────────
+
+/**
+ * Return the count of comments on a page along with the comment list.
+ */
+export async function getPageCommentsCount(creds, pageId) {
+  const comments = await getComments(creds, pageId);
+  return { count: comments.length, comments };
+}
+
+// ─── Users (new) ─────────────────────────────────────────────────────────────
+
+/**
+ * Find workspace members whose name contains the given string (case-insensitive).
+ */
+export async function findUserByName(creds, name) {
+  const data = await nFetch('/users?page_size=100', creds);
+  const lower = name.toLowerCase();
+  return (data.results ?? [])
+    .filter((u) => u.name?.toLowerCase().includes(lower))
+    .map((u) => ({
+      id: u.id,
+      name: u.name,
+      type: u.type,
+      email: u.person?.email ?? null,
+      avatarUrl: u.avatar_url ?? null,
+    }));
+}
+
+// ─── Workspace (new) ─────────────────────────────────────────────────────────
+
+/**
+ * Return aggregate stats about the workspace: page count, database count, member count.
+ * Counts are based on what the integration has access to (not the full workspace total).
+ */
+export async function getWorkspaceStats(creds) {
+  const bot = await nFetch('/users/me', creds);
+  const [pagesData, dbsData, usersData] = await Promise.all([
+    nFetch('/search', creds, {
+      method: 'POST',
+      body: JSON.stringify({
+        filter: { value: 'page', property: 'object' },
+        page_size: 100,
+      }),
+    }),
+    nFetch('/search', creds, {
+      method: 'POST',
+      body: JSON.stringify({
+        filter: { value: 'database', property: 'object' },
+        page_size: 100,
+      }),
+    }),
+    nFetch('/users?page_size=100', creds),
+  ]);
+  return {
+    workspaceName: bot.bot?.workspace_name ?? null,
+    accessiblePageCount: (pagesData.results ?? []).length,
+    hasMorePages: pagesData.has_more,
+    accessibleDatabaseCount: (dbsData.results ?? []).length,
+    hasMoreDatabases: dbsData.has_more,
+    memberCount: (usersData.results ?? []).length,
   };
 }

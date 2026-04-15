@@ -392,6 +392,234 @@ export async function executeNotionChatTool(ctx, toolName, params) {
       return { ok: true, workspace };
     }
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ─── NEW TOOLS (30) ────────────────────────────────────────────────────────
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    // ─── Pages (new) ─────────────────────────────────────────────────────────
+
+    if (toolName === 'notion_get_all_pages') {
+      const result = await NotionAPI.getAllPages(creds, params?.query ?? '');
+      return { ok: true, ...result };
+    }
+
+    if (toolName === 'notion_get_all_databases') {
+      const result = await NotionAPI.getAllDatabases(creds);
+      return { ok: true, ...result };
+    }
+
+    if (toolName === 'notion_get_recently_created_pages') {
+      const pages = await NotionAPI.getRecentlyCreatedPages(creds, params?.limit ?? 20);
+      return { ok: true, pages };
+    }
+
+    if (toolName === 'notion_duplicate_page') {
+      const result = await NotionAPI.duplicatePage(creds, params.page_id);
+      return { ok: true, ...result };
+    }
+
+    if (toolName === 'notion_remove_page_icon') {
+      const result = await NotionAPI.removePageIcon(creds, params.page_id);
+      return { ok: true, ...result };
+    }
+
+    if (toolName === 'notion_remove_page_cover') {
+      const result = await NotionAPI.removePageCover(creds, params.page_id);
+      return { ok: true, ...result };
+    }
+
+    if (toolName === 'notion_get_subpage_tree') {
+      const result = await NotionAPI.getSubpageTree(creds, params.page_id, params.depth ?? 2);
+      return { ok: true, ...result };
+    }
+
+    // ─── Blocks (new) ─────────────────────────────────────────────────────────
+
+    if (toolName === 'notion_append_rich_text_block') {
+      const blocks = await NotionAPI.appendRichTextBlock(
+        creds,
+        params.block_id,
+        params.segments ?? [],
+      );
+      return { ok: true, blocks };
+    }
+
+    if (toolName === 'notion_append_equation_block') {
+      const blocks = await NotionAPI.appendEquationBlock(creds, params.block_id, params.expression);
+      return { ok: true, blocks };
+    }
+
+    if (toolName === 'notion_append_file_block') {
+      const blocks = await NotionAPI.appendFileBlock(
+        creds,
+        params.block_id,
+        params.file_url,
+        params.caption ?? '',
+      );
+      return { ok: true, blocks };
+    }
+
+    if (toolName === 'notion_append_pdf_block') {
+      const blocks = await NotionAPI.appendPdfBlock(
+        creds,
+        params.block_id,
+        params.pdf_url,
+        params.caption ?? '',
+      );
+      return { ok: true, blocks };
+    }
+
+    if (toolName === 'notion_set_todo_checked') {
+      const result = await NotionAPI.setTodoChecked(creds, params.block_id, params.checked ?? true);
+      return { ok: true, ...result };
+    }
+
+    if (toolName === 'notion_find_blocks_by_type') {
+      const blocks = await NotionAPI.findBlocksByType(creds, params.page_id, params.block_type);
+      return { ok: true, blocks };
+    }
+
+    if (toolName === 'notion_search_page_content') {
+      const blocks = await NotionAPI.searchPageContent(creds, params.page_id, params.query);
+      return { ok: true, blocks };
+    }
+
+    if (toolName === 'notion_get_block_type_summary') {
+      const result = await NotionAPI.getBlockTypeSummary(creds, params.page_id);
+      return { ok: true, ...result };
+    }
+
+    // ─── Databases (new) ──────────────────────────────────────────────────────
+
+    if (toolName === 'notion_get_all_database_entries') {
+      const result = await NotionAPI.getAllDatabaseEntries(
+        creds,
+        params.database_id,
+        params.filter ?? undefined,
+      );
+      return { ok: true, ...result };
+    }
+
+    if (toolName === 'notion_get_database_entry') {
+      const entry = await NotionAPI.getDatabaseEntry(creds, params.page_id);
+      return { ok: true, entry };
+    }
+
+    if (toolName === 'notion_export_database_as_text') {
+      const result = await NotionAPI.exportDatabaseAsText(
+        creds,
+        params.database_id,
+        params.limit ?? 50,
+      );
+      return { ok: true, ...result };
+    }
+
+    if (toolName === 'notion_batch_update_database_entries') {
+      const results = await NotionAPI.batchUpdateDatabaseEntries(creds, params.updates ?? []);
+      return { ok: true, results };
+    }
+
+    if (toolName === 'notion_batch_archive_database_entries') {
+      const results = await NotionAPI.batchArchiveDatabaseEntries(creds, params.page_ids ?? []);
+      return { ok: true, results };
+    }
+
+    if (toolName === 'notion_add_database_property') {
+      const result = await NotionAPI.addDatabaseProperty(
+        creds,
+        params.database_id,
+        params.property_name,
+        params.property_config,
+      );
+      return { ok: true, ...result };
+    }
+
+    if (toolName === 'notion_remove_database_property') {
+      const result = await NotionAPI.removeDatabaseProperty(
+        creds,
+        params.database_id,
+        params.property_name,
+      );
+      return { ok: true, ...result };
+    }
+
+    if (toolName === 'notion_rename_database_property') {
+      const result = await NotionAPI.renameDatabaseProperty(
+        creds,
+        params.database_id,
+        params.current_name,
+        params.new_name,
+      );
+      return { ok: true, ...result };
+    }
+
+    if (toolName === 'notion_update_database_property') {
+      const result = await NotionAPI.updateDatabaseProperty(
+        creds,
+        params.database_id,
+        params.property_name,
+        params.property_config,
+      );
+      return { ok: true, ...result };
+    }
+
+    if (toolName === 'notion_get_database_property_options') {
+      const result = await NotionAPI.getDatabasePropertyOptions(
+        creds,
+        params.database_id,
+        params.property_name,
+      );
+      return { ok: true, ...result };
+    }
+
+    if (toolName === 'notion_filter_database_by_date') {
+      const entries = await NotionAPI.filterDatabaseByDate(
+        creds,
+        params.database_id,
+        params.property_name,
+        {
+          after: params.after,
+          before: params.before,
+          onOrAfter: params.on_or_after,
+          onOrBefore: params.on_or_before,
+        },
+        params.limit ?? 20,
+      );
+      return { ok: true, entries };
+    }
+
+    if (toolName === 'notion_filter_database_by_checkbox') {
+      const entries = await NotionAPI.filterDatabaseByCheckbox(
+        creds,
+        params.database_id,
+        params.property_name,
+        params.checked ?? true,
+        params.limit ?? 20,
+      );
+      return { ok: true, entries };
+    }
+
+    // ─── Comments (new) ───────────────────────────────────────────────────────
+
+    if (toolName === 'notion_get_page_comments_count') {
+      const result = await NotionAPI.getPageCommentsCount(creds, params.page_id);
+      return { ok: true, ...result };
+    }
+
+    // ─── Users (new) ──────────────────────────────────────────────────────────
+
+    if (toolName === 'notion_find_user_by_name') {
+      const users = await NotionAPI.findUserByName(creds, params.name);
+      return { ok: true, users };
+    }
+
+    // ─── Workspace (new) ──────────────────────────────────────────────────────
+
+    if (toolName === 'notion_get_workspace_stats') {
+      const stats = await NotionAPI.getWorkspaceStats(creds);
+      return { ok: true, ...stats };
+    }
+
     return null; // unknown tool
   } catch (err) {
     return { ok: false, error: err.message };
