@@ -34,12 +34,12 @@
         "output": 0.27
       }
     },
-    "z-ai/glm5": {
-      "name": "GLM 5",
-      "description": "Z-AI's GLM 5 model",
-      "rank": 11,
+    "z-ai/glm4.7": {
+      "name": "GLM 4.7",
+      "description": "Z-AI's GLM 4.7 model",
+      "rank": 8,
       "context_window": 131072,
-      "max_output": 16384,
+      "max_output": 8192,
       "inputs": {
         "text": true,
         "image": false,
@@ -47,8 +47,8 @@
         "docx": false
       },
       "pricing": {
-        "input": 0.01,
-        "output": 0.02
+        "input": 0.1,
+        "output": 0.2
       }
     },
     "qwen/qwen3.5-397b-a17b": {
