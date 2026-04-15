@@ -26,7 +26,7 @@ export default defineFeature({
         name: 'HubSpot',
         icon: '<img src="../../../Assets/Icons/Hubspot.png" alt="HubSpot" style="width: 26px; height: 26px; object-fit: contain;" />',
         description:
-          'Access your HubSpot CRM — contacts, deals, companies, and sales pipeline from chat.',
+          'Access your HubSpot CRM — contacts, deals, companies, tickets, tasks, notes, and pipeline from chat.',
         helpUrl: 'https://app.hubspot.com/private-apps',
         helpText: 'Create a Private App →',
         oauthType: null,
@@ -34,13 +34,18 @@ export default defineFeature({
         setupSteps: [
           'Go to app.hubspot.com → Settings → Integrations → Private Apps',
           'Click "Create a private app" and give it a name',
-          'Under Scopes, enable: crm.objects.contacts.read, crm.objects.deals.read, crm.objects.companies.read',
+          'Under Scopes, enable: crm.objects.contacts.read/write, crm.objects.deals.read/write, crm.objects.companies.read/write, crm.objects.tickets.read/write, crm.objects.owners.read',
           'Click "Create app" and copy the Access Token below',
         ],
         capabilities: [
-          'List contacts with email, phone, and company',
-          'Browse open deals with amount and stage',
-          'Monitor sales pipeline via automations',
+          'List, create, update, delete contacts',
+          'Manage deals and full sales pipeline',
+          'Browse and update companies',
+          'Create and track support tickets',
+          'Log notes and create follow-up tasks',
+          'Explore pipeline stages and owners',
+          'Associate contacts, deals, and companies',
+          'Search across all CRM records at once',
         ],
         fields: [
           {
@@ -78,21 +83,164 @@ export default defineFeature({
 
   main: {
     methods: {
-      listContacts: async (ctx, { limit } = {}) =>
-        withHubSpot(ctx, async (creds) => ({
+      // Contacts
+      listContacts: (ctx, { limit } = {}) =>
+        withHubSpot(ctx, async (c) => ({
           ok: true,
-          contacts: await HubSpotAPI.listContacts(creds, limit ?? 20),
+          contacts: await HubSpotAPI.listContacts(c, limit ?? 20),
         })),
-      listDeals: async (ctx, { limit } = {}) =>
-        withHubSpot(ctx, async (creds) => ({
+      getContact: (ctx, { id }) =>
+        withHubSpot(ctx, async (c) => ({ ok: true, contact: await HubSpotAPI.getContact(c, id) })),
+      createContact: (ctx, { props }) =>
+        withHubSpot(ctx, async (c) => ({
           ok: true,
-          deals: await HubSpotAPI.listDeals(creds, limit ?? 20),
+          contact: await HubSpotAPI.createContact(c, props),
         })),
-      listCompanies: async (ctx, { limit } = {}) =>
-        withHubSpot(ctx, async (creds) => ({
+      updateContact: (ctx, { id, props }) =>
+        withHubSpot(ctx, async (c) => ({
           ok: true,
-          companies: await HubSpotAPI.listCompanies(creds, limit ?? 20),
+          contact: await HubSpotAPI.updateContact(c, id, props),
         })),
+      deleteContact: (ctx, { id }) =>
+        withHubSpot(ctx, async (c) => ({ ok: true, ...(await HubSpotAPI.deleteContact(c, id)) })),
+      searchContacts: (ctx, { query }) =>
+        withHubSpot(ctx, async (c) => ({
+          ok: true,
+          contacts: await HubSpotAPI.searchContacts(c, query),
+        })),
+
+      // Deals
+      listDeals: (ctx, { limit } = {}) =>
+        withHubSpot(ctx, async (c) => ({
+          ok: true,
+          deals: await HubSpotAPI.listDeals(c, limit ?? 20),
+        })),
+      getDeal: (ctx, { id }) =>
+        withHubSpot(ctx, async (c) => ({ ok: true, deal: await HubSpotAPI.getDeal(c, id) })),
+      createDeal: (ctx, { props }) =>
+        withHubSpot(ctx, async (c) => ({ ok: true, deal: await HubSpotAPI.createDeal(c, props) })),
+      updateDeal: (ctx, { id, props }) =>
+        withHubSpot(ctx, async (c) => ({
+          ok: true,
+          deal: await HubSpotAPI.updateDeal(c, id, props),
+        })),
+      deleteDeal: (ctx, { id }) =>
+        withHubSpot(ctx, async (c) => ({ ok: true, ...(await HubSpotAPI.deleteDeal(c, id)) })),
+      searchDeals: (ctx, { query }) =>
+        withHubSpot(ctx, async (c) => ({
+          ok: true,
+          deals: await HubSpotAPI.searchDeals(c, query),
+        })),
+
+      // Companies
+      listCompanies: (ctx, { limit } = {}) =>
+        withHubSpot(ctx, async (c) => ({
+          ok: true,
+          companies: await HubSpotAPI.listCompanies(c, limit ?? 20),
+        })),
+      getCompany: (ctx, { id }) =>
+        withHubSpot(ctx, async (c) => ({ ok: true, company: await HubSpotAPI.getCompany(c, id) })),
+      createCompany: (ctx, { props }) =>
+        withHubSpot(ctx, async (c) => ({
+          ok: true,
+          company: await HubSpotAPI.createCompany(c, props),
+        })),
+      updateCompany: (ctx, { id, props }) =>
+        withHubSpot(ctx, async (c) => ({
+          ok: true,
+          company: await HubSpotAPI.updateCompany(c, id, props),
+        })),
+      searchCompanies: (ctx, { query }) =>
+        withHubSpot(ctx, async (c) => ({
+          ok: true,
+          companies: await HubSpotAPI.searchCompanies(c, query),
+        })),
+
+      // Tickets
+      listTickets: (ctx, { limit } = {}) =>
+        withHubSpot(ctx, async (c) => ({
+          ok: true,
+          tickets: await HubSpotAPI.listTickets(c, limit ?? 20),
+        })),
+      createTicket: (ctx, { props }) =>
+        withHubSpot(ctx, async (c) => ({
+          ok: true,
+          ticket: await HubSpotAPI.createTicket(c, props),
+        })),
+      updateTicket: (ctx, { id, props }) =>
+        withHubSpot(ctx, async (c) => ({
+          ok: true,
+          ticket: await HubSpotAPI.updateTicket(c, id, props),
+        })),
+
+      // Notes
+      listNotes: (ctx, { limit } = {}) =>
+        withHubSpot(ctx, async (c) => ({
+          ok: true,
+          notes: await HubSpotAPI.listNotes(c, limit ?? 20),
+        })),
+      createNote: (ctx, { body, associations }) =>
+        withHubSpot(ctx, async (c) => ({
+          ok: true,
+          note: await HubSpotAPI.createNote(c, body, associations ?? []),
+        })),
+
+      // Tasks
+      listTasks: (ctx, { limit } = {}) =>
+        withHubSpot(ctx, async (c) => ({
+          ok: true,
+          tasks: await HubSpotAPI.listTasks(c, limit ?? 20),
+        })),
+      createTask: (ctx, { props }) =>
+        withHubSpot(ctx, async (c) => ({ ok: true, task: await HubSpotAPI.createTask(c, props) })),
+      updateTask: (ctx, { id, props }) =>
+        withHubSpot(ctx, async (c) => ({
+          ok: true,
+          task: await HubSpotAPI.updateTask(c, id, props),
+        })),
+
+      // Pipelines & Owners
+      listPipelines: (ctx) =>
+        withHubSpot(ctx, async (c) => ({ ok: true, pipelines: await HubSpotAPI.listPipelines(c) })),
+      getPipelineStages: (ctx, { pipelineId }) =>
+        withHubSpot(ctx, async (c) => ({
+          ok: true,
+          stages: await HubSpotAPI.getPipelineStages(c, pipelineId),
+        })),
+      listOwners: (ctx) =>
+        withHubSpot(ctx, async (c) => ({ ok: true, owners: await HubSpotAPI.listOwners(c) })),
+      getOwner: (ctx, { ownerId }) =>
+        withHubSpot(ctx, async (c) => ({ ok: true, owner: await HubSpotAPI.getOwner(c, ownerId) })),
+
+      // Associations
+      associateObjects: (ctx, { fromType, fromId, toType, toId, associationTypeId }) =>
+        withHubSpot(ctx, async (c) => ({
+          ok: true,
+          ...(await HubSpotAPI.associateObjects(
+            c,
+            fromType,
+            fromId,
+            toType,
+            toId,
+            associationTypeId,
+          )),
+        })),
+      listAssociations: (ctx, { fromType, fromId, toType }) =>
+        withHubSpot(ctx, async (c) => ({
+          ok: true,
+          associations: await HubSpotAPI.listAssociations(c, fromType, fromId, toType),
+        })),
+
+      // Analytics & Search
+      getDealSummary: (ctx) =>
+        withHubSpot(ctx, async (c) => ({ ok: true, summary: await HubSpotAPI.getDealSummary(c) })),
+      searchCRM: (ctx, { query }) =>
+        withHubSpot(ctx, async (c) => ({
+          ok: true,
+          results: await HubSpotAPI.searchCRM(c, query),
+        })),
+
+      // Chat tool executor
       executeChatTool: async (ctx, { toolName, params }) =>
         executeHubSpotChatTool(ctx, toolName, params),
     },
@@ -119,7 +267,17 @@ export default defineFeature({
       return {
         connectedServices: [hubDomain ? `HubSpot (${hubDomain})` : 'HubSpot'],
         sections: [
-          'HubSpot is connected. You can list contacts with hubspot_list_contacts and deals with hubspot_list_deals.',
+          `HubSpot is connected. Available tools:
+• Contacts: hubspot_list_contacts, hubspot_get_contact, hubspot_create_contact, hubspot_update_contact, hubspot_delete_contact, hubspot_search_contacts
+• Deals: hubspot_list_deals, hubspot_get_deal, hubspot_create_deal, hubspot_update_deal, hubspot_delete_deal, hubspot_search_deals
+• Companies: hubspot_list_companies, hubspot_get_company, hubspot_create_company, hubspot_update_company, hubspot_search_companies
+• Tickets: hubspot_list_tickets, hubspot_create_ticket, hubspot_update_ticket
+• Notes: hubspot_list_notes, hubspot_create_note
+• Tasks: hubspot_list_tasks, hubspot_create_task, hubspot_update_task
+• Pipeline: hubspot_list_pipelines, hubspot_get_pipeline_stages
+• Owners: hubspot_list_owners, hubspot_get_owner
+• Associations: hubspot_associate_contact_to_deal, hubspot_associate_company_to_contact, hubspot_list_associations
+• Analytics: hubspot_get_deal_summary, hubspot_search_crm`,
         ],
       };
     },
