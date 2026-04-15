@@ -94,10 +94,39 @@ export async function updateProject(creds, idOrName, updates) {
   return { id: data.id, name: data.name, framework: data.framework };
 }
 
+export async function pauseProject(creds, idOrName) {
+  const q = teamQuery(creds);
+  await vFetch(`/v1/projects/${encodeURIComponent(idOrName)}/pause${q}`, creds, {
+    method: 'POST',
+  });
+  return { paused: true };
+}
+
+export async function unpauseProject(creds, idOrName) {
+  const q = teamQuery(creds);
+  await vFetch(`/v1/projects/${encodeURIComponent(idOrName)}/unpause${q}`, creds, {
+    method: 'POST',
+  });
+  return { unpaused: true };
+}
+
 // ─── Deployments ──────────────────────────────────────────────────────────────
 
 export async function listDeployments(creds, limit = 20) {
   const q = teamQueryAppend(creds, `?limit=${limit}`);
+  const data = await vFetch(`/v6/deployments${q}`, creds);
+  return (data.deployments ?? []).map((d) => ({
+    id: d.uid,
+    name: d.name,
+    url: d.url,
+    state: d.state,
+    createdAt: d.createdAt,
+    target: d.target ?? 'preview',
+  }));
+}
+
+export async function listDeploymentsByProject(creds, projectId, limit = 20) {
+  const q = teamQueryAppend(creds, `?projectId=${encodeURIComponent(projectId)}&limit=${limit}`);
   const data = await vFetch(`/v6/deployments${q}`, creds);
   return (data.deployments ?? []).map((d) => ({
     id: d.uid,
@@ -128,6 +157,14 @@ export async function getDeployment(creds, deploymentId) {
   };
 }
 
+export async function deleteDeployment(creds, deploymentId) {
+  const q = teamQuery(creds);
+  await vFetch(`/v13/deployments/${encodeURIComponent(deploymentId)}${q}`, creds, {
+    method: 'DELETE',
+  });
+  return { deleted: true };
+}
+
 export async function cancelDeployment(creds, deploymentId) {
   const q = teamQuery(creds);
   const data = await vFetch(
@@ -149,6 +186,16 @@ export async function redeployDeployment(creds, deploymentId) {
   return { id: data.id ?? data.uid, url: data.url, state: data.readyState };
 }
 
+export async function promoteDeployment(creds, projectId, deploymentId) {
+  const q = teamQuery(creds);
+  const data = await vFetch(
+    `/v10/projects/${encodeURIComponent(projectId)}/promote/${encodeURIComponent(deploymentId)}${q}`,
+    creds,
+    { method: 'POST', body: JSON.stringify({}) },
+  );
+  return { requestedAt: data.requestedAt, jobStatus: data.jobStatus };
+}
+
 export async function getDeploymentEvents(creds, deploymentId) {
   const q = teamQueryAppend(creds, '?direction=forward&follow=0&limit=100');
   const data = await vFetch(
@@ -161,6 +208,27 @@ export async function getDeploymentEvents(creds, deploymentId) {
     text: e.payload?.text ?? e.text ?? '',
     date: e.date,
   }));
+}
+
+export async function getDeploymentFiles(creds, deploymentId) {
+  const q = teamQuery(creds);
+  const data = await vFetch(`/v6/deployments/${encodeURIComponent(deploymentId)}/files${q}`, creds);
+  const files = Array.isArray(data) ? data : (data.files ?? []);
+  return files.map((f) => ({ name: f.name, type: f.type, uid: f.uid, children: f.children }));
+}
+
+export async function getDeploymentFileContent(creds, deploymentId, fileId) {
+  const q = teamQuery(creds);
+  const res = await fetch(
+    `${BASE}/v7/deployments/${encodeURIComponent(deploymentId)}/files/${encodeURIComponent(fileId)}${q}`,
+    { headers: headers(creds) },
+  );
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error?.message ?? `Vercel API error: ${res.status}`);
+  }
+  const text = await res.text();
+  return { content: text };
 }
 
 // ─── Domains ──────────────────────────────────────────────────────────────────
@@ -195,6 +263,18 @@ export async function getDomain(creds, domain) {
   };
 }
 
+export async function checkDomainAvailability(creds, domainName) {
+  const q = teamQueryAppend(creds, `?name=${encodeURIComponent(domainName)}`);
+  const data = await vFetch(`/v4/domains/status${q}`, creds);
+  return { available: data.available, domainName };
+}
+
+export async function checkDomainPrice(creds, domainName) {
+  const q = teamQueryAppend(creds, `?name=${encodeURIComponent(domainName)}&type=new`);
+  const data = await vFetch(`/v4/domains/price${q}`, creds);
+  return { price: data.price, period: data.period, domainName };
+}
+
 export async function listProjectDomains(creds, projectId) {
   const q = teamQuery(creds);
   const data = await vFetch(`/v9/projects/${encodeURIComponent(projectId)}/domains${q}`, creds);
@@ -224,6 +304,82 @@ export async function removeProjectDomain(creds, projectId, domain) {
     { method: 'DELETE' },
   );
   return { removed: true };
+}
+
+export async function verifyProjectDomain(creds, projectId, domain) {
+  const q = teamQuery(creds);
+  const data = await vFetch(
+    `/v9/projects/${encodeURIComponent(projectId)}/domains/${encodeURIComponent(domain)}/verify${q}`,
+    creds,
+    { method: 'POST', body: JSON.stringify({}) },
+  );
+  return { verified: data.verified, verification: data.verification };
+}
+
+// ─── DNS Records ──────────────────────────────────────────────────────────────
+
+export async function listDnsRecords(creds, domain) {
+  const q = teamQuery(creds);
+  const data = await vFetch(`/v4/domains/${encodeURIComponent(domain)}/records${q}`, creds);
+  return (data.records ?? []).map((r) => ({
+    id: r.id,
+    type: r.type,
+    name: r.name,
+    value: r.value,
+    ttl: r.ttl,
+    createdAt: r.createdAt,
+    updatedAt: r.updatedAt,
+  }));
+}
+
+export async function createDnsRecord(creds, domain, { type, name, value, ttl }) {
+  const q = teamQuery(creds);
+  const body = { type, name, value };
+  if (ttl) body.ttl = ttl;
+  const data = await vFetch(`/v2/domains/${encodeURIComponent(domain)}/records${q}`, creds, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+  return { uid: data.uid };
+}
+
+export async function deleteDnsRecord(creds, domain, recordId) {
+  const q = teamQuery(creds);
+  await vFetch(
+    `/v2/domains/${encodeURIComponent(domain)}/records/${encodeURIComponent(recordId)}${q}`,
+    creds,
+    { method: 'DELETE' },
+  );
+  return { deleted: true };
+}
+
+// ─── Certificates ─────────────────────────────────────────────────────────────
+
+export async function listCerts(creds, domain) {
+  const q = teamQueryAppend(creds, domain ? `?domain=${encodeURIComponent(domain)}` : '');
+  const data = await vFetch(`/v7/certs${q}`, creds);
+  return (data.certs ?? []).map((c) => ({
+    id: c.id,
+    cns: c.cns,
+    expiration: c.expiration,
+    autoRenew: c.autoRenew,
+    createdAt: c.createdAt,
+  }));
+}
+
+export async function issueCert(creds, domains) {
+  const q = teamQuery(creds);
+  const data = await vFetch(`/v7/certs${q}`, creds, {
+    method: 'POST',
+    body: JSON.stringify({ domains }),
+  });
+  return { id: data.id, cns: data.cns, expiration: data.expiration };
+}
+
+export async function deleteCert(creds, certId) {
+  const q = teamQuery(creds);
+  await vFetch(`/v7/certs/${encodeURIComponent(certId)}${q}`, creds, { method: 'DELETE' });
+  return { deleted: true };
 }
 
 // ─── Environment Variables ─────────────────────────────────────────────────────
@@ -309,6 +465,30 @@ export async function listSecrets(creds) {
   }));
 }
 
+export async function createSecret(creds, name, value) {
+  const q = teamQuery(creds);
+  const data = await vFetch(`/v2/secrets/${encodeURIComponent(name)}${q}`, creds, {
+    method: 'POST',
+    body: JSON.stringify({ name, value }),
+  });
+  return { uid: data.uid, name: data.name };
+}
+
+export async function renameSecret(creds, nameOrId, newName) {
+  const q = teamQuery(creds);
+  const data = await vFetch(`/v2/secrets/${encodeURIComponent(nameOrId)}${q}`, creds, {
+    method: 'PATCH',
+    body: JSON.stringify({ name: newName }),
+  });
+  return { uid: data.uid, name: data.name };
+}
+
+export async function deleteSecret(creds, nameOrId) {
+  const q = teamQuery(creds);
+  await vFetch(`/v2/secrets/${encodeURIComponent(nameOrId)}${q}`, creds, { method: 'DELETE' });
+  return { deleted: true };
+}
+
 // ─── Teams ────────────────────────────────────────────────────────────────────
 
 export async function listTeams(creds) {
@@ -341,6 +521,23 @@ export async function listTeamMembers(creds, teamId) {
     role: m.role,
     joinedAt: m.joined,
   }));
+}
+
+export async function inviteTeamMember(creds, teamId, { email, role }) {
+  const data = await vFetch(`/v1/teams/${encodeURIComponent(teamId)}/members`, creds, {
+    method: 'POST',
+    body: JSON.stringify({ email, role: role ?? 'MEMBER' }),
+  });
+  return { uid: data.uid, username: data.username, email: data.email, role: data.role };
+}
+
+export async function removeTeamMember(creds, teamId, userId) {
+  await vFetch(
+    `/v1/teams/${encodeURIComponent(teamId)}/members/${encodeURIComponent(userId)}`,
+    creds,
+    { method: 'DELETE' },
+  );
+  return { removed: true };
 }
 
 // ─── Checks ───────────────────────────────────────────────────────────────────
@@ -404,6 +601,25 @@ export async function listLogDrains(creds) {
   }));
 }
 
+export async function createLogDrain(creds, { name, url, sources, projectIds }) {
+  const q = teamQuery(creds);
+  const body = { name, url, sources: sources ?? ['lambda', 'static', 'edge', 'build'] };
+  if (projectIds?.length) body.projectIds = projectIds;
+  const data = await vFetch(`/v3/integrations/log-drains${q}`, creds, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+  return { id: data.id, name: data.name, url: data.url };
+}
+
+export async function deleteLogDrain(creds, logDrainId) {
+  const q = teamQuery(creds);
+  await vFetch(`/v3/integrations/log-drains/${encodeURIComponent(logDrainId)}${q}`, creds, {
+    method: 'DELETE',
+  });
+  return { deleted: true };
+}
+
 // ─── Edge Config ──────────────────────────────────────────────────────────────
 
 export async function listEdgeConfigs(creds) {
@@ -425,11 +641,48 @@ export async function getEdgeConfigItems(creds, edgeConfigId) {
   return Array.isArray(data) ? data : (data.items ?? []);
 }
 
+export async function createEdgeConfig(creds, slug) {
+  const q = teamQuery(creds);
+  const data = await vFetch(`/v1/edge-config${q}`, creds, {
+    method: 'POST',
+    body: JSON.stringify({ slug }),
+  });
+  return { id: data.id, slug: data.slug, createdAt: data.createdAt };
+}
+
+export async function deleteEdgeConfig(creds, edgeConfigId) {
+  const q = teamQuery(creds);
+  await vFetch(`/v1/edge-config/${encodeURIComponent(edgeConfigId)}${q}`, creds, {
+    method: 'DELETE',
+  });
+  return { deleted: true };
+}
+
+export async function updateEdgeConfigItems(creds, edgeConfigId, items) {
+  // items: array of { operation: 'upsert'|'delete', key, value? }
+  const q = teamQuery(creds);
+  const data = await vFetch(
+    `/v1/edge-config/${encodeURIComponent(edgeConfigId)}/items${q}`,
+    creds,
+    { method: 'PATCH', body: JSON.stringify({ items }) },
+  );
+  return { status: data.status ?? 'ok' };
+}
+
 // ─── Firewall ─────────────────────────────────────────────────────────────────
 
 export async function getFirewallConfig(creds, projectId) {
   const q = teamQuery(creds);
   const data = await vFetch(`/v1/security/firewall/config${q}&projectId=${projectId}`, creds);
+  return data;
+}
+
+export async function updateFirewallConfig(creds, projectId, firewallConfig) {
+  const q = teamQuery(creds);
+  const data = await vFetch(`/v1/security/firewall/config${q}&projectId=${projectId}`, creds, {
+    method: 'PUT',
+    body: JSON.stringify(firewallConfig),
+  });
   return data;
 }
 
@@ -445,4 +698,12 @@ export async function listIntegrations(creds) {
     updatedAt: c.updatedAt,
     projects: c.projects,
   }));
+}
+
+export async function deleteIntegration(creds, integrationId) {
+  const q = teamQuery(creds);
+  await vFetch(`/v1/integrations/configurations/${encodeURIComponent(integrationId)}${q}`, creds, {
+    method: 'DELETE',
+  });
+  return { deleted: true };
 }

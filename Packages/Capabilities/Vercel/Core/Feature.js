@@ -36,11 +36,15 @@ export default defineFeature({
           "Copy the token immediately — it won't be shown again",
         ],
         capabilities: [
-          'List, create, update and delete projects',
-          'Inspect, cancel and redeploy deployments',
-          'Manage domains, env vars, aliases, secrets and webhooks',
-          'Browse Edge Config stores and log drains',
-          'Monitor teams, members and deployment checks',
+          'List, create, update, pause and delete projects',
+          'Inspect, promote, cancel, delete and redeploy deployments',
+          'Browse deployment file trees and read file content',
+          'Manage domains, DNS records, SSL certificates and verification',
+          'Full env var, secret and alias management',
+          'Invite and remove team members',
+          'Create and delete webhooks, log drains and Edge Configs',
+          'Read and update WAF firewall configuration',
+          'Manage third-party integrations',
           'AI is aware of your Vercel environment via system prompt',
         ],
         fields: [
@@ -109,6 +113,18 @@ export default defineFeature({
           ...(await VercelAPI.deleteProject(creds, idOrName)),
         })),
 
+      pauseProject: (ctx, { idOrName }) =>
+        withVercel(ctx, async (creds) => ({
+          ok: true,
+          ...(await VercelAPI.pauseProject(creds, idOrName)),
+        })),
+
+      unpauseProject: (ctx, { idOrName }) =>
+        withVercel(ctx, async (creds) => ({
+          ok: true,
+          ...(await VercelAPI.unpauseProject(creds, idOrName)),
+        })),
+
       // ─── Deployments ───────────────────────────────────────────────────────
       listDeployments: (ctx, { limit } = {}) =>
         withVercel(ctx, async (creds) => ({
@@ -116,10 +132,22 @@ export default defineFeature({
           deployments: await VercelAPI.listDeployments(creds, limit),
         })),
 
+      listDeploymentsByProject: (ctx, { projectId, limit } = {}) =>
+        withVercel(ctx, async (creds) => ({
+          ok: true,
+          deployments: await VercelAPI.listDeploymentsByProject(creds, projectId, limit),
+        })),
+
       getDeployment: (ctx, { deploymentId }) =>
         withVercel(ctx, async (creds) => ({
           ok: true,
           deployment: await VercelAPI.getDeployment(creds, deploymentId),
+        })),
+
+      deleteDeployment: (ctx, { deploymentId }) =>
+        withVercel(ctx, async (creds) => ({
+          ok: true,
+          ...(await VercelAPI.deleteDeployment(creds, deploymentId)),
         })),
 
       cancelDeployment: (ctx, { deploymentId }) =>
@@ -134,10 +162,28 @@ export default defineFeature({
           deployment: await VercelAPI.redeployDeployment(creds, deploymentId),
         })),
 
+      promoteDeployment: (ctx, { projectId, deploymentId }) =>
+        withVercel(ctx, async (creds) => ({
+          ok: true,
+          ...(await VercelAPI.promoteDeployment(creds, projectId, deploymentId)),
+        })),
+
       getDeploymentEvents: (ctx, { deploymentId }) =>
         withVercel(ctx, async (creds) => ({
           ok: true,
           events: await VercelAPI.getDeploymentEvents(creds, deploymentId),
+        })),
+
+      getDeploymentFiles: (ctx, { deploymentId }) =>
+        withVercel(ctx, async (creds) => ({
+          ok: true,
+          files: await VercelAPI.getDeploymentFiles(creds, deploymentId),
+        })),
+
+      getDeploymentFileContent: (ctx, { deploymentId, fileId }) =>
+        withVercel(ctx, async (creds) => ({
+          ok: true,
+          ...(await VercelAPI.getDeploymentFileContent(creds, deploymentId, fileId)),
         })),
 
       listDeploymentChecks: (ctx, { deploymentId }) =>
@@ -159,6 +205,18 @@ export default defineFeature({
           domain: await VercelAPI.getDomain(creds, domain),
         })),
 
+      checkDomainAvailability: (ctx, { domainName }) =>
+        withVercel(ctx, async (creds) => ({
+          ok: true,
+          ...(await VercelAPI.checkDomainAvailability(creds, domainName)),
+        })),
+
+      checkDomainPrice: (ctx, { domainName }) =>
+        withVercel(ctx, async (creds) => ({
+          ok: true,
+          ...(await VercelAPI.checkDomainPrice(creds, domainName)),
+        })),
+
       listProjectDomains: (ctx, { projectId }) =>
         withVercel(ctx, async (creds) => ({
           ok: true,
@@ -175,6 +233,50 @@ export default defineFeature({
         withVercel(ctx, async (creds) => ({
           ok: true,
           ...(await VercelAPI.removeProjectDomain(creds, projectId, domain)),
+        })),
+
+      verifyProjectDomain: (ctx, { projectId, domain }) =>
+        withVercel(ctx, async (creds) => ({
+          ok: true,
+          ...(await VercelAPI.verifyProjectDomain(creds, projectId, domain)),
+        })),
+
+      // ─── DNS Records ───────────────────────────────────────────────────────
+      listDnsRecords: (ctx, { domain }) =>
+        withVercel(ctx, async (creds) => ({
+          ok: true,
+          records: await VercelAPI.listDnsRecords(creds, domain),
+        })),
+
+      createDnsRecord: (ctx, { domain, type, name, value, ttl }) =>
+        withVercel(ctx, async (creds) => ({
+          ok: true,
+          ...(await VercelAPI.createDnsRecord(creds, domain, { type, name, value, ttl })),
+        })),
+
+      deleteDnsRecord: (ctx, { domain, recordId }) =>
+        withVercel(ctx, async (creds) => ({
+          ok: true,
+          ...(await VercelAPI.deleteDnsRecord(creds, domain, recordId)),
+        })),
+
+      // ─── Certificates ──────────────────────────────────────────────────────
+      listCerts: (ctx, { domain } = {}) =>
+        withVercel(ctx, async (creds) => ({
+          ok: true,
+          certs: await VercelAPI.listCerts(creds, domain),
+        })),
+
+      issueCert: (ctx, { domains }) =>
+        withVercel(ctx, async (creds) => ({
+          ok: true,
+          cert: await VercelAPI.issueCert(creds, domains),
+        })),
+
+      deleteCert: (ctx, { certId }) =>
+        withVercel(ctx, async (creds) => ({
+          ok: true,
+          ...(await VercelAPI.deleteCert(creds, certId)),
         })),
 
       // ─── Environment Variables ─────────────────────────────────────────────
@@ -222,6 +324,24 @@ export default defineFeature({
           secrets: await VercelAPI.listSecrets(creds),
         })),
 
+      createSecret: (ctx, { name, value }) =>
+        withVercel(ctx, async (creds) => ({
+          ok: true,
+          secret: await VercelAPI.createSecret(creds, name, value),
+        })),
+
+      renameSecret: (ctx, { nameOrId, newName }) =>
+        withVercel(ctx, async (creds) => ({
+          ok: true,
+          secret: await VercelAPI.renameSecret(creds, nameOrId, newName),
+        })),
+
+      deleteSecret: (ctx, { nameOrId }) =>
+        withVercel(ctx, async (creds) => ({
+          ok: true,
+          ...(await VercelAPI.deleteSecret(creds, nameOrId)),
+        })),
+
       // ─── Teams ─────────────────────────────────────────────────────────────
       listTeams: (ctx) =>
         withVercel(ctx, async (creds) => ({ ok: true, teams: await VercelAPI.listTeams(creds) })),
@@ -236,6 +356,18 @@ export default defineFeature({
         withVercel(ctx, async (creds) => ({
           ok: true,
           members: await VercelAPI.listTeamMembers(creds, teamId),
+        })),
+
+      inviteTeamMember: (ctx, { teamId, email, role }) =>
+        withVercel(ctx, async (creds) => ({
+          ok: true,
+          member: await VercelAPI.inviteTeamMember(creds, teamId, { email, role }),
+        })),
+
+      removeTeamMember: (ctx, { teamId, userId }) =>
+        withVercel(ctx, async (creds) => ({
+          ok: true,
+          ...(await VercelAPI.removeTeamMember(creds, teamId, userId)),
         })),
 
       // ─── Webhooks ──────────────────────────────────────────────────────────
@@ -257,6 +389,25 @@ export default defineFeature({
           ...(await VercelAPI.deleteWebhook(creds, webhookId)),
         })),
 
+      // ─── Log Drains ────────────────────────────────────────────────────────
+      listLogDrains: (ctx) =>
+        withVercel(ctx, async (creds) => ({
+          ok: true,
+          logDrains: await VercelAPI.listLogDrains(creds),
+        })),
+
+      createLogDrain: (ctx, { name, url, sources, projectIds }) =>
+        withVercel(ctx, async (creds) => ({
+          ok: true,
+          logDrain: await VercelAPI.createLogDrain(creds, { name, url, sources, projectIds }),
+        })),
+
+      deleteLogDrain: (ctx, { logDrainId }) =>
+        withVercel(ctx, async (creds) => ({
+          ok: true,
+          ...(await VercelAPI.deleteLogDrain(creds, logDrainId)),
+        })),
+
       // ─── Edge Config ───────────────────────────────────────────────────────
       listEdgeConfigs: (ctx) =>
         withVercel(ctx, async (creds) => ({
@@ -270,11 +421,48 @@ export default defineFeature({
           items: await VercelAPI.getEdgeConfigItems(creds, edgeConfigId),
         })),
 
-      // ─── Log Drains ────────────────────────────────────────────────────────
-      listLogDrains: (ctx) =>
+      createEdgeConfig: (ctx, { slug }) =>
         withVercel(ctx, async (creds) => ({
           ok: true,
-          logDrains: await VercelAPI.listLogDrains(creds),
+          edgeConfig: await VercelAPI.createEdgeConfig(creds, slug),
+        })),
+
+      deleteEdgeConfig: (ctx, { edgeConfigId }) =>
+        withVercel(ctx, async (creds) => ({
+          ok: true,
+          ...(await VercelAPI.deleteEdgeConfig(creds, edgeConfigId)),
+        })),
+
+      updateEdgeConfigItems: (ctx, { edgeConfigId, items }) =>
+        withVercel(ctx, async (creds) => ({
+          ok: true,
+          ...(await VercelAPI.updateEdgeConfigItems(creds, edgeConfigId, items)),
+        })),
+
+      // ─── Firewall ──────────────────────────────────────────────────────────
+      getFirewallConfig: (ctx, { projectId }) =>
+        withVercel(ctx, async (creds) => ({
+          ok: true,
+          config: await VercelAPI.getFirewallConfig(creds, projectId),
+        })),
+
+      updateFirewallConfig: (ctx, { projectId, firewallConfig }) =>
+        withVercel(ctx, async (creds) => ({
+          ok: true,
+          config: await VercelAPI.updateFirewallConfig(creds, projectId, firewallConfig),
+        })),
+
+      // ─── Integrations ──────────────────────────────────────────────────────
+      listIntegrations: (ctx) =>
+        withVercel(ctx, async (creds) => ({
+          ok: true,
+          integrations: await VercelAPI.listIntegrations(creds),
+        })),
+
+      deleteIntegration: (ctx, { integrationId }) =>
+        withVercel(ctx, async (creds) => ({
+          ok: true,
+          ...(await VercelAPI.deleteIntegration(creds, integrationId)),
         })),
 
       // ─── User ──────────────────────────────────────────────────────────────
@@ -309,8 +497,11 @@ export default defineFeature({
       return {
         connectedServices: [username ? `Vercel (@${username})` : 'Vercel'],
         sections: [
-          `Vercel is connected. You have access to 31 tools covering projects, deployments, domains, ` +
-            `environment variables, aliases, secrets, teams, webhooks, Edge Config, and log drains. ` +
+          `Vercel is connected. You have access to 61 tools covering projects (including pause/unpause), ` +
+            `deployments (including delete, promote, file tree, file content), domains, DNS records, ` +
+            `SSL certificates, environment variables, aliases, secrets (full CRUD), teams (including ` +
+            `invite/remove members), webhooks, log drains (create/delete), Edge Config (full CRUD), ` +
+            `WAF firewall config, and integrations. ` +
             `Use the appropriate vercel_* tool whenever the user asks about their Vercel account.`,
         ],
       };

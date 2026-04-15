@@ -36,10 +36,34 @@ export async function executeVercelChatTool(ctx, toolName, params) {
       return { ok: true, ...result };
     }
 
+    if (toolName === 'vercel_pause_project') {
+      const result = await VercelAPI.pauseProject(creds, params.idOrName);
+      return { ok: true, ...result };
+    }
+
+    if (toolName === 'vercel_unpause_project') {
+      const result = await VercelAPI.unpauseProject(creds, params.idOrName);
+      return { ok: true, ...result };
+    }
+
     // ─── Deployments ─────────────────────────────────────────────────────────
+    if (toolName === 'vercel_list_deployments_by_project') {
+      const deployments = await VercelAPI.listDeploymentsByProject(
+        creds,
+        params.projectId,
+        params.limit,
+      );
+      return { ok: true, deployments };
+    }
+
     if (toolName === 'vercel_get_deployment') {
       const deployment = await VercelAPI.getDeployment(creds, params.deploymentId);
       return { ok: true, deployment };
+    }
+
+    if (toolName === 'vercel_delete_deployment') {
+      const result = await VercelAPI.deleteDeployment(creds, params.deploymentId);
+      return { ok: true, ...result };
     }
 
     if (toolName === 'vercel_cancel_deployment') {
@@ -52,9 +76,32 @@ export async function executeVercelChatTool(ctx, toolName, params) {
       return { ok: true, deployment };
     }
 
+    if (toolName === 'vercel_promote_deployment') {
+      const result = await VercelAPI.promoteDeployment(
+        creds,
+        params.projectId,
+        params.deploymentId,
+      );
+      return { ok: true, ...result };
+    }
+
     if (toolName === 'vercel_get_deployment_logs') {
       const events = await VercelAPI.getDeploymentEvents(creds, params.deploymentId);
       return { ok: true, events };
+    }
+
+    if (toolName === 'vercel_get_deployment_files') {
+      const files = await VercelAPI.getDeploymentFiles(creds, params.deploymentId);
+      return { ok: true, files };
+    }
+
+    if (toolName === 'vercel_get_deployment_file_content') {
+      const result = await VercelAPI.getDeploymentFileContent(
+        creds,
+        params.deploymentId,
+        params.fileId,
+      );
+      return { ok: true, ...result };
     }
 
     if (toolName === 'vercel_list_deployment_checks') {
@@ -73,6 +120,16 @@ export async function executeVercelChatTool(ctx, toolName, params) {
       return { ok: true, domain };
     }
 
+    if (toolName === 'vercel_check_domain_availability') {
+      const result = await VercelAPI.checkDomainAvailability(creds, params.domainName);
+      return { ok: true, ...result };
+    }
+
+    if (toolName === 'vercel_check_domain_price') {
+      const result = await VercelAPI.checkDomainPrice(creds, params.domainName);
+      return { ok: true, ...result };
+    }
+
     if (toolName === 'vercel_list_project_domains') {
       const domains = await VercelAPI.listProjectDomains(creds, params.projectId);
       return { ok: true, domains };
@@ -85,6 +142,48 @@ export async function executeVercelChatTool(ctx, toolName, params) {
 
     if (toolName === 'vercel_remove_project_domain') {
       const result = await VercelAPI.removeProjectDomain(creds, params.projectId, params.domain);
+      return { ok: true, ...result };
+    }
+
+    if (toolName === 'vercel_verify_project_domain') {
+      const result = await VercelAPI.verifyProjectDomain(creds, params.projectId, params.domain);
+      return { ok: true, ...result };
+    }
+
+    // ─── DNS Records ─────────────────────────────────────────────────────────
+    if (toolName === 'vercel_list_dns_records') {
+      const records = await VercelAPI.listDnsRecords(creds, params.domain);
+      return { ok: true, records };
+    }
+
+    if (toolName === 'vercel_create_dns_record') {
+      const result = await VercelAPI.createDnsRecord(creds, params.domain, {
+        type: params.type,
+        name: params.name,
+        value: params.value,
+        ttl: params.ttl,
+      });
+      return { ok: true, ...result };
+    }
+
+    if (toolName === 'vercel_delete_dns_record') {
+      const result = await VercelAPI.deleteDnsRecord(creds, params.domain, params.recordId);
+      return { ok: true, ...result };
+    }
+
+    // ─── Certificates ────────────────────────────────────────────────────────
+    if (toolName === 'vercel_list_certs') {
+      const certs = await VercelAPI.listCerts(creds, params.domain);
+      return { ok: true, certs };
+    }
+
+    if (toolName === 'vercel_issue_cert') {
+      const cert = await VercelAPI.issueCert(creds, params.domains);
+      return { ok: true, cert };
+    }
+
+    if (toolName === 'vercel_delete_cert') {
+      const result = await VercelAPI.deleteCert(creds, params.certId);
       return { ok: true, ...result };
     }
 
@@ -134,6 +233,21 @@ export async function executeVercelChatTool(ctx, toolName, params) {
       return { ok: true, secrets };
     }
 
+    if (toolName === 'vercel_create_secret') {
+      const secret = await VercelAPI.createSecret(creds, params.name, params.value);
+      return { ok: true, secret };
+    }
+
+    if (toolName === 'vercel_rename_secret') {
+      const secret = await VercelAPI.renameSecret(creds, params.nameOrId, params.newName);
+      return { ok: true, secret };
+    }
+
+    if (toolName === 'vercel_delete_secret') {
+      const result = await VercelAPI.deleteSecret(creds, params.nameOrId);
+      return { ok: true, ...result };
+    }
+
     // ─── Teams ───────────────────────────────────────────────────────────────
     if (toolName === 'vercel_list_teams') {
       const teams = await VercelAPI.listTeams(creds);
@@ -148,6 +262,19 @@ export async function executeVercelChatTool(ctx, toolName, params) {
     if (toolName === 'vercel_list_team_members') {
       const members = await VercelAPI.listTeamMembers(creds, params.teamId);
       return { ok: true, members };
+    }
+
+    if (toolName === 'vercel_invite_team_member') {
+      const member = await VercelAPI.inviteTeamMember(creds, params.teamId, {
+        email: params.email,
+        role: params.role,
+      });
+      return { ok: true, member };
+    }
+
+    if (toolName === 'vercel_remove_team_member') {
+      const result = await VercelAPI.removeTeamMember(creds, params.teamId, params.userId);
+      return { ok: true, ...result };
     }
 
     // ─── Webhooks ────────────────────────────────────────────────────────────
@@ -169,6 +296,27 @@ export async function executeVercelChatTool(ctx, toolName, params) {
       return { ok: true, ...result };
     }
 
+    // ─── Log Drains ──────────────────────────────────────────────────────────
+    if (toolName === 'vercel_list_log_drains') {
+      const logDrains = await VercelAPI.listLogDrains(creds);
+      return { ok: true, logDrains };
+    }
+
+    if (toolName === 'vercel_create_log_drain') {
+      const logDrain = await VercelAPI.createLogDrain(creds, {
+        name: params.name,
+        url: params.url,
+        sources: params.sources,
+        projectIds: params.projectIds,
+      });
+      return { ok: true, logDrain };
+    }
+
+    if (toolName === 'vercel_delete_log_drain') {
+      const result = await VercelAPI.deleteLogDrain(creds, params.logDrainId);
+      return { ok: true, ...result };
+    }
+
     // ─── Edge Config ─────────────────────────────────────────────────────────
     if (toolName === 'vercel_list_edge_configs') {
       const edgeConfigs = await VercelAPI.listEdgeConfigs(creds);
@@ -180,10 +328,49 @@ export async function executeVercelChatTool(ctx, toolName, params) {
       return { ok: true, items };
     }
 
-    // ─── Log Drains ──────────────────────────────────────────────────────────
-    if (toolName === 'vercel_list_log_drains') {
-      const logDrains = await VercelAPI.listLogDrains(creds);
-      return { ok: true, logDrains };
+    if (toolName === 'vercel_create_edge_config') {
+      const edgeConfig = await VercelAPI.createEdgeConfig(creds, params.slug);
+      return { ok: true, edgeConfig };
+    }
+
+    if (toolName === 'vercel_delete_edge_config') {
+      const result = await VercelAPI.deleteEdgeConfig(creds, params.edgeConfigId);
+      return { ok: true, ...result };
+    }
+
+    if (toolName === 'vercel_update_edge_config_items') {
+      const result = await VercelAPI.updateEdgeConfigItems(
+        creds,
+        params.edgeConfigId,
+        params.items,
+      );
+      return { ok: true, ...result };
+    }
+
+    // ─── Firewall ────────────────────────────────────────────────────────────
+    if (toolName === 'vercel_get_firewall_config') {
+      const config = await VercelAPI.getFirewallConfig(creds, params.projectId);
+      return { ok: true, config };
+    }
+
+    if (toolName === 'vercel_update_firewall_config') {
+      const config = await VercelAPI.updateFirewallConfig(
+        creds,
+        params.projectId,
+        params.firewallConfig,
+      );
+      return { ok: true, config };
+    }
+
+    // ─── Integrations ────────────────────────────────────────────────────────
+    if (toolName === 'vercel_list_integrations') {
+      const integrations = await VercelAPI.listIntegrations(creds);
+      return { ok: true, integrations };
+    }
+
+    if (toolName === 'vercel_delete_integration') {
+      const result = await VercelAPI.deleteIntegration(creds, params.integrationId);
+      return { ok: true, ...result };
     }
 
     // ─── User ────────────────────────────────────────────────────────────────
