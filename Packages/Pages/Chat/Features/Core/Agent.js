@@ -637,13 +637,13 @@ function buildToolResultContext(
         ),
         lines.push('Call the next tool now and do not answer the user yet.'))
       : (lines.push(
-          'Decide whether the user’s request is fully satisfied. If you still need reads, search, edits, checks, or browser steps to be correct, call the appropriate tool next.',
+          "Decide whether the user's request is fully satisfied. If you still need reads, search, edits, checks, or browser steps to be correct, call the appropriate tool next.",
         ),
         lines.push(
           'If you are finished gathering information and any requested changes are done, write the final answer for the user now.',
         ),
         lines.push(
-          'Do not mention tool names, tool calls, hidden planning, or raw execution markers.',
+          'Do not mention tool names, tool calls, hidden planning, or raw execution markers. (NOTE: Before using any tool make sure it exists (dont guess the tools names) and always provide all the required parameters to the tool)',
         )),
     resultText.includes('[TERMINAL:') &&
       lines.push(
@@ -1119,13 +1119,35 @@ export async function agentLoop(
     let result = null,
       lastErr = null,
       streamingStarted = !1,
-      bufferedReply = '';
+      bufferedReply = '',
+      steeringInterrupted = !1;
     const onToken = (chunk) => {
         chunk && ((streamingStarted = !0), (bufferedReply += chunk), live.stream?.(chunk));
       },
       onReasoning = (chunk) => {
         chunk && live.streamThinking?.(chunk);
       };
+    // Per-turn steering controller: aborted when the user sends a new message
+    // mid-stream, allowing the loop to pick it up immediately without killing
+    // the entire agent run.
+    const steeringController = new AbortController();
+    const onSteeringInterrupt = () => steeringController.abort();
+    window.addEventListener('joanium:steering-interrupt', onSteeringInterrupt, { once: !0 });
+    const turnSignal = (function combineSignals(a, b) {
+      if (!a) return b;
+      if (!b) return a;
+      if (typeof AbortSignal.any === 'function') return AbortSignal.any([a, b]);
+      // Fallback for environments without AbortSignal.any
+      const ctrl = new AbortController();
+      const abort = () => ctrl.abort();
+      if (a.aborted || b.aborted) {
+        ctrl.abort();
+      } else {
+        a.addEventListener('abort', abort, { once: !0 });
+        b.addEventListener('abort', abort, { once: !0 });
+      }
+      return ctrl.signal;
+    })(signal, steeringController.signal);
     for (const [
       candidateIndex,
       { provider: provider, modelId: modelId, note: note },
@@ -1143,13 +1165,25 @@ export async function agentLoop(
             toolsThisTurn,
             onToken,
             onReasoning,
-            signal,
+            turnSignal,
           )),
             (usedProvider = provider),
             (usedModel = modelId));
           break;
         } catch (err) {
-          if (((lastErr = err), 'AbortError' === err.name)) throw err;
+          lastErr = err;
+          if ('AbortError' === err.name) {
+            if (signal?.aborted) {
+              // Main abort (user clicked Stop) — propagate as fatal.
+              window.removeEventListener('joanium:steering-interrupt', onSteeringInterrupt);
+              throw err;
+            }
+            // Steering interrupt — user sent a message while the AI was streaming.
+            // Break out of the retry/candidate loops and re-enter the turn loop
+            // so the queued message is injected at the top of the next iteration.
+            steeringInterrupted = !0;
+            break;
+          }
           if (streamingStarted) {
             live.push(`Stream error: ${err.message.slice(0, 60)}`);
             break;
@@ -1178,7 +1212,14 @@ export async function agentLoop(
           break;
         }
       }
-      if (result) break;
+      if (result || steeringInterrupted) break;
+    }
+    window.removeEventListener('joanium:steering-interrupt', onSteeringInterrupt);
+    if (steeringInterrupted) {
+      // Discard any partial streamed reply and let the next turn handle everything
+      // with the user's new steering message injected at its top.
+      live.clearReply?.();
+      continue;
     }
     if (!result) {
       const message = `API error: ${lastErr?.message ?? 'Unknown error'}`;

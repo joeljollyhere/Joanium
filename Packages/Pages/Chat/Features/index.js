@@ -30,8 +30,11 @@ export function queueSteeringMessage(text, attachments) {
   state.queuedSteeringMessages = state.queuedSteeringMessages || [];
   state.queuedSteeringMessages.push({ text, attachments });
   if (_currentLiveRow) {
-    _currentLiveRow.push('Got your message loud and clear.');
+    _currentLiveRow.push('Got your message, adjusting plan\u2026');
   }
+  // Interrupt the current streaming turn immediately so the message
+  // is picked up at the very next agent loop iteration.
+  window.dispatchEvent(new CustomEvent('joanium:steering-interrupt'));
 }
 
 export function stopGeneration() {
