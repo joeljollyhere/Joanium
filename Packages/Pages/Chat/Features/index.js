@@ -2,6 +2,7 @@ import { state } from '../../../System/State.js';
 import { welcome, chatView, chatMessages } from '../../../Pages/Shared/Core/DOM.js';
 import { reset as resetComposer } from './Composer/index.js';
 import { agentLoop, selectSkillsForMessages } from './Core/Agent.js';
+import { createLatencyMonitor } from './UI/LatencyMonitor.js';
 import {
   onChatMessagesClick,
   appendMessage,
@@ -114,6 +115,19 @@ async function doSendFromState() {
   if (!state.selectedProvider || !state.selectedModel || state.isTyping) return;
   (syncConversationSummaryWithMessages(), (state.isTyping = !0), _updateSendBtn());
   const live = createLiveRow(doSendFromState);
+  // Latency monitor start
+  const _latencyMonitor = createLatencyMonitor(live, state.selectedProvider?.endpoint ?? '');
+  const _origStream_lm = live.stream;
+  const _origStreamThinking_lm = live.streamThinking;
+  live.stream = (chunk) => {
+    _latencyMonitor.firstToken();
+    _origStream_lm?.(chunk);
+  };
+  live.streamThinking = (chunk) => {
+    _latencyMonitor.firstToken();
+    _origStreamThinking_lm?.(chunk);
+  };
+  // Latency monitor end
   _currentLiveRow = live;
   live.push('Thinking…');
   let plannedSkills = [],
@@ -162,6 +176,7 @@ async function doSendFromState() {
       console.error('[Chat] doSendFromState error:', err));
   } finally {
     ((state.isTyping = !1), (_currentLiveRow = null), _updateSendBtn(), updateTimeline());
+    _latencyMonitor.cancel();
   }
 }
 export function showChatView() {
@@ -225,6 +240,19 @@ export async function sendMessage({ text: text, attachments: attachments, sendBt
     );
   ((state.isTyping = !0), _updateSendBtn());
   const live = createLiveRow(doSendFromState);
+  // Latency monitor start
+  const _latencyMonitor = createLatencyMonitor(live, state.selectedProvider?.endpoint ?? '');
+  const _origStream_lm = live.stream;
+  const _origStreamThinking_lm = live.streamThinking;
+  live.stream = (chunk) => {
+    _latencyMonitor.firstToken();
+    _origStream_lm?.(chunk);
+  };
+  live.streamThinking = (chunk) => {
+    _latencyMonitor.firstToken();
+    _origStreamThinking_lm?.(chunk);
+  };
+  // Latency monitor end
   _currentLiveRow = live;
   live.push('Thinking…');
   let plannedSkills = [],
@@ -275,6 +303,7 @@ export async function sendMessage({ text: text, attachments: attachments, sendBt
     }
   } finally {
     ((state.isTyping = !1), (_currentLiveRow = null), _updateSendBtn());
+    _latencyMonitor.cancel();
   }
 }
 export function startNewChat(extraCleanup = () => {}) {
