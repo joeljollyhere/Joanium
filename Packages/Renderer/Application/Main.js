@@ -162,3 +162,68 @@ async function leaveProject() {
     : setTimeout(initDeferredModals, 500),
     localStorage.removeItem('ow-pending-chat'));
 })().catch((err) => console.error('[App] init failed:', err));
+
+// Shortcuts
+// Keyboard
+document.addEventListener('keydown', (e) => {
+  const ctrl = e.ctrlKey || e.metaKey;
+  const shift = e.shiftKey;
+  const key = e.key;
+  const tag = document.activeElement?.tagName?.toLowerCase();
+  const isTyping =
+    tag === 'input' || tag === 'textarea' || document.activeElement?.isContentEditable;
+
+  // Ctrl+, → Open Settings (works even from an input)
+  if (ctrl && key === ',') {
+    e.preventDefault();
+    _settings?.open();
+    return;
+  }
+
+  // All other shortcuts should not fire while typing
+  if (isTyping) return;
+
+  if (ctrl && !shift) {
+    switch (key) {
+      case 'n':
+        e.preventDefault();
+        openFreshChat();
+        return;
+      case 'p':
+        e.preventDefault();
+        _projects?.isOpen() ? _projects.close() : _projects?.open();
+        return;
+      case 'l':
+        e.preventDefault();
+        document
+          .querySelector('#chat-input, .chat-composer-input, textarea[data-role="chat"]')
+          ?.focus();
+        return;
+    }
+  }
+
+  if (ctrl && shift) {
+    switch (key) {
+      case 'A':
+        e.preventDefault();
+        navigate('agents');
+        return;
+      case 'U':
+        e.preventDefault();
+        navigate('automations');
+        return;
+      case 'M':
+        e.preventDefault();
+        navigate('marketplace');
+        return;
+      case 'S':
+        e.preventDefault();
+        navigate('skills');
+        return;
+      case 'P':
+        e.preventDefault();
+        navigate('personas');
+        return;
+    }
+  }
+});
