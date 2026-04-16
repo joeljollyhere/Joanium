@@ -35,6 +35,9 @@ export const Paths = {
   get USER_FILE() {
     return path.join(getStateRoot(), 'Config', 'User.json');
   },
+  get SYSTEM_FILE() {
+    return path.join(getStateRoot(), 'Config', 'System.json');
+  },
   get MODELS_DIR() {
     return path.join(getBundledRoot(), 'Config', 'Models');
   },

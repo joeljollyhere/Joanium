@@ -271,7 +271,8 @@ function updateKeysContinue() {
               Object.fromEntries(
                 [...state.selectedProviders].map((id) => [id, serializeProviderConfig(id)]),
               ),
-            ));
+            ),
+            await window.electronAPI.invoke('collect-static-system-info'));
         } catch (error) {
           console.error('[setup] Save error:', error);
         }

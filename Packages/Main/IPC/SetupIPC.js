@@ -1,5 +1,6 @@
 import { ipcMain } from 'electron';
 import * as UserService from '../Services/UserService.js';
+import * as SystemInfoService from '../Services/SystemInfoService.js';
 import { loadPage } from '../Core/Window.js';
 import Paths from '../Core/Paths.js';
 import { wrapHandler } from './IPCWrapper.js';
@@ -17,13 +18,26 @@ export function register() {
       'save-provider-configs',
       wrapHandler((configMap) => ({ user: UserService.saveProviderConfigurations(configMap) })),
     ),
-    ipcMain.handle('launch-main', () => (loadPage(Paths.INDEX_PAGE), { ok: !0 })),
+    ipcMain.handle(
+      'collect-static-system-info',
+      wrapHandler(async () => {
+        await SystemInfoService.ensureStaticSystemInfo();
+        return { ok: true };
+      }),
+    ),
+    ipcMain.handle(
+      'launch-main',
+      wrapHandler(async () => {
+        loadPage(Paths.INDEX_PAGE);
+        return { ok: true };
+      }),
+    ),
     ipcMain.handle(
       'launch-skills',
-      (event) => (event.sender.send('navigate', 'skills'), { ok: !0 }),
+      (event) => (event.sender.send('navigate', 'skills'), { ok: true }),
     ),
     ipcMain.handle(
       'launch-personas',
-      (event) => (event.sender.send('navigate', 'personas'), { ok: !0 }),
+      (event) => (event.sender.send('navigate', 'personas'), { ok: true }),
     ));
 }
