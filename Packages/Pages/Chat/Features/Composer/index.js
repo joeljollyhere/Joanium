@@ -1,5 +1,6 @@
 import { state } from '../../../../System/State.js';
 import { generateId } from '../../../../System/Utils.js';
+import { triggerSendBtnUpdate } from '../index.js';
 import {
   textarea,
   sendBtn,
@@ -27,11 +28,7 @@ function hasUnsupportedImage() {
   return state.composerAttachments.some((a) => 'image' === a.type && !modelSupportsInput('image'));
 }
 function updateSendBtn() {
-  const ready =
-    (textarea.value.trim().length > 0 || state.composerAttachments.length > 0) &&
-    !state.isTyping &&
-    !hasUnsupportedImage();
-  (sendBtn.classList.toggle('ready', ready), (sendBtn.disabled = !ready));
+  triggerSendBtnUpdate();
 }
 function showHint(message, tone = 'info', { sticky: sticky = !1 } = {}) {
   composerHint &&

@@ -24,12 +24,25 @@ import {
 } from './Data/ChatPersistence.js';
 document.documentElement.classList.add('show-tokens');
 let _currentAbortController = null;
+let _currentLiveRow = null;
+
+export function queueSteeringMessage(text, attachments) {
+  state.queuedSteeringMessages = state.queuedSteeringMessages || [];
+  state.queuedSteeringMessages.push({ text, attachments });
+  if (_currentLiveRow) {
+    _currentLiveRow.push('Got your message loud and clear.');
+  }
+}
+
 export function stopGeneration() {
   _currentAbortController && (_currentAbortController.abort(), (_currentAbortController = null));
 }
 let _updateSendBtn = () => {};
 export function setSendBtnUpdater(fn) {
   _updateSendBtn = fn;
+}
+export function triggerSendBtnUpdate() {
+  _updateSendBtn();
 }
 async function resolveExecutionPlan(messages = []) {
   const lastUserMsg = [...messages].reverse().find((message) => 'user' === message?.role);
@@ -98,6 +111,7 @@ async function doSendFromState() {
   if (!state.selectedProvider || !state.selectedModel || state.isTyping) return;
   (syncConversationSummaryWithMessages(), (state.isTyping = !0), _updateSendBtn());
   const live = createLiveRow(doSendFromState);
+  _currentLiveRow = live;
   live.push('Thinking…');
   let plannedSkills = [],
     plannedToolCalls = [];
@@ -144,7 +158,7 @@ async function doSendFromState() {
       }),
       console.error('[Chat] doSendFromState error:', err));
   } finally {
-    ((state.isTyping = !1), _updateSendBtn(), updateTimeline());
+    ((state.isTyping = !1), (_currentLiveRow = null), _updateSendBtn(), updateTimeline());
   }
 }
 export function showChatView() {
@@ -208,6 +222,7 @@ export async function sendMessage({ text: text, attachments: attachments, sendBt
     );
   ((state.isTyping = !0), _updateSendBtn());
   const live = createLiveRow(doSendFromState);
+  _currentLiveRow = live;
   live.push('Thinking…');
   let plannedSkills = [],
     plannedToolCalls = [];
@@ -256,7 +271,7 @@ export async function sendMessage({ text: text, attachments: attachments, sendBt
         console.error('[Chat] sendMessage error:', err));
     }
   } finally {
-    ((state.isTyping = !1), _updateSendBtn());
+    ((state.isTyping = !1), (_currentLiveRow = null), _updateSendBtn());
   }
 }
 export function startNewChat(extraCleanup = () => {}) {

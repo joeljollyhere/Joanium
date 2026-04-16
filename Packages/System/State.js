@@ -1,5 +1,6 @@
 export const state = {
   messages: [],
+  queuedSteeringMessages: [],
   composerAttachments: [],
   isTyping: !1,
   currentChatId: null,

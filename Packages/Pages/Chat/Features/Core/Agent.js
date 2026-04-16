@@ -1101,6 +1101,16 @@ export async function agentLoop(
     .filter(Boolean)
     .join('\n\n');
   for (let turn = 0; turn < 100; turn++) {
+    if (state.queuedSteeringMessages?.length) {
+      const msgs = state.queuedSteeringMessages.splice(0, state.queuedSteeringMessages.length);
+      for (const msg of msgs) {
+        loopMessages.push({
+          role: 'user',
+          content: `[USER STEERING INTERVENTION]:\n${msg.text}`,
+          attachments: msg.attachments || [],
+        });
+      }
+    }
     const forceFinalAnswer = turn >= 99,
       toolsThisTurn = forceFinalAnswer ? [] : availableTools,
       allPlannedToolsDone =

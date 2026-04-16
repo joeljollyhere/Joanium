@@ -18,6 +18,7 @@ import {
 } from '../../Features/ModelSelector/index.js';
 import {
   init as initComposer,
+  reset as resetComposer,
   syncCapabilities,
   addAttachments,
   syncWorkspacePickerVisibility,
@@ -30,6 +31,7 @@ import {
   showChatView,
   setSendBtnUpdater,
   stopGeneration,
+  queueSteeringMessage,
   initChatUI,
   prewarmAgentContext,
 } from '../../Features/index.js';
@@ -168,14 +170,27 @@ export function mount(outlet, { settings: settings, navigate: navigate }) {
   (initChatUI(),
     setSendBtnUpdater(function () {
       if (!sendBtn) return;
-      if (state.isTyping)
+      if (state.isTyping) {
+        const hasText = textarea?.value.trim().length > 0;
+        const hasAtt = state.composerAttachments?.length > 0;
+        if (hasText || hasAtt) {
+          return (
+            (sendBtn.innerHTML = '<span style="font-size: 11px;font-weight: 600;">Queue</span>'),
+            sendBtn.classList.add('ready', 'is-queue'),
+            sendBtn.classList.remove('is-stop'),
+            (sendBtn.disabled = !1),
+            void (sendBtn.title = 'Queue instructions for next step')
+          );
+        }
         return (
           (sendBtn.innerHTML =
             '<svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13"><rect x="5" y="5" width="14" height="14" rx="3"/></svg>'),
           sendBtn.classList.add('ready', 'is-stop'),
+          sendBtn.classList.remove('is-queue'),
           (sendBtn.disabled = !1),
           void (sendBtn.title = 'Stop generating')
         );
+      }
       ((sendBtn.innerHTML =
         '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="15" height="15"><path d="M12 19V5M5 12l7-7 7 7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/></svg>'),
         sendBtn.classList.remove('is-stop'),
@@ -199,9 +214,17 @@ export function mount(outlet, { settings: settings, navigate: navigate }) {
     };
   (welcomeChips?.addEventListener('click', onStarterChipClick),
     initComposer(() => {
-      if (state.isTyping) return void stopGeneration();
       const text = textarea?.value.trim() ?? '',
         attachments = state.composerAttachments.map((a) => ({ ...a }));
+      if (state.isTyping) {
+        if (text || attachments.length > 0) {
+          queueSteeringMessage(text, attachments);
+          resetComposer();
+        } else {
+          stopGeneration();
+        }
+        return;
+      }
       sendMessage({ text: text, attachments: attachments, sendBtnEl: sendBtn });
     }),
     projectOpenFolderBtn?.addEventListener('click', async () => {
