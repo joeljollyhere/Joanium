@@ -83,7 +83,7 @@ export function createBrowserPreviewFeature() {
       try {
         (await window.electronAPI.invoke('browser-preview-set-bounds', nextBounds),
           (lastBoundsKey = nextBoundsKey));
-      } catch (err) {
+      } catch {
         lastBoundsKey = 'uninitialized';
       }
   }

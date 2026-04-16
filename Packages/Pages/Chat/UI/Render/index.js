@@ -151,7 +151,7 @@ function syncProjectUI() {
     renderStarterPrompts(),
     syncWorkspacePickerVisibility?.());
 }
-export function mount(outlet, { settings: settings, navigate: navigate }) {
+export function mount(outlet, { settings: _settings, navigate: _navigate }) {
   ((outlet.innerHTML = getChatHTML()),
     initDOM(),
     renderStarterPrompts(),
