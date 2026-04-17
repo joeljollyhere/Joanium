@@ -255,6 +255,9 @@ export function mount(outlet, { settings: _settings, navigate: _navigate }) {
     }
   }
   document.addEventListener('click', onDocClick);
+  const onUserActivity = () => scheduleMemoryFlush();
+  window.addEventListener('joanium:user-activity', onUserActivity);
+
   const onSettingsSaved = () => refreshSystemPrompt(),
     onUserProfileUpdated = () => syncWelcomeTitle(),
     onWorkspaceChanged = () => {
@@ -345,6 +348,7 @@ export function mount(outlet, { settings: _settings, navigate: _navigate }) {
         document.removeEventListener('dragenter', onDragEnter),
         document.removeEventListener('dragleave', onDragLeave),
         document.removeEventListener('drop', onDrop),
+        window.removeEventListener('joanium:user-activity', onUserActivity),
         window.removeEventListener('ow:settings-saved', onSettingsSaved),
         window.removeEventListener('ow:user-profile-updated', onUserProfileUpdated),
         window.removeEventListener('ow:workspace-changed', onWorkspaceChanged),

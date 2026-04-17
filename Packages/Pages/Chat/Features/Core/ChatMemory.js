@@ -8,6 +8,16 @@ const _queuedSignatures = new Set();
 let _activeMemoryAbort = null;
 const _MAX_QUEUED_SIGNATURES = 100;
 
+// Tracks the last time the user interacted (sent a message, loaded a chat, etc.).
+// Memory flushes wait until the user has been genuinely idle for MIN_IDLE_MS.
+const MIN_IDLE_BEFORE_FLUSH_MS = 10_000; // 10 s of quiet before touching the API
+let _lastActivityAt = 0; // 0 = unknown, treated as very old
+
+/** Call this whenever the user sends a message or loads a chat. */
+export function markMemoryActivity() {
+  _lastActivityAt = Date.now();
+}
+
 function buildSnapshotScope(projectId = null) {
   return projectId ? { projectId: projectId } : {};
 }
@@ -67,11 +77,19 @@ async function markSnapshotSynced(snapshot) {
 
 function waitForUserIdle(pollMs = 500, maxWaitMs = 60000) {
   return new Promise((resolve) => {
-    if (!state.isTyping) return resolve();
+    const isReallyIdle = () => {
+      if (state.isTyping) return false;
+      // Also require a minimum quiet period since the last user action so we
+      // don't accidentally race with a request the user is about to send.
+      if (_lastActivityAt > 0 && Date.now() - _lastActivityAt < MIN_IDLE_BEFORE_FLUSH_MS)
+        return false;
+      return true;
+    };
+    if (isReallyIdle()) return resolve();
     let elapsed = 0;
     const interval = setInterval(() => {
       elapsed += pollMs;
-      if (!state.isTyping || elapsed >= maxWaitMs) {
+      if (isReallyIdle() || elapsed >= maxWaitMs) {
         clearInterval(interval);
         resolve();
       }

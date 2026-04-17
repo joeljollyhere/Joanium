@@ -12,6 +12,7 @@ import {
 } from './UI/ChatBubble.js';
 import { updateTimeline, setupScrollFeatures, bumpScrollBadge } from './UI/ChatTimeline.js';
 import { queueCurrentSessionMemorySync } from './Core/ChatMemory.js';
+import { markMemoryActivity } from './Core/ChatMemory.js';
 import {
   queueConversationCompaction,
   resetConversationSummary,
@@ -177,6 +178,10 @@ async function doSendFromState() {
   } finally {
     ((state.isTyping = !1), (_currentLiveRow = null), _updateSendBtn(), updateTimeline());
     _latencyMonitor.cancel();
+    // Mark activity so the idle-flush guard knows the user was just active.
+    // Dispatching the event lets the render layer reset its debounce timer too.
+    markMemoryActivity();
+    window.dispatchEvent(new CustomEvent('joanium:user-activity'));
   }
 }
 export function showChatView() {
@@ -304,6 +309,10 @@ export async function sendMessage({ text: text, attachments: attachments, sendBt
   } finally {
     ((state.isTyping = !1), (_currentLiveRow = null), _updateSendBtn());
     _latencyMonitor.cancel();
+    // Mark activity so the idle-flush guard knows the user was just active.
+    // Dispatching the event lets the render layer reset its debounce timer too.
+    markMemoryActivity();
+    window.dispatchEvent(new CustomEvent('joanium:user-activity'));
   }
 }
 export function startNewChat(extraCleanup = () => {}) {
