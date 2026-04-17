@@ -354,7 +354,8 @@ export function createLiveRow(doSendFromStateFn) {
     _lastReasoningRenderAt = 0,
     _cursorEl = null,
     _thinkingState = 'working',
-    _replyAttachments = [];
+    _replyAttachments = [],
+    _startTime = Date.now();
   const _streamFilter = (function () {
       let _buffer = '',
         _reasoningDepth = 0;
@@ -562,7 +563,7 @@ export function createLiveRow(doSendFromStateFn) {
             }),
           usage)
         ) {
-          const footer = buildTokenFooter(usage, provider, modelId);
+          const footer = buildTokenFooter(usage, provider, modelId, Date.now() - _startTime);
           footer && row.querySelector('.content-wrapper')?.appendChild(footer);
         }
         smoothScrollToBottom();

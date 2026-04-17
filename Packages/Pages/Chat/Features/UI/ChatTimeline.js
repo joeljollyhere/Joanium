@@ -1,5 +1,5 @@
 import { chatMessages } from '../../../Shared/Core/DOM.js';
-export function buildTokenFooter(usage, provider, modelId) {
+export function buildTokenFooter(usage, provider, modelId, responseTimeMs) {
   const inp = usage?.inputTokens ?? 0,
     out = usage?.outputTokens ?? 0;
   if (!inp && !out) return null;
@@ -9,12 +9,14 @@ export function buildTokenFooter(usage, provider, modelId) {
       : null,
     fmtN = (n) =>
       n >= 1e6 ? `${(n / 1e6).toFixed(2)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(1)}K` : String(n),
+    fmtTime = (ms) => (ms == null ? null : ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${ms}ms`),
     el = document.createElement('div');
   var c;
+  const timeStr = fmtTime(responseTimeMs != null ? Math.round(responseTimeMs) : null);
   return (
     (el.className = 'token-footer'),
     (el.innerHTML =
-      `\n    <span class="tf-item tf-in">&#8593; ${fmtN(inp)}</span>\n    <span class="tf-sep">&#183;</span>\n    <span class="tf-item tf-out">&#8595; ${fmtN(out)}</span>\n    ${null !== cost ? `<span class="tf-sep">&#183;</span><span class="tf-item tf-cost">${((c = cost), 0 === c ? '$0.000' : c < 0.001 ? '<$0.001' : `~$${c.toFixed(3)}`)}</span>` : ''}\n  `.trim()),
+      `\n    <span class="tf-item tf-in">&#8593; ${fmtN(inp)}</span>\n    <span class="tf-sep">&#183;</span>\n    <span class="tf-item tf-out">&#8595; ${fmtN(out)}</span>\n    ${null !== cost ? `<span class="tf-sep">&#183;</span><span class="tf-item tf-cost">${((c = cost), 0 === c ? '$0.000' : c < 0.001 ? '<$0.001' : `~${c.toFixed(3)}`)}</span>` : ''}\n    ${timeStr ? `<span class="tf-sep">&#183;</span><span class="tf-item tf-time">⌛ ${timeStr}</span>` : ''}\n  `.trim()),
     el
   );
 }
