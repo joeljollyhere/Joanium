@@ -1,4 +1,5 @@
 import { state } from '../../../../System/State.js';
+import { createGitBar } from './Features/GitBar.js';
 import { initDOM } from '../../../Shared/Core/DOM.js';
 import {
   textarea,
@@ -45,6 +46,7 @@ import { createEnhanceFeature } from './Features/ChatEnhance.js';
 import { createBrowserPreviewFeature } from './Features/BrowserPreview.js';
 
 let _memoryFlushTimer = null;
+let gitBar;
 
 function scheduleMemoryFlush(delayMs = 30000) {
   if (_memoryFlushTimer) clearTimeout(_memoryFlushTimer);
@@ -150,6 +152,7 @@ function syncProjectUI() {
     : ta && (ta.placeholder = 'How can I help you today?'),
     renderStarterPrompts(),
     syncWorkspacePickerVisibility?.());
+  gitBar?.updateWorkingDir(project?.rootPath ?? null);
 }
 export function mount(outlet, { settings: _settings, navigate: _navigate }) {
   ((outlet.innerHTML = getChatHTML()),
@@ -277,6 +280,10 @@ export function mount(outlet, { settings: _settings, navigate: _navigate }) {
       state: state,
     }),
     browserPreviewFeature = createBrowserPreviewFeature();
+  // Git bar start
+  gitBar = createGitBar();
+  gitBar.init(state.activeProject?.rootPath ?? null);
+  // Git bar end
   ensureDropOverlay();
   let dragCounter = 0;
   const onDragOver = (e) => {

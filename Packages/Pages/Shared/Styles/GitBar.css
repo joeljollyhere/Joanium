@@ -1,0 +1,295 @@
+#project-context-bar {
+  width: min(92%, 960px);
+  margin: 16px auto 0;
+  padding: 10px 12px 10px 16px;
+  border-radius: 20px;
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border-subtle));
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--accent) 8%, var(--bg-secondary)),
+    var(--bg-secondary)
+  );
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.06);
+  animation: fadeScaleIn 0.3s var(--motion-smooth);
+  position: relative;
+}
+
+.pcb-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.pcb-row-git {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.pcb-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.pcb-folder-icon {
+  width: 14px;
+  height: 14px;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.pcb-path {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 240px;
+}
+
+.pcb-chevron {
+  font-size: 14px;
+  color: var(--text-muted);
+  opacity: 0.5;
+  flex-shrink: 0;
+}
+
+.pcb-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.pcb-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.pcb-branch-wrap {
+  position: relative;
+}
+
+.pcb-branch-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--text-secondary);
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.pcb-branch-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  border-color: var(--accent);
+}
+
+.pcb-caret {
+  opacity: 0.6;
+}
+
+.pcb-status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: transparent;
+  flex-shrink: 0;
+}
+
+.pcb-status-dot.is-dirty {
+  background: #f0a500;
+  animation: pcb-pulse 2s infinite;
+}
+
+.pcb-status-dot.is-clean {
+  background: #4caf84;
+}
+
+@keyframes pcb-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.45;
+  }
+}
+
+.pcb-git-actions {
+  display: flex;
+  align-items: center;
+  position: relative;
+}
+
+.pcb-git-action-btn {
+  padding: 5px 12px;
+  border-radius: 999px 0 0 999px;
+  border: 1px solid var(--accent);
+  border-right: none;
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--accent);
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.pcb-git-action-btn:hover {
+  background: var(--accent);
+  color: #fff;
+}
+
+.pcb-git-action-toggle {
+  padding: 5px 8px;
+  border-radius: 0 999px 999px 0;
+  border: 1px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--accent);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  transition: all var(--transition-fast);
+}
+
+.pcb-git-action-toggle:hover {
+  background: var(--accent);
+  color: #fff;
+}
+
+.pcb-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 160px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.2);
+  z-index: 400;
+  overflow: hidden;
+}
+
+.pcb-branch-wrap .pcb-dropdown {
+  left: 0;
+  right: auto;
+  min-width: 180px;
+}
+
+.pcb-dropdown-item {
+  display: block;
+  width: 100%;
+  padding: 9px 14px;
+  border: none;
+  background: none;
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.pcb-dropdown-item:hover {
+  background: var(--bg-hover);
+}
+
+.pcb-dropdown-item.is-active {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.pcb-dropdown-loading,
+.pcb-dropdown-empty {
+  padding: 10px 14px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.pcb-commit-popover {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 12px;
+  width: min(340px, calc(100vw - 32px));
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.22);
+  z-index: 400;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  animation: fadeScaleIn 0.18s var(--motion-smooth);
+}
+
+.pcb-commit-textarea {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-input);
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  padding: 10px 12px;
+  resize: none;
+  outline: none;
+  transition: border-color var(--transition-fast);
+}
+
+.pcb-commit-textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-glow);
+}
+
+.pcb-commit-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.pcb-toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(8px);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 8px 18px;
+  font-size: 13px;
+  color: var(--text-primary);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  z-index: 9999;
+  opacity: 0;
+  transition:
+    opacity 0.2s,
+    transform 0.2s;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.pcb-toast.pcb-toast-show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.pcb-toast.pcb-toast-error {
+  border-color: rgba(239, 155, 155, 0.4);
+  color: #ef9b9b;
+}

@@ -87,3 +87,6 @@
 
 /* 30. HTML preview modal */
 @import './HtmlPreview.css';
+
+/* 31. GitBar */
+@import '../../../Shared/Styles/GitBar.css';
