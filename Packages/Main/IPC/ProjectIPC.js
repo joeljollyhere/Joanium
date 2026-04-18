@@ -56,6 +56,18 @@ export function register() {
       }),
     ));
 
+  ipcMain.handle('git-pull', async (_e, { workingDir }) => {
+    if (!workingDir?.trim()) return { ok: false, error: 'No working directory provided.' };
+    return runGit('git pull', workingDir);
+  });
+
+  ipcMain.handle('git-delete-branch', async (_e, { workingDir, branch }) => {
+    if (!workingDir?.trim()) return { ok: false, error: 'No working directory provided.' };
+    if (!branch?.trim()) return { ok: false, error: 'No branch name provided.' };
+    const safeB = branch.replace(/"/g, '\\"');
+    return runGit(`git branch -d "${safeB}"`, workingDir);
+  });
+
   ipcMain.handle('git-branches', async (_e, { workingDir }) => {
     if (!workingDir?.trim()) return { ok: false, error: 'No working directory provided.' };
     const [currentRes, allRes] = await Promise.all([
