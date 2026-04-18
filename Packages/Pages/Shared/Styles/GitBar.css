@@ -250,6 +250,8 @@
 .pcb-dropdown-item.is-active {
   color: var(--accent);
   font-weight: 600;
+  cursor: default;
+  pointer-events: none;
 }
 
 .pcb-dropdown-item.is-muted,
