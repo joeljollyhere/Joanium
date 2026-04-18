@@ -342,10 +342,13 @@ async function performCommit() {
     }
 
     closeCommitPopover();
-    await refreshStatus();
   } finally {
+    // setGitBusy(false) MUST come before refreshStatus() — otherwise refreshStatus
+    // sees _busy=true and bails out, leaving the UI stale (the root cause of the
+    // "modal stays open / need to push twice" bug).
     setGitBusy(false);
     setCommitPopoverBusy(false, isPushAfter ? 'Commit & Push' : 'Commit');
+    await refreshStatus();
   }
 }
 
@@ -431,6 +434,7 @@ export function createGitBar() {
     $('pcb-branch-dropdown')?.addEventListener('click', async (e) => {
       const del = e.target.closest('[data-delete-branch]');
       if (del) {
+        e.stopPropagation(); // prevent the document click listener from instantly dismissing the confirm dialog
         const branchToDelete = del.dataset.deleteBranch;
         $('pcb-branch-dropdown').hidden = true;
         showConfirm(
