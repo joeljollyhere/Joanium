@@ -78,36 +78,34 @@ function updatePrimaryBtn() {
   const toggle = $('pcb-git-action-toggle');
   if (!btn) return;
 
-  const canCommit = _isDirty;
-  const canPush = _unpushedCount !== 0;
+  const enableToggle = (show) => {
+    if (!toggle) return;
+    toggle.hidden = !show;
+    toggle.disabled = !show;
+    toggle.classList.toggle('is-disabled', !show);
+  };
 
-  if (canCommit) {
+  if (_isDirty) {
+    // Unstaged changes → primary action is Commit
     btn.textContent = 'Commit';
     btn.dataset.action = 'commit';
     btn.disabled = false;
     btn.classList.remove('is-disabled');
-    if (toggle) {
-      toggle.disabled = false;
-      toggle.classList.remove('is-disabled');
-    }
-  } else {
-    btn.textContent = _unpushedCount > 0 ? `Push (${_unpushedCount})` : 'Push';
+    enableToggle(true); // dropdown shows "Commit & Push"
+  } else if (_unpushedCount > 0) {
+    // Committed but not yet pushed → primary action is Push
+    btn.textContent = `Push (${_unpushedCount})`;
     btn.dataset.action = 'push';
-    if (canPush) {
-      btn.disabled = false;
-      btn.classList.remove('is-disabled');
-      if (toggle) {
-        toggle.disabled = false;
-        toggle.classList.remove('is-disabled');
-      }
-    } else {
-      btn.disabled = true;
-      btn.classList.add('is-disabled');
-      if (toggle) {
-        toggle.disabled = true;
-        toggle.classList.add('is-disabled');
-      }
-    }
+    btn.disabled = false;
+    btn.classList.remove('is-disabled');
+    enableToggle(true); // dropdown shows "Push & Sync"
+  } else {
+    // All clean → primary action is Pull
+    btn.textContent = 'Pull';
+    btn.dataset.action = 'pull';
+    btn.disabled = false;
+    btn.classList.remove('is-disabled');
+    enableToggle(false); // no meaningful secondary action
   }
 }
 
@@ -141,21 +139,22 @@ function buildActionMenu() {
   const d = $('pcb-action-dropdown');
   if (!d) return;
 
-  const canCommit = _isDirty;
-  const canPush = _unpushedCount !== 0;
-
-  const opts = canCommit
-    ? [
-        { action: 'commit', label: 'Commit changes', meta: 'Stage & commit', enabled: true },
-        { action: 'commit-push', label: 'Commit & Push', meta: 'Commit then push', enabled: true },
-        { action: 'push', label: 'Push', meta: 'Push to remote', enabled: canPush },
-        { action: 'push-sync', label: 'Push & Sync', meta: 'Pull then push', enabled: canPush },
-      ]
-    : [
-        { action: 'push', label: 'Push', meta: 'Push to remote', enabled: canPush },
-        { action: 'push-sync', label: 'Push & Sync', meta: 'Pull then push', enabled: canPush },
-        { action: 'pull', label: 'Pull', meta: 'Pull from remote', enabled: true },
-      ];
+  // Only show the one meaningful secondary action for the current state
+  let opts;
+  if (_isDirty) {
+    opts = [
+      {
+        action: 'commit-push',
+        label: 'Commit & Push',
+        meta: 'Stage, commit, then push',
+        enabled: true,
+      },
+    ];
+  } else if (_unpushedCount > 0) {
+    opts = [{ action: 'push-sync', label: 'Push & Sync', meta: 'Pull then push', enabled: true }];
+  } else {
+    opts = [{ action: 'pull', label: 'Pull', meta: 'Pull from remote', enabled: true }];
+  }
 
   d.innerHTML = opts
     .map(

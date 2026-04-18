@@ -67,7 +67,8 @@ export function register() {
     if (!workingDir?.trim()) return { ok: false, error: 'No working directory provided.' };
     if (!branch?.trim()) return { ok: false, error: 'No branch name provided.' };
     const safeB = branch.replace(/"/g, '\\"');
-    return runGit(`git branch -d "${safeB}"`, workingDir);
+    // Use -D (force) — user already confirmed in the UI dialog, so unmerged branches should still delete.
+    return runGit(`git branch -D "${safeB}"`, workingDir);
   });
 
   ipcMain.handle('git-branches', async (_e, { workingDir }) => {
