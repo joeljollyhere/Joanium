@@ -1,6 +1,5 @@
 export const toolsList = [
   'search_web',
-  'search_npm',
   'search_pypi',
   'search_crates',
   'search_docker',

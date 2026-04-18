@@ -185,35 +185,6 @@ export const { handles: handles, execute: execute } = createExecutor({
 
       return lines.join('\n');
     },
-    search_npm: async (params, onStage) => {
-      const { query: query } = params;
-      if (!query?.trim()) throw new Error('Missing required param: query');
-      onStage(`📦 Searching npm for "${query}"…`);
-      const data = await safeJson(
-          `https://registry.npmjs.org/-/v1/search?text=${encodeURIComponent(query)}&size=5`,
-        ),
-        lines = [`📦 npm Search: "${query}"`, ''],
-        objects = data.objects ?? [];
-      return 0 === objects.length
-        ? (lines.push(`No npm packages found for "${query}".`),
-          lines.push(`🔗 https://www.npmjs.com/search?q=${encodeURIComponent(query)}`),
-          lines.join('\n'))
-        : (objects.forEach((obj, i) => {
-            const p = obj.package;
-            (lines.push(`**${i + 1}. ${p.name}** — v${p.version}`),
-              p.description && lines.push(`   ${p.description}`));
-            const downloads = obj.downloads?.monthly;
-            null != downloads && lines.push(`   📥 ${downloads.toLocaleString()} downloads/month`);
-            const author = p.author?.name ?? p.publisher?.username;
-            author && lines.push(`   👤 ${author}`);
-            const keywords = (p.keywords ?? []).slice(0, 5).join(', ');
-            (keywords && lines.push(`   🏷  ${keywords}`),
-              lines.push(`   🔗 https://www.npmjs.com/package/${p.name}`),
-              lines.push(''));
-          }),
-          lines.push('Source: npmjs.org'),
-          lines.join('\n'));
-    },
     search_pypi: async (params, onStage) => {
       const { query: query } = params;
       if (!query?.trim()) throw new Error('Missing required param: query');

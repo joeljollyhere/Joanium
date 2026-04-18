@@ -14,6 +14,8 @@ import { URL_TOOLS } from '../Url/Tools.js';
 import { DICTIONARY_TOOLS } from '../Dictionary/Tools.js';
 import { DATETIME_TOOLS } from '../DateTime/Tools.js';
 import { PASSWORD_TOOLS } from '../Password/Tools.js';
+import { NPM_TOOLS } from '../Npm/Tools.js';
+import { STACKOVERFLOW_TOOLS } from '../StackOverflow/Tools.js';
 import { Trigger as WeatherTrigger } from '../Weather/Trigger.js';
 import { Trigger as CryptoTrigger } from '../Crypto/Trigger.js';
 import { Trigger as FinanceTrigger } from '../Finance/Trigger.js';
@@ -30,6 +32,8 @@ import { Trigger as UrlTrigger } from '../Url/Trigger.js';
 import { Trigger as DictionaryTrigger } from '../Dictionary/Trigger.js';
 import { Trigger as DateTimeTrigger } from '../DateTime/Trigger.js';
 import { Trigger as PasswordTrigger } from '../Password/Trigger.js';
+import { Trigger as NpmTrigger } from '../Npm/Trigger.js';
+import { Trigger as StackOverflowTrigger } from '../StackOverflow/Trigger.js';
 import * as WeatherExecutor from '../Weather/Executor.js';
 import * as CryptoExecutor from '../Crypto/Executor.js';
 import * as FinanceExecutor from '../Finance/Executor.js';
@@ -46,6 +50,8 @@ import * as UrlExecutor from '../Url/Executor.js';
 import * as DictionaryExecutor from '../Dictionary/Executor.js';
 import * as DateTimeExecutor from '../DateTime/Executor.js';
 import * as PasswordExecutor from '../Password/Executor.js';
+import * as NpmExecutor from '../Npm/Executor.js';
+import * as StackOverflowExecutor from '../StackOverflow/Executor.js';
 
 // Free but with API Key
 
@@ -233,6 +239,24 @@ export const CAPABILITY_MANIFESTS = [
     tools: PASSWORD_TOOLS,
     executor: PasswordExecutor,
     featureCategories: ['security'],
+    connectors: {},
+  },
+  {
+    name: 'npm',
+    description: 'npm package registry — search packages, get info, versions, and download stats',
+    triggers: NpmTrigger,
+    tools: NPM_TOOLS,
+    executor: NpmExecutor,
+    featureCategories: ['npm'],
+    connectors: {},
+  },
+  {
+    name: 'stackoverflow',
+    description: 'Stack Overflow — search questions, get answers, browse by tag or error message',
+    triggers: StackOverflowTrigger,
+    tools: STACKOVERFLOW_TOOLS,
+    executor: StackOverflowExecutor,
+    featureCategories: ['stackoverflow'],
     connectors: {},
   },
   {

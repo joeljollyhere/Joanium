@@ -14,20 +14,6 @@ export const SEARCH_TOOLS = [
     },
   },
   {
-    name: 'search_npm',
-    description:
-      'Search the npm registry for JavaScript/Node.js packages. Returns package name, version, description, author, weekly downloads, and homepage link.',
-    category: 'search',
-    parameters: {
-      query: {
-        type: 'string',
-        required: !0,
-        description:
-          'The npm package name or keyword to search for (e.g. "react router", "lodash", "express middleware")',
-      },
-    },
-  },
-  {
     name: 'search_pypi',
     description:
       'Search the Python Package Index (PyPI) for Python libraries and tools. Returns package name, version, summary, author, and PyPI page link.',

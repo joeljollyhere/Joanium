@@ -29,6 +29,8 @@ export { URL_TOOLS } from '../Url/Tools.js';
 export { DICTIONARY_TOOLS } from '../Dictionary/Tools.js';
 export { DATETIME_TOOLS } from '../DateTime/Tools.js';
 export { PASSWORD_TOOLS } from '../Password/Tools.js';
+export { NPM_TOOLS } from '../Npm/Tools.js';
+export { STACKOVERFLOW_TOOLS } from '../StackOverflow/Tools.js';
 const REQUEST_TOOL_CATEGORIES_TOOL = {
   name: 'request_tool_categories',
   description:
