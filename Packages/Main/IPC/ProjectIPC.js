@@ -8,14 +8,14 @@ export const ipcMeta = { needs: [] };
 
 // ─── Git error categories (mirrors VS Code's git error handling) ──────────────
 const GitErrorCategory = {
-  AUTH:        'auth',        // credential / permission denied
+  AUTH: 'auth', // credential / permission denied
   NO_UPSTREAM: 'no_upstream', // branch has no remote tracking branch
-  DIVERGED:    'diverged',    // local and remote have diverged
-  CONFLICT:    'conflict',    // merge / rebase conflict
-  NOTHING:     'nothing',     // nothing to commit / already up to date
-  NOT_REPO:    'not_repo',    // not a git repository
-  NETWORK:     'network',     // network / timeout
-  UNKNOWN:     'unknown',
+  DIVERGED: 'diverged', // local and remote have diverged
+  CONFLICT: 'conflict', // merge / rebase conflict
+  NOTHING: 'nothing', // nothing to commit / already up to date
+  NOT_REPO: 'not_repo', // not a git repository
+  NETWORK: 'network', // network / timeout
+  UNKNOWN: 'unknown',
 };
 
 /**
@@ -25,22 +25,47 @@ const GitErrorCategory = {
 function classifyGitError(stderr = '', stdout = '') {
   const s = (stderr + stdout).toLowerCase();
   if (/nothing to commit|nothing added to commit|no changes added/.test(s))
-    return { category: GitErrorCategory.NOTHING,     hint: 'Nothing to commit — working tree is clean.' };
+    return {
+      category: GitErrorCategory.NOTHING,
+      hint: 'Nothing to commit — working tree is clean.',
+    };
   if (/already up.to.date/.test(s))
-    return { category: GitErrorCategory.NOTHING,     hint: 'Already up to date.' };
-  if (/authentication failed|could not read username|permission denied|invalid credentials|http 401|http 403/.test(s))
-    return { category: GitErrorCategory.AUTH,        hint: 'Authentication failed. Re-enter credentials or check your SSH key.' };
+    return { category: GitErrorCategory.NOTHING, hint: 'Already up to date.' };
+  if (
+    /authentication failed|could not read username|permission denied|invalid credentials|http 401|http 403/.test(
+      s,
+    )
+  )
+    return {
+      category: GitErrorCategory.AUTH,
+      hint: 'Authentication failed. Re-enter credentials or check your SSH key.',
+    };
   if (/no upstream|set.upstream|has no tracked branch|does not track/.test(s))
-    return { category: GitErrorCategory.NO_UPSTREAM, hint: 'Branch has no upstream. Will set it automatically.' };
+    return {
+      category: GitErrorCategory.NO_UPSTREAM,
+      hint: 'Branch has no upstream. Will set it automatically.',
+    };
   if (/non-fast-forward|fetch first|tip of your current branch is behind/.test(s))
-    return { category: GitErrorCategory.DIVERGED,    hint: "Remote has commits you don't have. Pulling then retrying…" };
+    return {
+      category: GitErrorCategory.DIVERGED,
+      hint: "Remote has commits you don't have. Pulling then retrying…",
+    };
   if (/conflict|automatic merge failed|merge conflict/.test(s))
-    return { category: GitErrorCategory.CONFLICT,    hint: 'Merge conflict detected. Resolve conflicts then commit.' };
+    return {
+      category: GitErrorCategory.CONFLICT,
+      hint: 'Merge conflict detected. Resolve conflicts then commit.',
+    };
   if (/not a git repository/.test(s))
-    return { category: GitErrorCategory.NOT_REPO,    hint: 'Not a git repository. Run `git init` first.' };
+    return {
+      category: GitErrorCategory.NOT_REPO,
+      hint: 'Not a git repository. Run `git init` first.',
+    };
   if (/unable to connect|could not resolve host|timed out|ssl|connection refused/.test(s))
-    return { category: GitErrorCategory.NETWORK,     hint: 'Network error. Check your connection and remote URL.' };
-  return     { category: GitErrorCategory.UNKNOWN,   hint: stderr.trim() || 'Unknown git error.' };
+    return {
+      category: GitErrorCategory.NETWORK,
+      hint: 'Network error. Check your connection and remote URL.',
+    };
+  return { category: GitErrorCategory.UNKNOWN, hint: stderr.trim() || 'Unknown git error.' };
 }
 
 /**
@@ -66,7 +91,14 @@ function runGit(command, workingDir, opts = {}) {
           resolve({ ok: true, stdout: stdout || '', stderr: stderr || '', exitCode });
         } else {
           const { category, hint } = classifyGitError(stderr, stdout);
-          resolve({ ok: false, stdout: stdout || '', stderr: stderr || '', exitCode, category, hint });
+          resolve({
+            ok: false,
+            stdout: stdout || '',
+            stderr: stderr || '',
+            exitCode,
+            category,
+            hint,
+          });
         }
       },
     );
@@ -76,12 +108,20 @@ function runGit(command, workingDir, opts = {}) {
 /** runGit with extended timeout for network operations (push / pull / fetch). */
 const runGitNet = (cmd, dir) => runGit(cmd, dir, { timeout: 60_000 });
 
+/**
+ * runGit for commit — pre-commit hooks (linters, formatters, tests) can run
+ * for several minutes, so we give them a generous timeout (5 min).
+ */
+const runGitCommit = (cmd, dir) => runGit(cmd, dir, { timeout: 300_000 });
+
 /** Remove stale .git/index.lock — safe to call unconditionally. */
 function clearLockFile(workingDir) {
   try {
     const f = path.join(workingDir, '.git', 'index.lock');
     if (fs.existsSync(f)) fs.unlinkSync(f);
-  } catch { /* best-effort */ }
+  } catch {
+    /* best-effort */
+  }
 }
 
 export function register() {
@@ -116,7 +156,12 @@ export function register() {
     ));
 
   ipcMain.handle('git-pull', async (_e, { workingDir }) => {
-    if (!workingDir?.trim()) return { ok: false, category: GitErrorCategory.UNKNOWN, hint: 'No working directory provided.' };
+    if (!workingDir?.trim())
+      return {
+        ok: false,
+        category: GitErrorCategory.UNKNOWN,
+        hint: 'No working directory provided.',
+      };
     const res = await runGitNet('git pull --rebase=false', workingDir);
     // "already up to date" is informational, not an error
     if (!res.ok && res.category === GitErrorCategory.NOTHING) return { ...res, ok: true };
@@ -124,15 +169,26 @@ export function register() {
   });
 
   ipcMain.handle('git-delete-branch', async (_e, { workingDir, branch }) => {
-    if (!workingDir?.trim()) return { ok: false, category: GitErrorCategory.UNKNOWN, hint: 'No working directory provided.' };
-    if (!branch?.trim())    return { ok: false, category: GitErrorCategory.UNKNOWN, hint: 'No branch name provided.' };
+    if (!workingDir?.trim())
+      return {
+        ok: false,
+        category: GitErrorCategory.UNKNOWN,
+        hint: 'No working directory provided.',
+      };
+    if (!branch?.trim())
+      return { ok: false, category: GitErrorCategory.UNKNOWN, hint: 'No branch name provided.' };
     const safeB = branch.replace(/"/g, '\\"');
     // -D (force) — user already confirmed via UI dialog
     return runGit(`git branch -D "${safeB}"`, workingDir);
   });
 
   ipcMain.handle('git-branches', async (_e, { workingDir }) => {
-    if (!workingDir?.trim()) return { ok: false, category: GitErrorCategory.UNKNOWN, hint: 'No working directory provided.' };
+    if (!workingDir?.trim())
+      return {
+        ok: false,
+        category: GitErrorCategory.UNKNOWN,
+        hint: 'No working directory provided.',
+      };
     const [currentRes, allRes] = await Promise.all([
       runGit('git rev-parse --abbrev-ref HEAD', workingDir),
       runGit('git branch --format=%(refname:short)', workingDir),
@@ -140,19 +196,34 @@ export function register() {
     if (!currentRes.ok && !allRes.ok)
       return { ok: false, category: GitErrorCategory.NOT_REPO, hint: 'Not a git repository.' };
     const current = currentRes.stdout.trim();
-    const branches = allRes.stdout.split('\n').map((b) => b.trim()).filter(Boolean);
+    const branches = allRes.stdout
+      .split('\n')
+      .map((b) => b.trim())
+      .filter(Boolean);
     return { ok: true, current, branches };
   });
 
   ipcMain.handle('git-checkout-branch', async (_e, { workingDir, branch }) => {
-    if (!workingDir?.trim()) return { ok: false, category: GitErrorCategory.UNKNOWN, hint: 'No working directory provided.' };
-    if (!branch?.trim())    return { ok: false, category: GitErrorCategory.UNKNOWN, hint: 'No branch name provided.' };
+    if (!workingDir?.trim())
+      return {
+        ok: false,
+        category: GitErrorCategory.UNKNOWN,
+        hint: 'No working directory provided.',
+      };
+    if (!branch?.trim())
+      return { ok: false, category: GitErrorCategory.UNKNOWN, hint: 'No branch name provided.' };
     return runGit(`git checkout "${branch}"`, workingDir);
   });
 
   ipcMain.handle('git-commit', async (_e, { workingDir, message }) => {
-    if (!workingDir?.trim()) return { ok: false, category: GitErrorCategory.UNKNOWN, hint: 'No working directory provided.' };
-    if (!message?.trim())    return { ok: false, category: GitErrorCategory.UNKNOWN, hint: 'No commit message provided.' };
+    if (!workingDir?.trim())
+      return {
+        ok: false,
+        category: GitErrorCategory.UNKNOWN,
+        hint: 'No working directory provided.',
+      };
+    if (!message?.trim())
+      return { ok: false, category: GitErrorCategory.UNKNOWN, hint: 'No commit message provided.' };
 
     // ① Always clear stale lock file first
     clearLockFile(workingDir);
@@ -161,16 +232,22 @@ export function register() {
     const statusRes = await runGit('git status --porcelain', workingDir);
     if (!statusRes.ok) return statusRes;
     if (!statusRes.stdout.trim()) {
-      return { ok: true, noop: true, category: GitErrorCategory.NOTHING, hint: 'Nothing to commit — working tree is clean.' };
+      return {
+        ok: true,
+        noop: true,
+        category: GitErrorCategory.NOTHING,
+        hint: 'Nothing to commit — working tree is clean.',
+      };
     }
 
-    // ③ Stage all
+    // ③ Stage all (fast, local op — 20s is fine)
     const stageRes = await runGit('git add -A', workingDir);
     if (!stageRes.ok) return stageRes;
 
-    // ④ Commit
+    // ④ Commit — use hook-aware 5-minute timeout so pre-commit hooks
+    //    (linters, formatters, test runners) don't get killed mid-run.
     const safeMsg = message.replace(/"/g, '\\"');
-    const commitRes = await runGit(`git commit -m "${safeMsg}"`, workingDir);
+    const commitRes = await runGitCommit(`git commit -m "${safeMsg}"`, workingDir);
 
     // "nothing to commit" from git commit itself is still a soft success
     if (!commitRes.ok && commitRes.category === GitErrorCategory.NOTHING) {
@@ -180,7 +257,12 @@ export function register() {
   });
 
   ipcMain.handle('git-push', async (_e, { workingDir }) => {
-    if (!workingDir?.trim()) return { ok: false, category: GitErrorCategory.UNKNOWN, hint: 'No working directory provided.' };
+    if (!workingDir?.trim())
+      return {
+        ok: false,
+        category: GitErrorCategory.UNKNOWN,
+        hint: 'No working directory provided.',
+      };
 
     // ① Normal push
     let res = await runGitNet('git push', workingDir);
@@ -207,7 +289,12 @@ export function register() {
   });
 
   ipcMain.handle('git-push-sync', async (_e, { workingDir }) => {
-    if (!workingDir?.trim()) return { ok: false, category: GitErrorCategory.UNKNOWN, hint: 'No working directory provided.' };
+    if (!workingDir?.trim())
+      return {
+        ok: false,
+        category: GitErrorCategory.UNKNOWN,
+        hint: 'No working directory provided.',
+      };
 
     // ① Pull with rebase (VS Code Sync = pull rebase + push)
     const pullRes = await runGitNet('git pull --rebase', workingDir);

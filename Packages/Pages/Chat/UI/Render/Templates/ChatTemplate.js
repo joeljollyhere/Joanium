@@ -34,6 +34,7 @@ export function getChatHTML() {
       </div>
       <div id="pcb-commit-popover" class="pcb-commit-popover" hidden>
         <textarea id="pcb-commit-msg" class="pcb-commit-textarea" placeholder="Commit message\u2026" rows="2"></textarea>
+        <p id="pcb-commit-status" class="pcb-commit-status" hidden></p>
         <div class="pcb-commit-footer">
           <button id="pcb-commit-cancel" class="project-secondary-btn" type="button">Cancel</button>
           <button id="pcb-commit-confirm" class="project-primary-btn" type="button">Commit</button>

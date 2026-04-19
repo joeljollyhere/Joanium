@@ -468,6 +468,28 @@
   gap: 6px;
 }
 
+/* Status line that appears inside the commit popover during long hook runs */
+.pcb-commit-status {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 2px 4px;
+  margin: 0;
+  line-height: 1.4;
+  animation: pcb-status-fade-in 0.25s ease;
+}
+
+@keyframes pcb-status-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 /* ── Toast ───────────────────────────────────── */
 .pcb-toast {
   position: fixed;

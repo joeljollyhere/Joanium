@@ -72,6 +72,19 @@ function setCommitPopoverBusy(busy, label = '') {
   if (textarea) textarea.disabled = busy;
 }
 
+/** Show/hide the small status line inside the commit popover (e.g. "Running hooks\u2026"). */
+function setCommitStatus(text) {
+  const el = $('pcb-commit-status');
+  if (!el) return;
+  if (text) {
+    el.textContent = text;
+    el.hidden = false;
+  } else {
+    el.hidden = true;
+    el.textContent = '';
+  }
+}
+
 function updatePrimaryBtn() {
   if (_busy) return;
   const btn = $('pcb-git-action-btn');
@@ -246,7 +259,7 @@ function renderBranchList(d, branches) {
       d.hidden = true;
       await refreshStatus();
     } else {
-      showToast(r?.stderr || 'Failed to create branch', true);
+      showToast(r?.hint || r?.stderr || 'Failed to create branch', true);
       createBtn.disabled = false;
       createBtn.textContent = 'Create';
     }
@@ -275,13 +288,19 @@ async function executeAction(action) {
   try {
     if (action === 'pull') {
       const res = await gitCall('git-pull');
-      res?.ok ? showToast('Pulled successfully') : showToast(res?.stderr || 'Pull failed', true);
+      res?.ok
+        ? showToast('Pulled successfully')
+        : showToast(res?.hint || res?.stderr || 'Pull failed', true);
     } else if (action === 'push-sync') {
       const res = await gitCall('git-push-sync');
-      res?.ok ? showToast('Synced successfully') : showToast(res?.stderr || 'Sync failed', true);
+      res?.ok
+        ? showToast('Synced successfully')
+        : showToast(res?.hint || res?.stderr || 'Sync failed', true);
     } else {
       const res = await gitCall('git-push');
-      res?.ok ? showToast('Pushed successfully') : showToast(res?.stderr || 'Push failed', true);
+      res?.ok
+        ? showToast('Pushed successfully')
+        : showToast(res?.hint || res?.stderr || 'Push failed', true);
     }
   } finally {
     setGitBusy(false);
@@ -308,6 +327,7 @@ function closeCommitPopover() {
     m.value = '';
     m.disabled = false;
   }
+  setCommitStatus('');
   _pendingAction = null;
 }
 
@@ -321,34 +341,54 @@ async function performCommit() {
 
   const isPushAfter = _pendingAction === 'commit-push';
   setGitBusy(true);
-  setCommitPopoverBusy(true, 'Committing\u2026');
+  setCommitPopoverBusy(true, isPushAfter ? 'Commit & Push' : 'Commit');
+  setCommitStatus('Staging files\u2026');
+
+  // After 2.5 s of silence, switch to a "hooks are running" message so the
+  // user knows the operation is alive — not frozen or failed.
+  const hooksTimer = setTimeout(
+    () => setCommitStatus('Running commit hooks\u2026 (may take a while)'),
+    2500,
+  );
 
   try {
     const commitRes = await gitCall('git-commit', { message: msg });
+    clearTimeout(hooksTimer);
+
     if (!commitRes?.ok) {
-      showToast(commitRes?.stderr || 'Commit failed', true);
+      setCommitStatus('');
+      showToast(commitRes?.hint || commitRes?.stderr || 'Commit failed', true);
       return;
     }
 
     if (isPushAfter) {
+      setCommitStatus('Pushing\u2026');
       setCommitPopoverBusy(true, 'Pushing\u2026');
       const pushRes = await gitCall('git-push');
       if (pushRes?.ok) {
         showToast('Committed & pushed successfully');
       } else {
-        // Commit worked but push failed — tell the user clearly
-        showToast('Committed. Push failed: ' + (pushRes?.stderr || 'unknown error'), true);
+        // Commit worked but push failed — surface the actionable hint
+        showToast(
+          'Committed. Push failed: ' + (pushRes?.hint || pushRes?.stderr || 'unknown error'),
+          true,
+        );
       }
     } else {
-      showToast('Committed successfully');
+      showToast(
+        commitRes?.noop
+          ? 'Nothing to commit \u2014 tree is already clean.'
+          : 'Committed successfully',
+      );
     }
 
     closeCommitPopover();
   } finally {
+    clearTimeout(hooksTimer);
     // setGitBusy(false) MUST come before refreshStatus() — otherwise refreshStatus
-    // sees _busy=true and bails out, leaving the UI stale (the root cause of the
-    // "modal stays open / need to push twice" bug).
+    // sees _busy=true and bails out, leaving the UI stale.
     setGitBusy(false);
+    setCommitStatus('');
     setCommitPopoverBusy(false, isPushAfter ? 'Commit & Push' : 'Commit');
     await refreshStatus();
   }
@@ -449,7 +489,7 @@ export function createGitBar() {
               showToast(`Deleted "${branchToDelete}"`);
               await refreshStatus();
             } else {
-              showToast(r?.stderr || 'Delete failed', true);
+              showToast(r?.hint || r?.stderr || 'Delete failed', true);
             }
           },
         );
@@ -462,7 +502,7 @@ export function createGitBar() {
         const r = await gitCall('git-checkout-branch', { branch: b.dataset.branch });
         r?.ok
           ? showToast(`Switched to ${b.dataset.branch}`)
-          : showToast(r?.stderr || 'Checkout failed', true);
+          : showToast(r?.hint || r?.stderr || 'Checkout failed', true);
         await refreshStatus();
       }
     });
