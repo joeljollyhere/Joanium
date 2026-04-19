@@ -12,10 +12,10 @@ function stripHtml(html = '') {
     .replace(/<[^>]+>/g, '')
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
-    .replace(/&amp;/g, '&')
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
     .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
 }
