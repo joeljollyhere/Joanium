@@ -331,8 +331,10 @@ function closeCommitPopover() {
 
 async function performCommit() {
   if (_busy) return;
+  _busy = true; // claim the lock immediately — before any await or early-return
   const msg = $('pcb-commit-msg')?.value.trim();
   if (!msg) {
+    _busy = false;
     $('pcb-commit-msg')?.focus();
     return;
   }
@@ -469,7 +471,10 @@ async function generateAICommitMessage() {
     // Unclosed opening tags hide everything that follows until the closing tag arrives.
     function filterThinking(text) {
       return text
-        .replace(/<(think|thinking|thought|scratchpad|reasoning|reflection)[^>]*>[\s\S]*?<\/\1>\s*/gi, '')
+        .replace(
+          /<(think|thinking|thought|scratchpad|reasoning|reflection)[^>]*>[\s\S]*?<\/\1>\s*/gi,
+          '',
+        )
         .replace(/<(think|thinking|thought|scratchpad|reasoning|reflection)[^>]*>[\s\S]*/gi, '')
         .trim();
     }
