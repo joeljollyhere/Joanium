@@ -1,7 +1,19 @@
 import { exec } from 'child_process';
+
+// Bash: wrap in single quotes, escape internal single quotes.
 function sq(str) {
   return `'${String(str ?? '').replace(/'/g, "'\\''")}'`;
 }
+
+// Windows cmd.exe: strip double-quotes (they cannot be escaped inside a "-delimited
+// cmd block) and prefix every other metacharacter with ^ so a folder path cannot
+// break out of the cd command and inject arbitrary shell instructions.
+function wq(str) {
+  return String(str ?? '')
+    .replace(/"/g, '')
+    .replace(/[&|<>^()!%]/g, '^$&');
+}
+
 export function openTerminalAtPath(folderPath, command = '') {
   if (!folderPath) throw new Error('openTerminalAtPath: no path provided');
   return new Promise((resolve, reject) => {
@@ -10,7 +22,7 @@ export function openTerminalAtPath(folderPath, command = '') {
     if ('darwin' === process.platform)
       launcher = `osascript -e 'tell application "Terminal" to do script "${cdAndRun.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"'`;
     else if ('win32' === process.platform) {
-      const winPath = folderPath.replace(/"/g, '');
+      const winPath = wq(folderPath);
       launcher = command
         ? `start cmd.exe /k "cd /d "${winPath}" && ${command}"`
         : `start cmd.exe /k "cd /d "${winPath}""`;
@@ -23,6 +35,7 @@ export function openTerminalAtPath(folderPath, command = '') {
     });
   });
 }
+
 export function openTerminalAndRun(command) {
   if (!command) throw new Error('openTerminalAndRun: no command provided');
   return new Promise((resolve, reject) => {
