@@ -13,7 +13,7 @@ export async function collect(ds) {
           `<${tag}[^>]*>(?:<!\\[CDATA\\[)?([\\s\\S]*?)(?:\\]\\]>)?<\\/${tag}>`,
           'i',
         ).exec(str);
-        return m ? m[1].replace(/<[^>]+>/g, '').trim() : '';
+        return m ? m[1].replace(/[<>]/g, '').trim() : '';
       },
       regex = xml.includes('<item')
         ? /<item[^>]*>([\s\S]*?)<\/item>/gi
