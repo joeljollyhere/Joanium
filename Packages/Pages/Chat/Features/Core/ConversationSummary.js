@@ -6,7 +6,11 @@ const queuedSignatures = new Set();
 // Abort controller for the active compaction LLM call
 let _activeCompactionAbort = null;
 function getSummaryTargetCount(messages = []) {
-  return (messages?.length ?? 0) < 14 ? 0 : Math.max(0, messages.length - 8);
+  // Trigger compaction at 20 messages (10 full exchanges).
+  // Keeps the last 8 live, compacts everything before that.
+  // 20 gives 12 messages: enough to capture the goal,
+  // constraints, and early decisions in a meaningful way.
+  return (messages?.length ?? 0) < 20 ? 0 : Math.max(0, messages.length - 8);
 }
 function normalizeSummaryText(text = '') {
   return String(text ?? '')
