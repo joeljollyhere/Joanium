@@ -69,9 +69,9 @@ jobs:
 
           PREV_TAG="$(git describe --tags --abbrev=0 "${TAG_NAME}^" 2>/dev/null || true)"
           if [ -n "${PREV_TAG}" ]; then
-            CHANGES="$(git log "${PREV_TAG}..${TAG_NAME}" --no-merges --pretty=format:'* %s' | head -30)"
+            CHANGES="$(git log "${PREV_TAG}..${TAG_NAME}" --no-merges --pretty=format:'* %s' | grep -v '\[skip ci\]' | head -30)"
           else
-            CHANGES="$(git log "${TAG_NAME}" --no-merges --pretty=format:'* %s' | head -30)"
+            CHANGES="$(git log "${TAG_NAME}" --no-merges --pretty=format:'* %s' | grep -v '\[skip ci\]' | head -30)"
           fi
 
           RELEASE_NOTES="**Change Log**
