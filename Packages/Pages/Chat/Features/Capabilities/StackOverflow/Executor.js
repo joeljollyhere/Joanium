@@ -6,18 +6,32 @@ const SE = 'https://api.stackexchange.com/2.3';
 const SITE = 'stackoverflow';
 
 function stripHtml(html = '') {
-  return html
+  // 1. Preserve code blocks and inline code before any tag removal.
+  let result = html
     .replace(/<pre[^>]*>[\s\S]*?<\/pre>/gi, '[code block]')
-    .replace(/<code[^>]*>([\s\S]*?)<\/code>/gi, '`$1`')
-    .replace(/<[^>]+>/g, '')
+    .replace(/<code[^>]*>([\s\S]*?)<\/code>/gi, '`$1`');
+
+  // 2. Decode HTML entities BEFORE stripping tags.
+  //    If we decoded after, entity-encoded markup (e.g. &lt;script&gt;) would
+  //    survive the tag-stripping pass and become live angle brackets in the output.
+  //    &amp; is decoded last to avoid a double-decode of &amp;lt; -> &lt; -> <.
+  result = result
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
     .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
+    .replace(/&amp;/g, '&');
+
+  // 3. Strip all HTML tags.  Loop until stable so that pathological nested
+  //    inputs like <sc<script>ript> cannot survive a single-pass replacement.
+  let prev;
+  do {
+    prev = result;
+    result = result.replace(/<[^>]*>/g, '');
+  } while (result !== prev);
+
+  return result.replace(/\n{3,}/g, '\n\n').trim();
 }
 
 function truncate(str, max = 600) {
