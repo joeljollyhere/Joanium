@@ -64,6 +64,11 @@ function timeAgo(iso) {
 }
 export function mount(outlet) {
   outlet.innerHTML = getAgentsHTML();
+  // Move modals to body so position:fixed covers full viewport incl. titlebar
+  document.getElementById('automation-modal-backdrop') &&
+    document.body.appendChild(document.getElementById('automation-modal-backdrop'));
+  document.getElementById('confirm-overlay') &&
+    document.body.appendChild(document.getElementById('confirm-overlay'));
   const state = {
       agents: [],
       allModels: [],
@@ -517,6 +522,8 @@ export function mount(outlet) {
         confirmDialog.cleanup(),
         closeModal(),
         confirmDialog.close(),
+        elements.modalBackdrop?.remove(),
+        elements.confirmOverlay?.remove(),
         historyModal.close(),
         historyModal.destroy(),
         responseViewer.close(),

@@ -46,6 +46,9 @@ async function load(range) {
 }
 export function mount(outlet) {
   (ensureUsageStyles(), (outlet.innerHTML = getHTML(REFRESH_BUTTON_HTML, CLEAR_BUTTON_HTML)));
+  // Move modal to body so position:fixed covers full viewport incl. titlebar
+  document.getElementById('confirm-overlay') &&
+    document.body.appendChild(document.getElementById('confirm-overlay'));
   let currentRange = 'today';
   setRange(currentRange);
   const rangeButtons = [...outlet.querySelectorAll('.usage-range-btn')],
@@ -97,7 +100,8 @@ export function mount(outlet) {
         confirmCancel?.removeEventListener('click', onCloseClear),
         confirmDelete?.removeEventListener('click', onConfirmDelete),
         overlay?.removeEventListener('click', onOverlayClick),
-        document.removeEventListener('keydown', onKeydown));
+        document.removeEventListener('keydown', onKeydown),
+        overlay?.remove());
     }
   );
 }

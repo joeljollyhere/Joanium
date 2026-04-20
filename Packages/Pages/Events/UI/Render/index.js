@@ -50,27 +50,32 @@ function closeModal(backdrop) {
 
 export function mount(outlet) {
   outlet.innerHTML = getEventsHTML();
+  // Move modals to body so position:fixed covers full viewport incl. titlebar
+  document.getElementById('event-detail-backdrop') &&
+    document.body.appendChild(document.getElementById('event-detail-backdrop'));
+  document.getElementById('events-confirm-backdrop') &&
+    document.body.appendChild(document.getElementById('events-confirm-backdrop'));
 
-  const feedEl = outlet.querySelector('#events-feed'),
-    emptyEl = outlet.querySelector('#events-empty'),
-    loadingEl = outlet.querySelector('#events-loading'),
-    liveBadge = outlet.querySelector('#events-live-badge'),
-    statTotal = outlet.querySelector('#stat-total'),
-    statSuccess = outlet.querySelector('#stat-success'),
-    statSkipped = outlet.querySelector('#stat-skipped'),
-    statErrors = outlet.querySelector('#stat-errors'),
-    statAgents = outlet.querySelector('#stat-agents'),
-    filterBtns = outlet.querySelectorAll('.events-filter-btn'),
-    clearBtn = outlet.querySelector('#events-clear-btn'),
-    detailBackdrop = outlet.querySelector('#event-detail-backdrop'),
-    detailClose = outlet.querySelector('#event-detail-close'),
-    detailEyebrow = outlet.querySelector('#detail-eyebrow'),
-    detailTitle = outlet.querySelector('#detail-title'),
-    detailMeta = outlet.querySelector('#detail-meta'),
-    detailBody = outlet.querySelector('#detail-body'),
-    confirmBackdrop = outlet.querySelector('#events-confirm-backdrop'),
-    confirmCancel = outlet.querySelector('#events-confirm-cancel'),
-    confirmOk = outlet.querySelector('#events-confirm-ok');
+  const feedEl = document.getElementById('events-feed'),
+    emptyEl = document.getElementById('events-empty'),
+    loadingEl = document.getElementById('events-loading'),
+    liveBadge = document.getElementById('events-live-badge'),
+    statTotal = document.getElementById('stat-total'),
+    statSuccess = document.getElementById('stat-success'),
+    statSkipped = document.getElementById('stat-skipped'),
+    statErrors = document.getElementById('stat-errors'),
+    statAgents = document.getElementById('stat-agents'),
+    filterBtns = document.querySelectorAll('.events-filter-btn'),
+    clearBtn = document.getElementById('events-clear-btn'),
+    detailBackdrop = document.getElementById('event-detail-backdrop'),
+    detailClose = document.getElementById('event-detail-close'),
+    detailEyebrow = document.getElementById('detail-eyebrow'),
+    detailTitle = document.getElementById('detail-title'),
+    detailMeta = document.getElementById('detail-meta'),
+    detailBody = document.getElementById('detail-body'),
+    confirmBackdrop = document.getElementById('events-confirm-backdrop'),
+    confirmCancel = document.getElementById('events-confirm-cancel'),
+    confirmOk = document.getElementById('events-confirm-ok');
 
   let historyEvents = [],
     runningJobs = [],
@@ -429,6 +434,8 @@ export function mount(outlet) {
     document.removeEventListener('visibilitychange', onVisibility);
     detailBackdrop?.classList.remove('open');
     confirmBackdrop?.classList.remove('open');
+    detailBackdrop?.remove();
+    confirmBackdrop?.remove();
     document.body.classList.remove('modal-open');
   };
 }

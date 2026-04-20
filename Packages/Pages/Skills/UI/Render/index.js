@@ -139,6 +139,9 @@ function render(query = '') {
 }
 export function mount(outlet, { navigate: navigate } = {}) {
   ((outlet.innerHTML = getHTML()),
+    // Move modal to body so position:fixed covers full viewport incl. titlebar
+    document.getElementById('skill-modal-backdrop') &&
+      document.body.appendChild(document.getElementById('skill-modal-backdrop')),
     (skillsGrid = document.getElementById('skills-grid')),
     (skillsEmpty = document.getElementById('skills-empty')),
     (searchWrapper = document.getElementById('skills-search-wrapper')),
@@ -237,6 +240,7 @@ export function mount(outlet, { navigate: navigate } = {}) {
     function () {
       (closeModal(),
         closeConfirm(),
+        modalBackdrop?.remove(),
         modalCloseBtn?.removeEventListener('click', onModalClose),
         modalBackdrop?.removeEventListener('click', onModalBackdropClick),
         searchInput?.removeEventListener('input', onSearchInput),

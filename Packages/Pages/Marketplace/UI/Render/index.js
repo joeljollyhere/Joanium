@@ -299,6 +299,9 @@ function refreshMarketplace() {
 }
 export function mount(outlet) {
   ((outlet.innerHTML = getMarketplaceHTML()),
+    // Move modal to body so position:fixed covers full viewport incl. titlebar
+    document.getElementById('marketplace-modal-backdrop') &&
+      document.body.appendChild(document.getElementById('marketplace-modal-backdrop')),
     (countEl = document.getElementById('marketplace-count')),
     (sourceEl = document.getElementById('marketplace-source')),
     (gridEl = document.getElementById('marketplace-grid')),
@@ -398,6 +401,7 @@ export function mount(outlet) {
     refreshMarketplace(),
     function () {
       (closeModal(),
+        modalBackdrop?.remove(),
         _observer?.disconnect(),
         (_observer = null),
         _cardPool?.clear(),

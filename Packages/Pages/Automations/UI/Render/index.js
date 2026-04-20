@@ -88,6 +88,11 @@ function sanitizeJobForSave(job = {}) {
 }
 export function mount(outlet) {
   outlet.innerHTML = getAutomationsHTML();
+  // Move modals to body so position:fixed covers full viewport incl. titlebar
+  document.getElementById('agent-modal-backdrop') &&
+    document.body.appendChild(document.getElementById('agent-modal-backdrop'));
+  document.getElementById('agent-confirm-overlay') &&
+    document.body.appendChild(document.getElementById('agent-confirm-overlay'));
   const state = createAgentsPageState(),
     elements = {
       gridEl: document.getElementById('agents-grid'),
@@ -392,6 +397,8 @@ export function mount(outlet) {
         confirmDialog.close(),
         historyModal.close(),
         responseViewer.close(),
+        elements.modalBackdrop?.remove(),
+        elements.confirmOverlay?.remove(),
         historyModal.destroy(),
         responseViewer.destroy());
     }

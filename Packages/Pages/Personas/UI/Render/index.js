@@ -79,6 +79,9 @@ function render(query = '') {
 }
 export function mount(outlet, { navigate: navigate }) {
   ((outlet.innerHTML = getPersonasHTML()),
+    // Move modal to body so position:fixed covers full viewport incl. titlebar
+    document.getElementById('persona-modal-backdrop') &&
+      document.body.appendChild(document.getElementById('persona-modal-backdrop')),
     (activeBanner = document.getElementById('personas-active-banner')),
     (activeNameEl = document.getElementById('personas-active-name')),
     (personasGrid = document.getElementById('personas-grid')),
@@ -172,6 +175,7 @@ export function mount(outlet, { navigate: navigate }) {
     })(),
     function () {
       (closeModal(),
+        modalBackdrop?.remove(),
         modalCloseBtn?.removeEventListener('click', onModalClose),
         modalBackdrop?.removeEventListener('click', onModalBackdropClick),
         searchInput?.removeEventListener('input', onSearchInput),
