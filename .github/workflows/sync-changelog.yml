@@ -1,4 +1,4 @@
-name: Sync Release to CHANGELOG
+name: 📝 Sync Release to CHANGELOG
 
 on:
   release:

@@ -1,4 +1,4 @@
-name: Announce Release
+name: 📣 Announce Release
 
 on:
   workflow_run:

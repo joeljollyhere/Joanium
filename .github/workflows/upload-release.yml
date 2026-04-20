@@ -1,4 +1,4 @@
-name: Upload Release Asset
+name: 📦 Upload Release Asset
 
 on:
   workflow_dispatch:

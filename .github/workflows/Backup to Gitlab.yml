@@ -1,4 +1,4 @@
-name: Backup to GitLab
+name: 💾 Backup to GitLab
 
 on:
   push:
