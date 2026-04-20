@@ -7,16 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 > New releases are synced here automatically via the [Sync Release to CHANGELOG](.github/workflows/sync-changelog.yml) workflow.
 
-## [Unreleased]
-
-### Planned
-
-- Voice input / output
-- Web browsing agent
-- Mobile companion app
-- Team / shared workspaces
-- Public plugin SDK
-
 ---
 
 ## [2026.419.0] - 2026-04-19
