@@ -117,18 +117,18 @@ Browse and install community-built Skills and Personas with one click. Publish y
 
 Switch models anytime, even mid-conversation. No lock-in, ever.
 
-| Provider       | Models                                     |
-| -------------- | ------------------------------------------ |
-| **Anthropic**  | Claude 4.6, Claude 4.7 Opus, and more        |
-| **OpenAI**     | GPT-4o, o1, o3, and more                   |
-| **Google**     | Gemini 2.0 Flash, Gemini 1.5 Pro, and more |
-| **OpenRouter** | 200+ models via one key                    |
-| **Mistral**    | Mistral Large, Codestral, and more         |
-| **NVIDIA NIM** | Llama 3, Nemotron, and more                |
-| **DeepSeek**   | DeepSeek-V3, DeepSeek-R1                   |
-| **MiniMax**    | MiniMax-01                                 |
-| **Ollama**     | Any local model — Llama, Phi, Gemma, Qwen… |
-| **LM Studio**  | Any GGUF model locally                     |
+| Provider       | Models                                                            |
+| -------------- | ----------------------------------------------------------------- |
+| **Anthropic**  | Claude Opus 4.7, Claude Sonnet 4.6, Claude Haiku 4.5, and more    |
+| **OpenAI**     | GPT-5, GPT-4.1, o3, o4-mini, GPT-4o, and more                     |
+| **Google**     | Gemini 2.5 Pro, Gemini 2.5 Flash, Gemini 2.5 Flash-Lite           |
+| **OpenRouter** | 200+ models via one key                                           |
+| **Mistral**    | Mistral Large 3, Mistral Medium 3.1, Codestral, Devstral 2        |
+| **NVIDIA NIM** | Kimi K2, MiniMax M2.7, Qwen 3.5, DeepSeek V3.2, Gemma 4, and more |
+| **DeepSeek**   | DeepSeek-V3.2 (Chat), DeepSeek-V3.2 (Reasoner)                    |
+| **MiniMax**    | MiniMax M2.7, MiniMax M2.5                                        |
+| **Ollama**     | Any local model — Llama, Phi, Gemma, Qwen…                        |
+| **LM Studio**  | Any GGUF model locally                                            |
 
 ---
 

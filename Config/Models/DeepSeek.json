@@ -5,25 +5,9 @@
   "auth_header": "Authorization",
   "auth_prefix": "Bearer ",
   "models": {
-    "deepseek-reasoner": {
-      "name": "DeepSeek Reasoner",
-      "description": "Thinking mode with Chain-of-Thought, powered by DeepSeek-V3.2",
-      "context_window": 128000,
-      "max_output": 65536,
-      "inputs": {
-        "text": true,
-        "image": false,
-        "pdf": false,
-        "docx": false
-      },
-      "pricing": {
-        "input": 0.28,
-        "output": 0.42
-      }
-    },
     "deepseek-chat": {
       "name": "DeepSeek Chat",
-      "description": "General chat mode powered by DeepSeek-V3.2",
+      "description": "General chat powered by DeepSeek-V3.2 — fast, affordable, strong at coding",
       "context_window": 128000,
       "max_output": 8192,
       "inputs": {
@@ -33,8 +17,24 @@
         "docx": false
       },
       "pricing": {
-        "input": 0.28,
-        "output": 0.42
+        "input": 0.27,
+        "output": 1.1
+      }
+    },
+    "deepseek-reasoner": {
+      "name": "DeepSeek Reasoner",
+      "description": "Thinking mode with Chain-of-Thought powered by DeepSeek-V3.2 — for complex reasoning",
+      "context_window": 128000,
+      "max_output": 32768,
+      "inputs": {
+        "text": true,
+        "image": false,
+        "pdf": false,
+        "docx": false
+      },
+      "pricing": {
+        "input": 0.55,
+        "output": 2.19
       }
     }
   }

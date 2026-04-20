@@ -7,9 +7,9 @@
   "models": {
     "deepseek/deepseek-r1": {
       "name": "DeepSeek R1",
-      "description": "State-of-the-art reasoning model",
-      "context_window": 64000,
-      "max_output": 8000,
+      "description": "State-of-the-art open reasoning model — rivaling o1 at a fraction of the cost",
+      "context_window": 164000,
+      "max_output": 32768,
       "inputs": {
         "text": true,
         "image": false,
@@ -21,9 +21,41 @@
         "output": 2.19
       }
     },
-    "minimax/minimax-m2.5:free": {
-      "name": "Minimax M2.5",
-      "description": "Minimax M2.5 model",
+    "meta-llama/llama-4-maverick": {
+      "name": "Llama 4 Maverick",
+      "description": "Meta's latest flagship open model — multimodal with strong coding and reasoning",
+      "context_window": 1048576,
+      "max_output": 16384,
+      "inputs": {
+        "text": true,
+        "image": true,
+        "pdf": false,
+        "docx": false
+      },
+      "pricing": {
+        "input": 0.2,
+        "output": 0.6
+      }
+    },
+    "meta-llama/llama-4-scout": {
+      "name": "Llama 4 Scout",
+      "description": "Meta's efficient open model — 10M context window, great value for long-context tasks",
+      "context_window": 10000000,
+      "max_output": 16384,
+      "inputs": {
+        "text": true,
+        "image": true,
+        "pdf": false,
+        "docx": false
+      },
+      "pricing": {
+        "input": 0.08,
+        "output": 0.24
+      }
+    },
+    "qwen/qwen3-235b-a22b": {
+      "name": "Qwen 3 235B A22B",
+      "description": "Alibaba's latest flagship MoE — strong reasoning with hybrid thinking mode",
       "context_window": 131072,
       "max_output": 16384,
       "inputs": {
@@ -33,31 +65,15 @@
         "docx": false
       },
       "pricing": {
-        "input": 0.01,
-        "output": 0.02
-      }
-    },
-    "nvidia/nemotron-3-super-120b-a12b:free": {
-      "name": "Nemotron-3 Super 120B",
-      "description": "Great for low level tasks",
-      "context_window": 131072,
-      "max_output": 8192,
-      "inputs": {
-        "text": true,
-        "image": false,
-        "pdf": false,
-        "docx": false
-      },
-      "pricing": {
-        "input": 2,
-        "output": 6
+        "input": 0.14,
+        "output": 0.6
       }
     },
     "mistralai/mistral-large": {
-      "name": "Mistral Large",
-      "description": "Top-tier reasoning and code generation",
-      "context_window": 131072,
-      "max_output": 8192,
+      "name": "Mistral Large 3",
+      "description": "Mistral's open-weight flagship — top-tier reasoning and multilingual support",
+      "context_window": 262000,
+      "max_output": 16384,
       "inputs": {
         "text": true,
         "image": false,
@@ -65,13 +81,13 @@
         "docx": false
       },
       "pricing": {
-        "input": 2,
-        "output": 6
+        "input": 0.5,
+        "output": 1.5
       }
     },
     "meta-llama/llama-3.3-70b-instruct": {
       "name": "Llama 3.3 70B Instruct",
-      "description": "Meta\u0027s latest open-weight powerhouse",
+      "description": "Meta's powerful 70B open model — great performance-to-cost ratio",
       "context_window": 131072,
       "max_output": 8192,
       "inputs": {
@@ -85,36 +101,36 @@
         "output": 0.2
       }
     },
-    "qwen/qwen-2.5-72b-instruct": {
-      "name": "Qwen 2.5 72B",
-      "description": "Alibaba\u0027s flagship instruction model",
+    "google/gemma-4-31b-it": {
+      "name": "Gemma 4 31B",
+      "description": "Google's latest open Gemma model — multimodal instruction-tuned",
       "context_window": 131072,
-      "max_output": 8192,
+      "max_output": 16384,
       "inputs": {
         "text": true,
-        "image": false,
-        "pdf": false,
-        "docx": false
-      },
-      "pricing": {
-        "input": 0.35,
-        "output": 0.4
-      }
-    },
-    "google/gemma-3-27b-it": {
-      "name": "Gemma 3 27B",
-      "description": "Google\u0027s open model via OpenRouter",
-      "context_window": 131072,
-      "max_output": 8192,
-      "inputs": {
-        "text": true,
-        "image": false,
+        "image": true,
         "pdf": false,
         "docx": false
       },
       "pricing": {
         "input": 0.1,
         "output": 0.2
+      }
+    },
+    "minimax/minimax-m2.5:free": {
+      "name": "MiniMax M2.5 (Free)",
+      "description": "MiniMax M2.5 served for free via OpenRouter",
+      "context_window": 131072,
+      "max_output": 16384,
+      "inputs": {
+        "text": true,
+        "image": false,
+        "pdf": false,
+        "docx": false
+      },
+      "pricing": {
+        "input": 0,
+        "output": 0
       }
     }
   }

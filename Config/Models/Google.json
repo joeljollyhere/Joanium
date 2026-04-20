@@ -4,27 +4,43 @@
   "endpoint": "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
   "auth_header": "x-goog-api-key",
   "models": {
-    "gemini-1.5-pro": {
-      "name": "Gemini 1.5 Pro",
-      "description": "Complex reasoning across 2M token context",
-      "context_window": 2097152,
-      "max_output": 8192,
+    "gemini-2.5-pro": {
+      "name": "Gemini 2.5 Pro",
+      "description": "Flagship model — deep reasoning across 1M token context with thinking mode",
+      "context_window": 1048576,
+      "max_output": 65536,
       "inputs": {
         "text": true,
         "image": true,
-        "pdf": false,
+        "pdf": true,
         "docx": false
       },
       "pricing": {
         "input": 1.25,
-        "output": 5
+        "output": 10
       }
     },
-    "gemini-2.0-flash": {
-      "name": "Gemini 2.0 Flash",
-      "description": "Fast multimodal model with 1M context",
+    "gemini-2.5-flash": {
+      "name": "Gemini 2.5 Flash",
+      "description": "Best price-performance — fast multimodal with 1M context and thinking mode",
       "context_window": 1048576,
-      "max_output": 8192,
+      "max_output": 65536,
+      "inputs": {
+        "text": true,
+        "image": true,
+        "pdf": true,
+        "docx": false
+      },
+      "pricing": {
+        "input": 0.3,
+        "output": 2.5
+      }
+    },
+    "gemini-2.5-flash-lite": {
+      "name": "Gemini 2.5 Flash Lite",
+      "description": "Most cost-efficient Gemini — high throughput at the lowest price",
+      "context_window": 1048576,
+      "max_output": 65536,
       "inputs": {
         "text": true,
         "image": true,
@@ -34,38 +50,6 @@
       "pricing": {
         "input": 0.1,
         "output": 0.4
-      }
-    },
-    "gemini-1.5-flash": {
-      "name": "Gemini 1.5 Flash",
-      "description": "Fast and versatile with 1M context",
-      "context_window": 1048576,
-      "max_output": 8192,
-      "inputs": {
-        "text": true,
-        "image": true,
-        "pdf": false,
-        "docx": false
-      },
-      "pricing": {
-        "input": 0.075,
-        "output": 0.3
-      }
-    },
-    "gemini-2.0-flash-lite": {
-      "name": "Gemini 2.0 Flash Lite",
-      "description": "Most cost-efficient - deprecated, shutting down June 2026",
-      "context_window": 1048576,
-      "max_output": 8192,
-      "inputs": {
-        "text": true,
-        "image": true,
-        "pdf": false,
-        "docx": false
-      },
-      "pricing": {
-        "input": 0.075,
-        "output": 0.3
       }
     }
   }
