@@ -1,0 +1,21 @@
+# Prettier ignore — Joanium
+
+# Build output
+dist/
+build/
+out/
+
+# Generated / vendored
+node_modules/
+*.min.js
+*.min.css
+
+# Lock files (not worth formatting)
+package-lock.json
+
+# Binary / data assets
+Assets/
+Data/
+
+# Changelogs and auto-generated docs
+CHANGELOG.md

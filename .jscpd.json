@@ -1,0 +1,19 @@
+{
+  "threshold": 30,
+  "minTokens": 50,
+  "reporters": ["console"],
+  "languages": {
+    "javascript": {
+      "extensions": [".js", ".mjs", ".cjs"]
+    }
+  },
+  "ignore": [
+    "node_modules/**",
+    "dist/**",
+    "build/**",
+    "out/**",
+    "**/*.min.js",
+    "Assets/**",
+    "Data/**"
+  ]
+}
