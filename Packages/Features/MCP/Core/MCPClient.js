@@ -157,10 +157,13 @@ export class MCPRegistry {
     }
     try {
       await session.initialize();
-    } catch (err) {
-      // Do not log err.message — it may contain sensitive data from env (API keys, tokens).
-      // Log only the error type so the entry is useful without leaking secrets.
-      console.warn(`[MCP] initialize() failed for "${name}" (${err?.name ?? 'Error'})`);
+    } catch {
+      // Do not reference the caught error in any log statement.
+      // The error may have been constructed from sensitive data (API keys, tokens)
+      // present in the server's env configuration, and CodeQL tracks that taint
+      // through the entire err object — including err.name and err.message.
+      // A static message is sufficient for operators to identify the failure.
+      console.warn(`[MCP] initialize() failed for "${name}"`);
     }
     const tools = await session.listTools().catch(() => []),
       entry = {
